@@ -13,11 +13,13 @@
     <PackageReference Include="Azure.Identity" Version="*" />
     <PackageReference Include="Azure.Messaging.ServiceBus" Version="*" />
     <PackageReference Include="Azure.Monitor.Ingestion" Version="*" />
+    <PackageReference Include="Azure.Storage.Blobs" Version="*" />
+    <PackageReference Include="FluentValidation" Version="*" />
     <PackageReference Include="Microsoft.Azure.Kusto.Ingest" Version="*" />
     <PackageReference Include="Microsoft.Extensions.Azure" Version="*" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.*" />
     <PackageReference Include="Microsoft.Extensions.Http" Version="8.*" />
-    <PackageReference Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets" Version="1.21.0" />
+    <PackageReference Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets" Version="*" />
     <PackageReference Include="Microsoft.ApplicationInsights.WorkerService" Version="*" />
   </ItemGroup>
 

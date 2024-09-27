@@ -1,0 +1,17 @@
+﻿global using Azure;
+global using Azure.Identity;
+global using Azure.Messaging.ServiceBus;
+global using Azure.Monitor.Query;
+global using Azure.Monitor.Query.Models;
+global using Azure.Storage.Blobs;
+global using FluentAssertions;
+global using Kusto.Data;
+global using Kusto.Data.Common;
+global using Kusto.Data.Exceptions;
+global using Kusto.Data.Net.Client;
+global using Microsoft.Extensions.Configuration;
+global using SapAct.Extensions;
+global using SapAct.Services;
+global using System.Globalization;
+global using System.Text;
+global using System.Text.Json;
