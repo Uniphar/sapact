@@ -13,7 +13,7 @@ public static class IConfigurationExtensions
 
 	public static string? GetLogAnalyticsEndpointName(this IConfiguration configuration) => configuration[Consts.LogAnalyticsEndpointNameConfigKey];
 
-	public static string GetTopicSubscriptionName<T>(this IConfiguration configuration) => configuration[$"{Consts.ServiceBusTopicSubscriptionNameConfigKeyPrefix}{typeof(T).Name}"] ?? $"SapAct{typeof(T).Name}";
+	public static string GetTopicSubscriptionNameOrDefault<T>(this IConfiguration configuration) => configuration[$"{Consts.ServiceBusTopicSubscriptionNameConfigKeyPrefix}{typeof(T).Name}"] ?? $"SapAct{typeof(T).Name}";
 
 	public static string? GetLogAnalyticsSubscriptionId(this IConfiguration configuration) => configuration[Consts.LogAnalyticsSubscriptionIdConfigKey];
 
@@ -27,9 +27,9 @@ public static class IConfigurationExtensions
 
 	public static string? GetADXClusterHostUrl(this IConfiguration configuration) => configuration[Consts.ADXClusterHostUrlConfigKey];
 
-	public static string GetADXClusterDBName(this IConfiguration configuration) => configuration[Consts.ADXClusterDBConfigKey] ?? "devops";
+	public static string GetADXClusterDBNameOrDefault(this IConfiguration configuration) => configuration[Consts.ADXClusterDBConfigKey] ?? "devops";
 
 	public static string? GetLockServiceBlobConnectionString(this IConfiguration configuration) => configuration[Consts.LockServiceBlobConnectionStringConfigKey];
 
-	public static string GetLockServiceBlobContainerName(this IConfiguration configuration) => configuration[Consts.LockServiceBlobContainerNameConfigKey] ?? "sapact";
+	public static string GetLockServiceBlobContainerNameOrDefault(this IConfiguration configuration) => configuration[Consts.LockServiceBlobContainerNameConfigKey] ?? "sapact";
 }

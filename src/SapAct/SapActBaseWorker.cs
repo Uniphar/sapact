@@ -15,7 +15,7 @@ public abstract class SapActBaseWorker<T>(ServiceBusClient sbClient, ServiceBusA
 	protected override async Task ExecuteAsync(CancellationToken cancellationToken)
 	{
 		var topicName = configuration.GetServiceBusTopicName()!;
-		var subscriptionName = configuration.GetTopicSubscriptionName<T>();
+		var subscriptionName = configuration.GetTopicSubscriptionNameOrDefault<T>();
 		await EnsureTopicSubscriptionAsync(topicName, subscriptionName, cancellationToken);
 		serviceBusReceiver = sbClient.CreateReceiver(configuration[Consts.ServiceBusTopicNameConfigKey], subscriptionName, new ServiceBusReceiverOptions()
 		{

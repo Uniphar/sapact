@@ -27,7 +27,7 @@ builder.Services.AddAzureClients((clientBuilder) =>
 	clientBuilder.AddBlobServiceClient(new Uri(builder.Configuration.GetLockServiceBlobConnectionString()!));
 });
 
-var kcsb = new KustoConnectionStringBuilder(builder.Configuration.GetADXClusterHostUrl(), builder.Configuration.GetADXClusterDBName())
+var kcsb = new KustoConnectionStringBuilder(builder.Configuration.GetADXClusterHostUrl(), builder.Configuration.GetADXClusterDBNameOrDefault())
 		   .WithAadTokenProviderAuthentication(async () => (await credential.GetTokenAsync(new([Consts.KustoTokenScope]))).Token);
 
 builder.Services.AddSingleton(KustoClientFactory.CreateCslAdminProvider(kcsb));

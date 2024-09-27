@@ -40,9 +40,9 @@ public class IntegrationTests
 
 		_messageBusSender = sbClient.CreateSender(_config[Consts.ServiceBusTopicNameConfigKey]);
 		_blobServiceClient = new(new Uri(_config[Consts.LockServiceBlobConnectionStringConfigKey]), credential);
-		_blobContainerClient = _blobServiceClient.GetBlobContainerClient(_config.GetLockServiceBlobContainerName());
+		_blobContainerClient = _blobServiceClient.GetBlobContainerClient(_config.GetLockServiceBlobContainerNameOrDefault());
 
-		_databaseName = _config.GetADXClusterDBName();
+		_databaseName = _config.GetADXClusterDBNameOrDefault();
 
 		var kcsb = new KustoConnectionStringBuilder(_config[Consts.ADXClusterHostUrlConfigKey], _databaseName)
 		   .WithAadTokenProviderAuthentication(async () => (await credential.GetTokenAsync(new([Consts.KustoTokenScope]))).Token);

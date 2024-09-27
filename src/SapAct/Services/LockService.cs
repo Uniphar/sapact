@@ -15,7 +15,7 @@ public class LockService
 
 	private BlobContainerClient GetContainerClient()
 	{
-		_containerClient ??= BlobServiceClient.GetBlobContainerClient(configuration.GetLockServiceBlobContainerName());
+		_containerClient ??= BlobServiceClient.GetBlobContainerClient(configuration.GetLockServiceBlobContainerNameOrDefault());
 
 		return _containerClient;
 	}
