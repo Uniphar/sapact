@@ -1,7 +1,4 @@
-﻿using System.Net.Sockets;
-using System.Threading;
-
-namespace SapAct.Services;
+﻿namespace SapAct.Services;
 
 public abstract class VersionedSchemaBaseService(LockService lockService)
 {
@@ -11,31 +8,42 @@ public abstract class VersionedSchemaBaseService(LockService lockService)
 	{
 		bool found = _tableVersionMapping.TryGetValue(objectType, out string? schemaVersion);
 
-		if (!found)
+
+		SchemaCheckResultState schemaCompareResult;
+
+		if (found)
 		{
-			//might have been done by other instance
-			var props = await lockService.GetBlockLeasePropertiesAsync(objectType, version, targetStorage);
+			schemaCompareResult = CompareSchemaVersion(version, schemaVersion);
 
-			if (props == null || !props.Metadata.ContainsKey(Consts.SyncedSchemaLockBlobMetadataKey))
-				return SchemaCheckResultState.Unknown;
-			else
-			{
-				UpdateObjectTypeSchema(objectType, version);
-
-				return SchemaCheckResultState.Current;
-			}
+			if (schemaCompareResult != SchemaCheckResultState.Older)
+				return schemaCompareResult;
 		}
+
+		
+		//might have been done by other instance
+		var props = await lockService.GetBlobPropertiesAsync(objectType, targetStorage);
+
+		if (props == null || !props.Metadata.TryGetValue(Consts.SyncedSchemaVersionLockBlobMetadataKey, out string? metadataValue))
+			return SchemaCheckResultState.Unknown;
 		else
 		{
-			var schemaCompareResult = string.Compare(version, schemaVersion) switch
-			{
-				< 0 => SchemaCheckResultState.Current, //current record version is older than the one seen before
-				0 => SchemaCheckResultState.Current, //same
-				> 0 => SchemaCheckResultState.Older, //current record version follows the one seen before
-			};
+			//push whatever is at blob to local cache
+			UpdateObjectTypeSchema(objectType, metadataValue);
 
-			return schemaCompareResult;
-		}
+			return CompareSchemaVersion(version, metadataValue);
+		}		
+	}
+
+	private static SchemaCheckResultState CompareSchemaVersion(string version, string? schemaVersion)
+	{
+		SchemaCheckResultState schemaCompareResult;
+		schemaCompareResult = string.Compare(version, schemaVersion) switch
+		{
+			< 0 => SchemaCheckResultState.Newer, //current record version is older than the one seen before
+			0 => SchemaCheckResultState.Current, //same
+			> 0 => SchemaCheckResultState.Older, //current record version follows the one seen before
+		};
+		return schemaCompareResult;
 	}
 
 	protected static void ExtractKeyMessageProperties(JsonElement payload, out string? objectKey, out string? objectType, out string? dataVersion)

@@ -102,8 +102,8 @@ public class IntegrationTests
 
 		try
 		{
-			var adxBlobProps = await _blobContainerClient!.GetBlobClient(LockService.GetBlobName(ObjectType, version, Models.TargetStorageEnum.ADX)).GetPropertiesAsync(cancellationToken: cancellationToken);
-			var laBlobProps = await _blobContainerClient!.GetBlobClient(LockService.GetBlobName(ObjectType, version, Models.TargetStorageEnum.LogAnalytics)).GetPropertiesAsync(cancellationToken: cancellationToken);
+			var adxBlobProps = await _blobContainerClient!.GetBlobClient(LockService.GetBlobName(ObjectType, Models.TargetStorageEnum.ADX)).GetPropertiesAsync(cancellationToken: cancellationToken);
+			var laBlobProps = await _blobContainerClient!.GetBlobClient(LockService.GetBlobName(ObjectType, Models.TargetStorageEnum.LogAnalytics)).GetPropertiesAsync(cancellationToken: cancellationToken);
 
 			if (adxBlobProps.Value.Metadata.Count != 1)
 			{
@@ -116,9 +116,9 @@ public class IntegrationTests
 			}
 
 			var schemaCheckPassed =   
-				adxBlobProps.Value.Metadata[Consts.SyncedSchemaLockBlobMetadataKey]==true.ToString(CultureInfo.InvariantCulture)
+				adxBlobProps.Value.Metadata[Consts.SyncedSchemaVersionLockBlobMetadataKey]==version
 				&&
-				laBlobProps.Value.Metadata[Consts.SyncedSchemaLockBlobMetadataKey] == true.ToString(CultureInfo.InvariantCulture);
+				laBlobProps.Value.Metadata[Consts.SyncedSchemaVersionLockBlobMetadataKey] == version;
 
 			return schemaCheckPassed;
 

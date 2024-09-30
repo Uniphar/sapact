@@ -146,6 +146,12 @@ public class LogAnalyticsService(LogAnalyticsServiceConfiguration configuration,
 				dcrId = await RefreshDCRIdAsync(objectType, cancellationToken); //TODO: maybe store as another metadata piece in the blob
 			}
 
+			if (schemaCheckResult == SchemaCheckResultState.Newer)
+			{
+				//do not ingest data if schema is newer
+				return;
+			}
+
 
 			//send to log analytics
 			await SinkToLogAnalytics(objectType, dcrId!, payload);
@@ -206,24 +212,24 @@ public class LogAnalyticsService(LogAnalyticsServiceConfiguration configuration,
         // Send the PUT or PATCH to the API
         var endpoint = GetTableUrl(tableName);
 
-		if (tableStatus == SchemaCheckResultState.Unknown)
-        {
+		//if (tableStatus == SchemaCheckResultState.Unknown)
+  //      {
             // Create the table
             var response = await httpClient.PutAsync(endpoint, content, cancellationToken);
 #if (DEBUG)
             string responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
 #endif
             response.EnsureSuccessStatusCode();
-        }
-        else
-        {
-            // Update the table
-            var response = await httpClient.PatchAsync(endpoint, content, cancellationToken);
-#if (DEBUG)
-            string responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
-#endif
-            response.EnsureSuccessStatusCode();
-        }
+//        }
+//        else
+//        {
+//            // Update the table
+//            var response = await httpClient.PatchAsync(endpoint, content, cancellationToken);
+//#if (DEBUG)
+//            string responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
+//#endif
+//            response.EnsureSuccessStatusCode();
+//        }
     }
 
     private async Task<AccessToken> GetManagementTokenAsync()

@@ -2,7 +2,7 @@
 
 HostApplicationBuilder builder = Host.CreateApplicationBuilder(args);
 
-builder.Services.AddHostedService<LogAnalyticsWorker>();
+//builder.Services.AddHostedService<LogAnalyticsWorker>();
 builder.Services.AddHostedService<ADXWorker>();
 
 var credential = new DefaultAzureCredential();
@@ -30,6 +30,7 @@ builder.Services.AddAzureClients((clientBuilder) =>
 var kcsb = new KustoConnectionStringBuilder(builder.Configuration.GetADXClusterHostUrl(), builder.Configuration.GetADXClusterDBNameOrDefault())
 		   .WithAadTokenProviderAuthentication(async () => (await credential.GetTokenAsync(new([Consts.KustoTokenScope]))).Token);
 
+builder.Services.AddSingleton(KustoClientFactory.CreateCslQueryProvider(kcsb));
 builder.Services.AddSingleton(KustoClientFactory.CreateCslAdminProvider(kcsb));
 builder.Services.AddSingleton(KustoIngestFactory.CreateDirectIngestClient(kcsb));
 builder.Services.AddSingleton(KustoIngestFactory.CreateQueuedIngestClient(kcsb));

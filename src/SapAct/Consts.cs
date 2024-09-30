@@ -23,5 +23,5 @@ public static class Consts
 
 	public const string KustoTokenScope = "https://kusto.kusto.windows.net/.default";
 
-	public const string SyncedSchemaLockBlobMetadataKey = "SyncedSchema";
+	public const string SyncedSchemaVersionLockBlobMetadataKey = "SyncedSchemaVersion";
 }

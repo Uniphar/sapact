@@ -22,7 +22,7 @@ public class LockService
 
 	public async Task<(string? leaseId, LockStateEnum lockState)> ObtainLockAsync(string tableName, string version, TargetStorageEnum targetStorageEnum)
 	{
-		var blobClient = GetBlobClient(tableName, version, targetStorageEnum);
+		var blobClient = GetBlobClient(tableName, targetStorageEnum);
 
 		do
 		{
@@ -38,7 +38,7 @@ public class LockService
 			}
 			catch (RequestFailedException ex) when (ex.Status == 404)
 			{
-				var path = Path.Combine(Path.GetTempPath(), $"{tableName}-{version}");
+				var path = Path.Combine(Path.GetTempPath(), GetBlobName(tableName, targetStorageEnum));
 				using var stream = File.Create(path);
 				stream.Close();
 				await blobClient.UploadAsync(path);
@@ -46,18 +46,19 @@ public class LockService
 		} while (true);
 	}
 
-	public async Task<bool> CheckSchemaLockPresence(string tableName, string version, TargetStorageEnum targetStorage)
+	public async Task<bool> CheckSchemaLockPresence(string tableName, TargetStorageEnum targetStorage)
 	{
-		var props = await GetBlockLeasePropertiesAsync(tableName, version, targetStorage);
+		var props = await GetBlobPropertiesAsync(tableName, targetStorage);
+
 		if (props == null)
 			return false;
 
 		return props.LeaseState == LeaseState.Leased || props.LeaseState == LeaseState.Breaking;
 	}
 
-	public async Task<BlobProperties?> GetBlockLeasePropertiesAsync(string tableName, string version, TargetStorageEnum targetStorage)
+	public async Task<BlobProperties?> GetBlobPropertiesAsync(string tableName, TargetStorageEnum targetStorage)
 	{
-		var blobClient = GetBlobClient(tableName, version, targetStorage);
+		var blobClient = GetBlobClient(tableName, targetStorage);
 
 		if (!await blobClient.ExistsAsync())
 			return null;
@@ -67,12 +68,15 @@ public class LockService
 
 	public async Task ReleaseLockAsync(string tableName, string version, TargetStorageEnum targetStorage, string leaseId)
 	{
-		var blobClient = GetBlobClient(tableName, version, targetStorage);
+		var blobClient = GetBlobClient(tableName, targetStorage);
 		var leaseClient = blobClient.GetBlobLeaseClient(leaseId);
 
-		await leaseClient.ReleaseAsync();
+		await blobClient.SetMetadataAsync(new Dictionary<string, string>()
+		{
+			{ Consts.SyncedSchemaVersionLockBlobMetadataKey, version }
+		}, new BlobRequestConditions { LeaseId = leaseId});
 
-		await blobClient.SetMetadataAsync(new Dictionary<string, string>() {{ Consts.SyncedSchemaLockBlobMetadataKey, true.ToString(CultureInfo.InvariantCulture) }});
+		await leaseClient.ReleaseAsync();	
 	}
 
 	public async Task<LockStateEnum> WaitForLockDissolvedAsync(string tableName, string version, TargetStorageEnum targetStorage)
@@ -82,7 +86,7 @@ public class LockService
 		do
 		{
 			await Task.Delay(1000);
-			props = await GetBlockLeasePropertiesAsync(tableName, version, targetStorage);
+			props = await GetBlobPropertiesAsync(tableName, targetStorage);
 		} while (props == null || props.LeaseStatus == LeaseStatus.Locked);
 
 		return props==null ? LockStateEnum.Available : TranslateLockState(props!.LeaseState);
@@ -101,7 +105,8 @@ public class LockService
 		};
 	}
 
-	public static string GetBlobName(string tableName, string version, TargetStorageEnum targetStorage) => $"{tableName}-{version}-{targetStorage}";
-	private BlobClient GetBlobClient(string tableName, string version, TargetStorageEnum targetStorage) 
-		=> GetContainerClient().GetBlobClient(GetBlobName(tableName, version, targetStorage));
+	public static string GetBlobName(string tableName, TargetStorageEnum targetStorage) => $"{tableName}-{targetStorage}";
+	
+	private BlobClient GetBlobClient(string tableName, TargetStorageEnum targetStorage) 
+		=> GetContainerClient().GetBlobClient(GetBlobName(tableName, targetStorage));
 }

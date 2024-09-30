@@ -10,6 +10,7 @@ global using Azure.Storage.Blobs.Specialized;
 global using FluentValidation;
 global using Kusto.Data;
 global using Kusto.Data.Common;
+global using Kusto.Data.Exceptions;
 global using Kusto.Data.Ingestion;
 global using Kusto.Data.Net.Client;
 global using Kusto.Ingest;
