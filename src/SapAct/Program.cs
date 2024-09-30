@@ -2,7 +2,7 @@
 
 HostApplicationBuilder builder = Host.CreateApplicationBuilder(args);
 
-//builder.Services.AddHostedService<LogAnalyticsWorker>();
+builder.Services.AddHostedService<LogAnalyticsWorker>();
 builder.Services.AddHostedService<ADXWorker>();
 
 var credential = new DefaultAzureCredential();

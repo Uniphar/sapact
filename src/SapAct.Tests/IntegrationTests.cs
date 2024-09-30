@@ -116,7 +116,7 @@ public class IntegrationTests
 			}
 
 			var schemaCheckPassed =   
-				adxBlobProps.Value.Metadata[Consts.SyncedSchemaVersionLockBlobMetadataKey]==version
+				adxBlobProps.Value.Metadata[Consts.SyncedSchemaVersionLockBlobMetadataKey] == version
 				&&
 				laBlobProps.Value.Metadata[Consts.SyncedSchemaVersionLockBlobMetadataKey] == version;
 
