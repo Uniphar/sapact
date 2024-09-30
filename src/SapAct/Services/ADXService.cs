@@ -37,11 +37,7 @@ public class ADXService (IAzureDataExplorerClient adxClient, LockService lockSer
 
 			}
 			
-			if (schemaCheck==SchemaCheckResultState.Newer)
-			{
-				//do not ingest data if schema is newer
-				return;
-			}
+			
 			await adxClient.IngestDataAsync(objectType!, payload, cancellationToken);
 		}
 	}
