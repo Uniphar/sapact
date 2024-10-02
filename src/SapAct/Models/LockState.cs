@@ -1,6 +1,6 @@
 ﻿namespace SapAct.Models;
 
-public enum LockStateEnum
+public enum LockState
 {
 	Available,
 	AlreadyLocked,
