@@ -17,17 +17,17 @@ public class ADXService (IAzureDataExplorerClient adxClient, LockService lockSer
 				do
 				{
 					(var lockState, string? leaseId) = await ObtainLockAsync(objectType!, dataVersion!, TargetStorageEnum.ADX);
-					if (lockState == LockStateEnum.LockObtained)
+					if (lockState == LockState.LockObtained)
 					{
 						List<ColumnDefinition> columnsList = payload.GenerateColumnList(TargetStorageEnum.ADX);
 
 						await adxClient.CreateOrUpdateTableAsync(objectType!, columnsList, cancellationToken);
 						UpdateObjectTypeSchema(objectType!, dataVersion!);
-						await ReleaseLock(objectType!, dataVersion!, TargetStorageEnum.ADX, leaseId!);
+						await ReleaseLockAsync(objectType!, dataVersion!, TargetStorageEnum.ADX, leaseId!);
 
 						updateNeccessary = false;
 					}
-					else if (lockState == LockStateEnum.Available)
+					else if (lockState == LockState.Available)
 					{
 						//schema was updated by another instance but let's check against persistent storage
 						var status = await CheckObjectTypeSchemaAsync(objectType!, dataVersion!, TargetStorageEnum.ADX);

@@ -50,11 +50,12 @@ public abstract class VersionedSchemaBaseService(LockService lockService)
 		_tableVersionMapping.AddOrUpdate(objectType, version, (key, oldValue) => version);
 	}
 
-	protected async Task ReleaseLock(string objectType, string version, TargetStorageEnum targetStorage,  string leaseId)
+	protected async Task ReleaseLockAsync(string objectType, string version, TargetStorageEnum targetStorage,  string leaseId)
 	{
 		await lockService.ReleaseLockAsync(objectType, version, targetStorage, leaseId);
 	}
-	protected async Task<(LockStateEnum lockState, string? leaseId)> ObtainLockAsync(string objectType, string version, TargetStorageEnum targetStorage)
+
+	protected async Task<(LockState lockState, string? leaseId)> ObtainLockAsync(string objectType, string version, TargetStorageEnum targetStorage)
 	{
 		string? leaseId;
 		do
@@ -65,8 +66,8 @@ public abstract class VersionedSchemaBaseService(LockService lockService)
 
 			lockState = await lockService.WaitForLockDissolvedAsync(objectType, version, targetStorage);
 
-			if (lockState == LockStateEnum.Available)
-				return (LockStateEnum.Available, null); 	
+			if (lockState == LockState.Available)
+				return (LockState.Available, null); 	
 			
 		} while (true);		
 	}

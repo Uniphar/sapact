@@ -20,7 +20,7 @@ public class LockService
 		return _containerClient;
 	}
 
-	public async Task<(string? leaseId, LockStateEnum lockState)> ObtainLockAsync(string tableName, string version, TargetStorageEnum targetStorageEnum)
+	public async Task<(string? leaseId, LockState lockState)> ObtainLockAsync(string tableName, string version, TargetStorageEnum targetStorageEnum)
 	{
 		var blobClient = GetBlobClient(tableName, version, targetStorageEnum);
 
@@ -30,11 +30,11 @@ public class LockService
 			{
 				var lease = await blobClient.GetBlobLeaseClient().AcquireAsync(TimeSpan.FromSeconds(60));
 
-				return (lease.Value.LeaseId, LockStateEnum.LockObtained);
+				return (lease.Value.LeaseId, LockState.LockObtained);
 			}
 			catch (RequestFailedException ex) when (ex.Status == 409)
 			{
-				return (null, LockStateEnum.AlreadyLocked);
+				return (null, LockState.AlreadyLocked);
 			}
 			catch (RequestFailedException ex) when (ex.Status == 404)
 			{
@@ -75,7 +75,7 @@ public class LockService
 		await blobClient.SetMetadataAsync(new Dictionary<string, string>() {{ Consts.SyncedSchemaLockBlobMetadataKey, true.ToString(CultureInfo.InvariantCulture) }});
 	}
 
-	public async Task<LockStateEnum> WaitForLockDissolvedAsync(string tableName, string version, TargetStorageEnum targetStorage)
+	public async Task<LockState> WaitForLockDissolvedAsync(string tableName, string version, TargetStorageEnum targetStorage)
 	{
 
 		BlobProperties? props;
@@ -85,18 +85,18 @@ public class LockService
 			props = await GetBlockLeasePropertiesAsync(tableName, version, targetStorage);
 		} while (props == null || props.LeaseStatus == LeaseStatus.Locked);
 
-		return props==null ? LockStateEnum.Available : TranslateLockState(props!.LeaseState);
+		return props==null ? LockState.Available : TranslateLockState(props!.LeaseState);
 	}
 
-	private static LockStateEnum TranslateLockState(LeaseState leaseState)
+	private static LockState TranslateLockState(LeaseState leaseState)
 	{
 		return leaseState switch
 		{
-			LeaseState.Available => LockStateEnum.Available,
-			LeaseState.Leased => LockStateEnum.AlreadyLocked,
-			LeaseState.Expired => LockStateEnum.Available,
-			LeaseState.Breaking => LockStateEnum.Breaking,
-			LeaseState.Broken => LockStateEnum.Broken,
+			LeaseState.Available => LockState.Available,
+			LeaseState.Leased => LockState.AlreadyLocked,
+			LeaseState.Expired => LockState.Available,
+			LeaseState.Breaking => LockState.Breaking,
+			LeaseState.Broken => LockState.Broken,
 			_ => throw new ArgumentOutOfRangeException(nameof(leaseState), leaseState, null),
 		};
 	}

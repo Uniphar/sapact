@@ -1,6 +1,12 @@
 ﻿namespace SapAct.Services;
 
-public class LogAnalyticsService(LogAnalyticsServiceConfiguration configuration, DefaultAzureCredential defaultAzureCredential, IHttpClientFactory httpClientFactory, LogsIngestionClient logsIngestionClient, LockService lockService) : VersionedSchemaBaseService(lockService)
+public class LogAnalyticsService(
+    LogAnalyticsServiceConfiguration configuration, 
+    DefaultAzureCredential defaultAzureCredential, 
+    IHttpClientFactory httpClientFactory, 
+    LogsIngestionClient logsIngestionClient, 
+    LockService lockService)
+        : VersionedSchemaBaseService(lockService)
 {
     private readonly ConcurrentDictionary<string, string> _dcrMapping = new();
 
@@ -120,15 +126,15 @@ public class LogAnalyticsService(LogAnalyticsServiceConfiguration configuration,
 				do
 				{
 					(var lockState, string? leaseId) = await ObtainLockAsync(objectType!, dataVersion!, TargetStorageEnum.LogAnalytics);
-					if (lockState == LockStateEnum.LockObtained)
+					if (lockState == LockState.LockObtained)
 					{
 						dcrId = await SyncTableSchema(objectType, payload, schemaCheckResult, cancellationToken);
 						UpdateSchema(objectType, dataVersion, dcrId);
-						await ReleaseLock(objectType!, dataVersion!, TargetStorageEnum.LogAnalytics, leaseId!);
+						await ReleaseLockAsync(objectType!, dataVersion!, TargetStorageEnum.LogAnalytics, leaseId!);
 
 						updateNeccessary = false;
 					}
-					else if (lockState == LockStateEnum.Available)
+					else if (lockState == LockState.Available)
 					{
 						//schema was updated by another instance but let's check against persistent storage
 						var status = await CheckObjectTypeSchemaAsync(objectType!, dataVersion!, TargetStorageEnum.LogAnalytics);
