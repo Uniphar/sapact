@@ -232,27 +232,15 @@ public class LogAnalyticsService(
         // Send the PUT or PATCH to the API
         var endpoint = GetTableUrl(tableName);
 
-		//if (tableStatus == SchemaCheckResultState.Unknown)
-  //      {
-            // Create the table
+            // Create/update the table
             var response = await httpClient.PutAsync(endpoint, content, cancellationToken);
 #if (DEBUG)
             string responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
 #endif
             response.EnsureSuccessStatusCode();
-//        }
-//        else
-//        {
-//            // Update the table
-//            var response = await httpClient.PatchAsync(endpoint, content, cancellationToken);
-//#if (DEBUG)
-//            string responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
-//#endif
-//            response.EnsureSuccessStatusCode();
-//        }
     }
 
-	private async Task<IList<ColumnDefinition>?> GetCurrentColumnListAsync(string tableName, HttpClient httpClient)
+	private async Task<List<ColumnDefinition>?> GetCurrentColumnListAsync(string tableName, HttpClient httpClient)
 	{
 		var endpoint = GetTableUrl(tableName);
 
