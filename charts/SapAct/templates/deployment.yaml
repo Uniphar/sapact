@@ -1,0 +1,34 @@
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: sapact
+  labels:
+    app: sapact-app
+    service: sapact-service
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      service: sapact-service
+  template:
+    metadata:
+      labels:
+        app: sapact-app
+        service: sapact-service
+        azure.workload.identity/use: "true"
+    spec:
+      serviceAccountName: {{ .Values.AKSClusterSAName }}
+      containers:
+        - name: sapact
+          image: {{ .Values.ACRName }}.azurecr.io/{{ .Chart.Name }}:{{ .Chart.AppVersion }}
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: sapact-port
+              containerPort: {{ .Values.dapr.port }}
+              protocol: TCP
+          env:
+          - name: "SAPACT_CONFIGURATION_URL"
+            value: {{ .Values.configKeyVault | quote }}
+          
+      nodeSelector:
+        agentpool: platform
