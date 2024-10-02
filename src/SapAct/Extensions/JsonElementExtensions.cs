@@ -2,14 +2,18 @@
 
 public static class JsonElementExtensions
 {
-	public static List<ColumnDefinition> GenerateColumnList(this JsonElement payload)
+	private const string DataColumnName = "data";
+
+	public static List<ColumnDefinition> GenerateColumnList(this JsonElement payload, TargetStorageEnum targetStorage)
 	{
 		List<ColumnDefinition> columnsList =
-			[
-				new() { Name = "TimeGenerated", Type = "datetime" } //compulsory field
+			[				 
 			];
 
-		foreach (var property in payload.EnumerateObject())
+		if (targetStorage==TargetStorageEnum.LogAnalytics)
+			columnsList.Add(new ColumnDefinition { Name = "TimeGenerated", Type = "datetime" });
+
+		foreach (var property in payload.EnumerateObject().Where(x=>x.Name!=DataColumnName))
 		{
 			var column = new ColumnDefinition
 			{
@@ -21,7 +25,7 @@ public static class JsonElementExtensions
 		}
 
 		//translate data fields
-		if (payload.TryGetProperty("data", out var dataField))
+		if (payload.TryGetDataProperty(out var dataField))
 		{
 			foreach (var field in dataField.EnumerateObject())
 			{
@@ -37,19 +41,23 @@ public static class JsonElementExtensions
 
 		return columnsList;
 	}
-	
+
+	public static bool TryGetDataProperty(this JsonElement payload, out JsonElement dataProperty) => payload.TryGetProperty(DataColumnName, out dataProperty);
+
+	public static IEnumerable<JsonProperty> GetNonDataObjects(this JsonElement jsonElement) => jsonElement.EnumerateObject().Where(x => x.Name != DataColumnName);
+
 	public static Dictionary<string, string> ExportToFlattenedDictionary(this JsonElement payload)
 	{
 		Dictionary<string, string> dataFields = [];
 
 		//translate top level fields
-		foreach (var field in payload.EnumerateObject().Where(x => x.Name != "data"))
+		foreach (var field in payload.EnumerateObject().Where(x => x.Name != DataColumnName))
 		{
 			dataFields.Add(field.Name, field.Value.ToString());
 		}
 
 		//translate data fields
-		if (payload.TryGetProperty("data", out var dataField))
+		if (payload.TryGetDataProperty(out var dataField))
 		{
 			foreach (var field in dataField.EnumerateObject())
 			{
@@ -59,6 +67,9 @@ public static class JsonElementExtensions
 
 		return dataFields;
 	}
+
+	public static BinaryData GenerateBinaryData(this JsonElement jsonElement) =>
+		BinaryData.FromObjectAsJson(new[] { jsonElement.ExportToFlattenedDictionary() });
 
 	public static string ExportDCRImmutableId(this JsonElement jsonElement)
 	{
