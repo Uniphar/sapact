@@ -14,7 +14,7 @@ permissions:
   pull-requests: read
 
 jobs:
-  M_CI:
+  SapAct_CI:
     uses: ./.github/workflows/shared-app-ci-workflow.yaml
     secrets:
       AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
