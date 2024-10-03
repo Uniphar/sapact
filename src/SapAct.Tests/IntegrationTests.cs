@@ -51,7 +51,7 @@ public class IntegrationTests
 		_adxAdminProvider = KustoClientFactory.CreateCslAdminProvider(kcsb);
 
 		_logsQueryClient = new LogsQueryClient(credential);
-	}
+	}	
 
 	[TestCategory("Developer")]
 	[TestMethod]
