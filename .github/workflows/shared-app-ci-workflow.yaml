@@ -1,4 +1,4 @@
-name: Shared Application CI Workflow
+sname: Shared Application CI Workflow
 
 on:
   workflow_call:
