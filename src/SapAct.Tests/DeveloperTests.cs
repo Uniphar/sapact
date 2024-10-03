@@ -30,7 +30,6 @@ public class DeveloperTests
 		_messageBusSender = sbClient.CreateSender(_config[Consts.ServiceBusTopicNameConfigKey]);
 	}
 
-	[TestCategory("Developer")]
 	[TestMethod]
 	public async Task PushMessages()
 	{
