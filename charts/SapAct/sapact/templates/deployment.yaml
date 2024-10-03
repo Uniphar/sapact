@@ -24,7 +24,7 @@ spec:
           imagePullPolicy: IfNotPresent
           ports:
             - name: sapact-port
-              containerPort: {{ .Values.dapr.port }}
+              containerPort: 8080
               protocol: TCP
           env:
           - name: "SAPACT_CONFIGURATION_URL"
