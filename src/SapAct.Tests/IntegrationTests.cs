@@ -51,21 +51,7 @@ public class IntegrationTests
 		_adxAdminProvider = KustoClientFactory.CreateCslAdminProvider(kcsb);
 
 		_logsQueryClient = new LogsQueryClient(credential);
-	}
-
-	[TestCategory("Developer")]
-	[TestMethod]
-	public async Task PushMessages()
-	{
-		string version = DateTime.UtcNow.ToString("yyyyMMddHHmmss");
-
-		var objectKey = Guid.NewGuid().ToString();
-
-		for (int x = 0; x < 10; x++)
-		{
-			await _messageBusSender!.SendMessageAsync(new ServiceBusMessage(Encoding.UTF8.GetBytes(PayloadHelper.GetPayload(ObjectType, $"{objectKey}{x}", $"{version}{x}"))));
-		}
-	}
+	}	
 
 	[TestMethod]
 	public async Task E2EMessageIngestionTest()
