@@ -150,8 +150,7 @@ public class LogAnalyticsService(
 			else
 			{
 				dcrId = await RefreshDCRIdAsync(objectType, cancellationToken); //TODO: maybe store as another metadata piece in the blob
-			}
-
+			}			
 
 			//send to log analytics
 			await SinkToLogAnalytics(objectType, dcrId!, payload);
@@ -193,14 +192,35 @@ public class LogAnalyticsService(
 
 	private async Task SyncTableAsync(string tableName, List<ColumnDefinition> columnsList, SchemaCheckResultState tableStatus, HttpClient httpClient, CancellationToken cancellationToken)
     {
-        var tableSchema = new
+		//get current schema if available
+		var schema = await GetCurrentColumnListAsync(tableName, httpClient);
+		if (schema == null)
+		{
+			schema = columnsList;
+		}
+		else
+		{
+			foreach (var item in columnsList)
+			{
+				if (schema.Any(c => c.Name == item.Name))
+				{
+					continue;
+				}
+				else
+				{
+					schema.Add(item);
+				}
+			}
+		}
+
+		var tableSchema = new
         {
             properties = new
             {
                 schema = new
                 {
                     name = GetTableName(tableName),
-                    columns = columnsList.ToArray()
+                    columns = schema.ToArray()
                 }
             }
         };
@@ -212,27 +232,35 @@ public class LogAnalyticsService(
         // Send the PUT or PATCH to the API
         var endpoint = GetTableUrl(tableName);
 
-		if (tableStatus == SchemaCheckResultState.Unknown)
-        {
-            // Create the table
+            // Create/update the table
             var response = await httpClient.PutAsync(endpoint, content, cancellationToken);
 #if (DEBUG)
             string responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
 #endif
             response.EnsureSuccessStatusCode();
-        }
-        else
-        {
-            // Update the table
-            var response = await httpClient.PatchAsync(endpoint, content, cancellationToken);
-#if (DEBUG)
-            string responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
-#endif
-            response.EnsureSuccessStatusCode();
-        }
     }
 
-    private async Task<AccessToken> GetManagementTokenAsync()
+	private async Task<List<ColumnDefinition>?> GetCurrentColumnListAsync(string tableName, HttpClient httpClient)
+	{
+		var endpoint = GetTableUrl(tableName);
+
+		try
+		{
+			HttpResponseMessage response = await httpClient.GetAsync(endpoint);
+			response.EnsureSuccessStatusCode();
+
+			var responseJson = await response.Content.ReadAsStringAsync();
+			var responseElement = JsonSerializer.Deserialize<GetLATableResponseType>(responseJson);
+
+			return responseElement?.Properties.Schema.Columns.Select(c => new ColumnDefinition { Name = c.Name, Type = c.Type }).ToList();
+		}
+		catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.NotFound) //new table
+		{
+			return null;
+		}
+	}
+
+	private async Task<AccessToken> GetManagementTokenAsync()
     {
         var tokenRequestContext = new TokenRequestContext(["https://management.azure.com/.default"]);
         return await defaultAzureCredential.GetTokenAsync(tokenRequestContext);

@@ -37,6 +37,7 @@ public class ADXService (IAzureDataExplorerClient adxClient, LockService lockSer
 
 			}
 			
+			
 			await adxClient.IngestDataAsync(objectType!, payload, cancellationToken);
 		}
 	}

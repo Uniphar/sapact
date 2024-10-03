@@ -9,6 +9,7 @@
 public class AzureDataExplorerClient(
 	ILogger<AzureDataExplorerClient> logger,
 	ICslAdminProvider cslAdminProvider,
+	ICslQueryProvider cslQueryProvider,
 	IKustoIngestClient kustoIngestClient,
 	IKustoQueuedIngestClient kustoQueuedIngestClient) : IAzureDataExplorerClient
 {
@@ -42,6 +43,32 @@ public class AzureDataExplorerClient(
 		await IngestDataWithClientAsync(kustoQueuedIngestClient, dataFields, tableName, tableMapping);
 	}	
 
+
+	public async Task<IEnumerable<(string name, string type)>> GetCurrentColumnListAsync(string tableName, CancellationToken cancellationToken = default)
+	{
+		var getSchemaCommand = $"{tableName} | getschema";
+
+		List<(string name, string type)> currentColumns = [];
+		try
+		{
+			var result = await cslQueryProvider.ExecuteQueryAsync(cslAdminProvider.DefaultDatabaseName, getSchemaCommand, new ClientRequestProperties(), cancellationToken);
+
+			while (result.Read())
+			{
+				var name = result.GetString(0);
+				var type = result.GetString(2);
+				currentColumns.Add(new(name, type));
+			}
+		}
+		catch (SemanticException)
+		{
+			//likely table does not exist
+			return [];
+		}
+
+		return currentColumns.AsEnumerable();
+	}
+
 	/// <summary>
 	/// Creates or updates table in Azure Data Explorer.
 	/// </summary>
@@ -51,6 +78,17 @@ public class AzureDataExplorerClient(
 	public async Task CreateOrUpdateTableAsync(string tableName, List<ColumnDefinition> targetSchema, CancellationToken cancellationToken = default)
 	{
 		TableSchema tableSchema = new() { Name = tableName };
+
+		var currentSchema = await GetCurrentColumnListAsync(tableName);
+
+		foreach (var column in currentSchema)
+		{
+			tableSchema.AddColumnIfMissing(new()
+			{
+				Name = column.name,
+				Type = column.type
+			});
+		}
 
 		foreach (var column in targetSchema)
 		{
