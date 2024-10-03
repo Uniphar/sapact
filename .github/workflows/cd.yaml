@@ -28,4 +28,4 @@ jobs:
       ACTIONS_AUTH_APP_PRIVATE_KEY: ${{ secrets.ACTIONS_AUTH_APP_PRIVATE_KEY }}
     with:
       applicationFolder: SapAct
-      applicationName: SapAct
+      applicationName: sapact
