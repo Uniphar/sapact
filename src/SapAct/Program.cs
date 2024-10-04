@@ -5,7 +5,7 @@ HostApplicationBuilder builder = Host.CreateApplicationBuilder(args);
 builder.Services.AddHostedService<LogAnalyticsWorker>();
 builder.Services.AddHostedService<ADXWorker>();
 
-var credential = new DefaultAzureCredential();
+var credential = new DefaultAzureCredential(); //TODO: customize chain of auth (ie remove unused)
 builder.Services.AddSingleton(credential);
 
 builder.Services.AddApplicationInsightsTelemetryWorkerService(options => options.EnableAdaptiveSampling = false);

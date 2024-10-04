@@ -23,13 +23,24 @@ Initializes SapAct in the dev environment.
 
     $sapactTemplateFile = Join-Path $PSScriptRoot -ChildPath ".\sapact.project.bicep"
 
+    $p_sapactProjectName = "sapact"
+
     $adxClusterName = Resolve-UniResourceName 'adx-cluster' $p_devopsDomain -Environment $Environment
 
     $devopsDomainRgName = Resolve-UniResourceName 'resource-group' $p_devopsDomain -Dev:$Dev -Environment $Environment
     $devopsClusterIdentityName = Resolve-UniComputeDomainSAName $Environment $p_devopsDomain
     $clusterIdentityObjectId = Get-AzADServicePrincipal -DisplayName $devopsClusterIdentityName | Select-Object -ExpandProperty Id
     $githubActionsDevIdentityObjectId = Get-AzADServicePrincipal -DisplayName $adapp_GithubActionsDev | Select-Object -ExpandProperty Id
+    $devopsAppKeyVault = Resolve-UniResourceName 'keyvault' "$p_devopsDomain-app" -Dev:$Dev -Environment $Environment
+    $dawnServiceBusName = Resolve-UniResourceName 'service-bus' $p_dawnDomain -Environment $Environment
+    $dceEndpointName = Resolve-UniResourceName 'monitor-dce' $p_sapactProjectName -Environment $Environment
+    $logAnalyticsWorkspace = Resolve-UniMainLogAnalytics $Environment
 
+    $logAnalyticsDef = @{
+        Name = $logAnalyticsWorkspace.Name
+        Id = $logAnalyticsWorkspace.CustomerId
+        ResourceGroupName = $logAnalyticsWorkspace.ResourceGroupName
+    }
     $adxDatabase = @{
                 name = 'sapact'
                 softDeletePeriod =  'P10Y'
@@ -58,6 +69,10 @@ Initializes SapAct in the dev environment.
                                       -TemplateFile $sapactTemplateFile `
                                       -adxClusterName $adxClusterName `
                                       -adxDatabase $adxDatabase `
+                                      -appKeyVaultName $devopsAppKeyVault `
+                                      -sbNamespace $dawnServiceBusName `
+                                      -dceName $dceEndpointName `
+                                      -logAnalytics $logAnalyticsDef `
                                       -Verbose:($PSCmdlet.MyInvocation.BoundParameters["Verbose"].IsPresent -eq $true)
     }
     else {
@@ -66,6 +81,9 @@ Initializes SapAct in the dev environment.
                                                      -TemplateFile $sapactTemplateFile `
                                                      -adxClusterName $adxClusterName `
                                                      -adxDatabase $adxDatabase `
+                                                     -appKeyVaultName $devopsAppKeyVault `
+                                                     -sbNamespace $dawnServiceBusName `
+                                                     -dceName $dceEndpointName `
                                                      -Verbose:($PSCmdlet.MyInvocation.BoundParameters["Verbose"].IsPresent -eq $true)
 
         if ($TestResult) {
