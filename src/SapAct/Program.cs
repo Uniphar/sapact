@@ -21,8 +21,8 @@ builder.Configuration.CheckConfiguration();
 
 builder.Services.AddAzureClients((clientBuilder) => 
 {
-	clientBuilder.AddServiceBusAdministrationClientWithNamespace(builder.Configuration.GetServiceBusConnectionString());
-	clientBuilder.AddServiceBusClientWithNamespace(builder.Configuration.GetServiceBusConnectionString());
+	clientBuilder.AddServiceBusAdministrationClientWithNamespace(builder.Configuration.GetServiceBusConnectionString()!);
+	clientBuilder.AddServiceBusClientWithNamespace(builder.Configuration.GetServiceBusConnectionString()!);
 	clientBuilder.AddLogsIngestionClient(new Uri(builder.Configuration.GetLogAnalyticsIngestionUrl()!));
 	clientBuilder.AddBlobServiceClient(new Uri(builder.Configuration.GetLockServiceBlobConnectionString()!));
 });
@@ -35,6 +35,7 @@ builder.Services.AddSingleton(KustoClientFactory.CreateCslAdminProvider(kcsb));
 builder.Services.AddSingleton(KustoIngestFactory.CreateDirectIngestClient(kcsb));
 builder.Services.AddSingleton(KustoIngestFactory.CreateQueuedIngestClient(kcsb));
 builder.Services.AddSingleton<IAzureDataExplorerClient, AzureDataExplorerClient>();
+builder.Services.AddSingleton<ResourceInitializerService>();
 
 builder.Services.AddSingleton(new LogAnalyticsServiceConfiguration {
 	SubscriptionId = builder.Configuration.GetLogAnalyticsSubscriptionId()!,
@@ -44,4 +45,7 @@ builder.Services.AddSingleton(new LogAnalyticsServiceConfiguration {
 });
 
 IHost host = builder.Build();
+
+await host.InitializeResourcesAsync();
+
 host.Run();

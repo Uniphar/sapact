@@ -6,7 +6,7 @@ public static class Consts
 
 	public const string ServiceBusConnectionStringConfigKey = "SapAct:ServiceBus:ConnectionString";
 	public const string ServiceBusTopicNameConfigKey = "SapAct:ServiceBus:TopicName";
-	public const string ServiceBusTopicSubscriptionNameConfigKeyPrefix = "SapAct:ServiceBus:TopicSubscriptionName";
+	public const string ServiceBusTopicSubscriptionNamePrefixConfigKey = "SapAct:ServiceBus:TopicSubscriptionNamePrefix";
 
 	public const string LogAnalyticsSubscriptionIdConfigKey = "SapAct:LogAnalytics:SubscriptionId";
 	public const string LogAnalyticsResourceGroupConfigKey = "SapAct:LogAnalytics:ResourceGroup";

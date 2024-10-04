@@ -13,7 +13,7 @@ public static class IConfigurationExtensions
 
 	public static string? GetLogAnalyticsEndpointName(this IConfiguration configuration) => configuration[Consts.LogAnalyticsEndpointNameConfigKey];
 
-	public static string GetTopicSubscriptionNameOrDefault<T>(this IConfiguration configuration) => configuration[$"{Consts.ServiceBusTopicSubscriptionNameConfigKeyPrefix}{typeof(T).Name}"] ?? $"SapAct{typeof(T).Name}";
+	public static string GetTopicSubscriptionNameOrDefault<T>(this IConfiguration configuration) => configuration[$"{Consts.ServiceBusTopicSubscriptionNamePrefixConfigKey}{typeof(T).Name}"] ?? $"SapAct{typeof(T).Name}";
 
 	public static string? GetLogAnalyticsSubscriptionId(this IConfiguration configuration) => configuration[Consts.LogAnalyticsSubscriptionIdConfigKey];
 
