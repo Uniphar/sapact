@@ -62,14 +62,6 @@ jobs:
           repository: Uniphar/devops-azure
           token: ${{ steps.gh-app.outputs.token }}
 
-      - name: checkout cost centre definition repo
-        uses: actions/checkout@v3
-        with:
-          path: costcentre-definitions
-          repository: Uniphar/costcentre-definitions
-          ref: main
-          token: ${{ steps.gh-app.outputs.token }}
-
       - name: azure login
         uses: azure/login@v2
         with:
@@ -97,7 +89,6 @@ jobs:
             echo "AKS_CLUSTER_RESOURCE_GROUP=$AKSClusterResourceGroup" >> $env:GITHUB_ENV
             echo "AKS_CLUSTER_NAME=$AKSClusterName" >> $env:GITHUB_ENV
             echo "AKS_CLUSTER_SERVICE_ACCOUNT_NAME=$AKSClusterSAName" >> $env:GITHUB_ENV
-            echo "AKS_CLUSTER_SERVICE_ACCOUNT_ID=$AKSClusterSAID" >> $env:GITHUB_ENV
             echo "AZURE_KEY_VAULT_NAME=$AzureKeyVaultName" >> $env:GITHUB_ENV
             echo "APPLICATION_FOLDER=${{ inputs.applicationFolder }}" >> $env:GITHUB_ENV
             echo "APPLICATION_NAME=${{ inputs.applicationName }}" >> $env:GITHUB_ENV
@@ -106,15 +97,15 @@ jobs:
           errorActionPreference: 'stop'
           failOnStandardError: true  
 
-      - name: deploy Sub RBAC
-        if: false
+      - name: deploy project
         uses: azure/powershell@v2
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} #required for gh cli to determine "current PR"
         with: 
           inlineScript: |
-           . ./devops/Initialize-SubscriptionsRBAC.ps1
-            Initialize-SubscriptionsRBAC ./costcentre-definitions/costCentreRules.json ${{ env.AKS_CLUSTER_SERVICE_ACCOUNT_ID }}
+           . ./devops/Initialize-SapAct.ps1
+
+            Initialize-SapAct ${{inputs.environment}}
           azPSVersion: "latest"
           errorActionPreference: 'stop'
           failOnStandardError: true
