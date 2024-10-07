@@ -4,7 +4,10 @@ public class ResourceInitializerService(BlobServiceClient blobServiceClient, Ser
 {
 	public async Task InitializeResources()
 	{
-		await serviceBusAdministrationClient.CreateTopicAsync(configuration.GetServiceBusTopicName());
+		if (!await serviceBusAdministrationClient.TopicExistsAsync(configuration.GetServiceBusTopicName()))
+		{
+			await serviceBusAdministrationClient.CreateTopicAsync(configuration.GetServiceBusTopicName());
+		}
 		//SB subscriptions created per subscription/worker
 		await blobServiceClient.GetBlobContainerClient(configuration.GetLockServiceBlobContainerNameOrDefault()).CreateIfNotExistsAsync();
 	}
