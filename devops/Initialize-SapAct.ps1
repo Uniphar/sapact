@@ -1,13 +1,13 @@
 function Initialize-SapAct {
 <#
 .SYNOPSIS
-Deploys the SAP ACT database to the Azure Data Explorer cluster.
+Deploys the SapAct resources
 
 .DESCRIPTION
-This function deploys the SAP ACT database to the Azure Data Explorer cluster.
+Deploys the SapAct resources
 
 .PARAMETER Environment
-The environment to deploy the SAP ACT database to.
+The environment to deploy the SapAct to
 
 .EXAMPLE
 Initialize-SapAct -Environment dev
