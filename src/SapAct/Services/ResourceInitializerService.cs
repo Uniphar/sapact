@@ -2,7 +2,7 @@
 
 public class ResourceInitializerService(BlobServiceClient blobServiceClient, ServiceBusAdministrationClient serviceBusAdministrationClient,  IConfiguration configuration)
 {
-	public async Task InitializeResources()
+	public async Task InitializeResourcesAsync()
 	{
 		if (!await serviceBusAdministrationClient.TopicExistsAsync(configuration.GetServiceBusTopicName()))
 		{
