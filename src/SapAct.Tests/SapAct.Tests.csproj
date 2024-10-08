@@ -17,6 +17,8 @@
     <PackageReference Include="MSTest.TestAdapter" Version="*" />
     <PackageReference Include="MSTest.TestFramework" Version="*" />
     <PackageReference Include="Azure.Messaging.ServiceBus" Version="*" />
+    <PackageReference Include="System.Formats.Asn1" Version="*" />
+    <PackageReference Include="System.Text.Json" Version="*" />
 
   </ItemGroup>
 
