@@ -24,6 +24,8 @@ builder.Services.AddAzureClients((clientBuilder) =>
 {
 	clientBuilder.AddLogsIngestionClient(new Uri(builder.Configuration.GetLogAnalyticsIngestionUrl()!));
 	clientBuilder.AddBlobServiceClient(new Uri(builder.Configuration.GetLockServiceBlobConnectionString()!));
+
+	clientBuilder.UseCredential(credential);
 });
 
 var KustoConnectionStringBuilder = new KustoConnectionStringBuilder(builder.Configuration.GetADXClusterHostUrl(), builder.Configuration.GetADXClusterDBNameOrDefault())
