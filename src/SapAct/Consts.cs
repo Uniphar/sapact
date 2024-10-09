@@ -4,8 +4,10 @@ public static class Consts
 {
 	public const string KEYVAULT_CONFIG_URL = "SAPACT_CONFIGURATION_URL";
 
-	public const string ServiceBusConnectionStringConfigKey = "SapAct:ServiceBus:ConnectionString";
-	public const string ServiceBusTopicNameConfigKey = "SapAct:ServiceBus:TopicName";
+	public const string ServiceBusConfigurationSectionName = "SapAct:ServiceBus:Topic";
+	public const string ServiceBusConnectionStringConfigKey = "ConnectionString";
+	public const string ServiceBusTopicNameConfigKey = "Name";
+
 	public const string ServiceBusTopicSubscriptionNamePrefixConfigKey = "SapAct:ServiceBus:TopicSubscriptionNamePrefix";
 
 	public const string LogAnalyticsSubscriptionIdConfigKey = "SapAct:LogAnalytics:SubscriptionId";

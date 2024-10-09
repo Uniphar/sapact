@@ -4,16 +4,28 @@ public class ConfigurationValidator :AbstractValidator<IConfiguration>
 {
     public ConfigurationValidator()
     {
-        RuleFor(configuration => configuration.GetServiceBusConnectionString())
-			.NotNull()
-			.NotEmpty()
-			.WithMessage("Service Bus connection string is missing in configuration");
+		RuleFor(configuration => configuration).Custom((configuration, context) =>
+		{
+			if (!configuration.GetSection(Consts.ServiceBusConfigurationSectionName).Exists())
+			{
+				context.AddFailure($"{Consts.ServiceBusConfigurationSectionName} section is missing");
+			}
 
+			if (!configuration.GetSection(Consts.ServiceBusConfigurationSectionName).GetChildren().Any())
+			{
+				context.AddFailure("No Service Bus Topics are configured");
+			}
 
-		RuleFor(configuration => configuration.GetServiceBusTopicName())
-			.NotNull()
-			.NotEmpty()
-			.WithMessage("Service Bus Topic Name is missing in configuration");
+			if (configuration.GetSection(Consts.ServiceBusConfigurationSectionName).GetChildren().Any(section => string.IsNullOrEmpty(section[Consts.ServiceBusConnectionStringConfigKey])))
+			{
+				context.AddFailure("Service Bus Connection String is missing in configuration");
+			}
+
+			if (configuration.GetSection(Consts.ServiceBusConfigurationSectionName).GetChildren().Any(section => string.IsNullOrEmpty(section[Consts.ServiceBusTopicNameConfigKey])))
+			{
+				context.AddFailure("Service Bus Topic Name is missing in configuration");
+			}
+		});
 
 		RuleFor(configuration => configuration.GetLogAnalyticsSubscriptionId())
 			.NotNull()

@@ -2,9 +2,6 @@
 
 HostApplicationBuilder builder = Host.CreateApplicationBuilder(args);
 
-builder.Services.AddHostedService<LogAnalyticsWorker>();
-builder.Services.AddHostedService<ADXWorker>();
-
 var credential = new DefaultAzureCredential(); //TODO: customize chain of auth (ie remove unused)
 builder.Services.AddSingleton(credential);
 
@@ -13,29 +10,30 @@ builder.Services.AddApplicationInsightsTelemetryWorkerService(options => options
 builder.Services.AddSingleton<LockService>();
 builder.Services.AddSingleton<LogAnalyticsService>();
 builder.Services.AddSingleton<ADXService>();
+builder.Services.AddSingleton<ResourceInitializerService>();
+
 builder.Services.AddHttpClient();
 
 builder.Configuration.AddAzureKeyVault(new(configKVUrl), credential);
 
 builder.Configuration.CheckConfiguration();
 
+await builder.SetupWorkersAsync();
+
 builder.Services.AddAzureClients((clientBuilder) => 
 {
-	clientBuilder.AddServiceBusAdministrationClientWithNamespace(builder.Configuration.GetServiceBusConnectionString()!);
-	clientBuilder.AddServiceBusClientWithNamespace(builder.Configuration.GetServiceBusConnectionString()!);
 	clientBuilder.AddLogsIngestionClient(new Uri(builder.Configuration.GetLogAnalyticsIngestionUrl()!));
 	clientBuilder.AddBlobServiceClient(new Uri(builder.Configuration.GetLockServiceBlobConnectionString()!));
 });
 
-var kcsb = new KustoConnectionStringBuilder(builder.Configuration.GetADXClusterHostUrl(), builder.Configuration.GetADXClusterDBNameOrDefault())
+var KustoConnectionStringBuilder = new KustoConnectionStringBuilder(builder.Configuration.GetADXClusterHostUrl(), builder.Configuration.GetADXClusterDBNameOrDefault())
 		   .WithAadTokenProviderAuthentication(async () => (await credential.GetTokenAsync(new([Consts.KustoTokenScope]))).Token);
 
-builder.Services.AddSingleton(KustoClientFactory.CreateCslQueryProvider(kcsb));
-builder.Services.AddSingleton(KustoClientFactory.CreateCslAdminProvider(kcsb));
-builder.Services.AddSingleton(KustoIngestFactory.CreateDirectIngestClient(kcsb));
-builder.Services.AddSingleton(KustoIngestFactory.CreateQueuedIngestClient(kcsb));
+builder.Services.AddSingleton(KustoClientFactory.CreateCslQueryProvider(KustoConnectionStringBuilder));
+builder.Services.AddSingleton(KustoClientFactory.CreateCslAdminProvider(KustoConnectionStringBuilder));
+builder.Services.AddSingleton(KustoIngestFactory.CreateDirectIngestClient(KustoConnectionStringBuilder));
+builder.Services.AddSingleton(KustoIngestFactory.CreateQueuedIngestClient(KustoConnectionStringBuilder));
 builder.Services.AddSingleton<IAzureDataExplorerClient, AzureDataExplorerClient>();
-builder.Services.AddSingleton<ResourceInitializerService>();
 
 builder.Services.AddSingleton(new LogAnalyticsServiceConfiguration {
 	SubscriptionId = builder.Configuration.GetLogAnalyticsSubscriptionId()!,

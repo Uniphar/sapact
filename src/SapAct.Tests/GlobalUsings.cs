@@ -11,7 +11,7 @@ global using Kusto.Data.Exceptions;
 global using Kusto.Data.Net.Client;
 global using Microsoft.Extensions.Configuration;
 global using SapAct.Extensions;
+global using SapAct.Models;
 global using SapAct.Services;
-global using System.Globalization;
 global using System.Text;
 global using System.Text.Json;
