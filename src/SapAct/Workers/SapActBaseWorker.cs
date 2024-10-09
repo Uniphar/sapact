@@ -1,6 +1,13 @@
 ﻿namespace SapAct.Workers;
 
-public abstract class SapActBaseWorker<T>(string workerName, ServiceBusTopicConfiguration serviceBusTopicConfiguration, IAzureClientFactory<ServiceBusClient> sbClientFactory, IAzureClientFactory<ServiceBusAdministrationClient> sbAdminClientFactory, IConfiguration configuration, ILogger<T> logger) : BackgroundService
+public abstract class SapActBaseWorker<T>(
+    string workerName, 
+    ServiceBusTopicConfiguration serviceBusTopicConfiguration, 
+    IAzureClientFactory<ServiceBusClient> sbClientFactory, 
+    IAzureClientFactory<ServiceBusAdministrationClient> sbAdminClientFactory, 
+    IConfiguration configuration, 
+    ILogger<T> logger) 
+        : BackgroundService
 {
     private ServiceBusReceiver? serviceBusReceiver;
 
