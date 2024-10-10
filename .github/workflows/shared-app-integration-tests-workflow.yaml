@@ -36,7 +36,7 @@ jobs:
       - name: checkout repo
         uses: actions/checkout@v3
         with:
-          path: mammon     
+          path: sapact
 
       - name: gh-app-install token
         id: gh-app
@@ -50,14 +50,6 @@ jobs:
         with:
           path: devops-azure
           repository: Uniphar/devops-azure
-          token: ${{ steps.gh-app.outputs.token }}
-
-      - name: checkout cost centre definition repo
-        uses: actions/checkout@v3
-        with:
-          path: costcentre-definitions
-          repository: Uniphar/costcentre-definitions
-          ref: main
           token: ${{ steps.gh-app.outputs.token }}
 
       - name: azure login
@@ -78,7 +70,7 @@ jobs:
 
               $AzureKeyVaultName = Resolve-UniResourceName 'keyvault' "$p_devopsDomain-app" -Environment '${{ inputs.environment }}'
 
-              echo "MAMMON_CONFIG_KEYVAULT_URL=https://$AzureKeyVaultName.vault.azure.net" >> $env:GITHUB_ENV
+              echo "SAPACT_CONFIGURATION_URL=https://$AzureKeyVaultName.vault.azure.net" >> $env:GITHUB_ENV
             }
             catch {
               Write-Error $_
@@ -86,5 +78,5 @@ jobs:
             }
 
       - name: run integration tests
-        working-directory: ./mammon/src/${{ inputs.applicationFolder }}.Tests
-        run: dotnet test --filter TestCategory=IntegrationTest --logger "console;verbosity=normal"
+        working-directory: ./sapact/src/${{ inputs.applicationFolder }}.Tests
+        run: dotnet test --filter TestCategory=Integration --logger "console;verbosity=normal"

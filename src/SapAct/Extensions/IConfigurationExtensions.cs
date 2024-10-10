@@ -7,10 +7,19 @@ public static class IConfigurationExtensions
 		new ConfigurationValidator().Validate(configuration);
 	}
 
-	public static string? GetServiceBusConnectionString(this IConfiguration configuration) => configuration[Consts.ServiceBusConnectionStringConfigKey];
-
-	public static string? GetServiceBusTopicName(this IConfiguration configuration) => configuration[Consts.ServiceBusTopicNameConfigKey];
-
+	public static IEnumerable<ServiceBusTopicConfiguration> GetServiceBusTopicConfiguration(this IConfiguration configuration)
+	{
+		var topics = new List<ServiceBusTopicConfiguration>();
+		foreach (var section in configuration.GetSection(Consts.ServiceBusConfigurationSectionName).GetChildren())
+		{
+			topics.Add(new ServiceBusTopicConfiguration
+			{
+				ConnectionString = section[Consts.ServiceBusConnectionStringConfigKey]!,
+				TopicName = section[Consts.ServiceBusTopicNameConfigKey]!
+			});
+		}
+		return topics;
+	}
 	public static string? GetLogAnalyticsEndpointName(this IConfiguration configuration) => configuration[Consts.LogAnalyticsEndpointNameConfigKey];
 
 	public static string GetTopicSubscriptionNameOrDefault<T>(this IConfiguration configuration) => configuration[$"{Consts.ServiceBusTopicSubscriptionNamePrefixConfigKey}{typeof(T).Name}"] ?? $"SapAct{typeof(T).Name}";

@@ -34,11 +34,12 @@ public class IntegrationTests
 			.AddAzureKeyVault(new(azureKeyVaultName), credential)
 			.Build();
 
-		var sbConnectionString = _config[Consts.ServiceBusConnectionStringConfigKey];
+		var intTestTopicConfig = _config.GetIntTestsServiceBusConfig();
 
-		var sbClient = new ServiceBusClient(sbConnectionString, credential);
+		var sbClient = new ServiceBusClient(intTestTopicConfig.ConnectionString, credential);
 
-		_messageBusSender = sbClient.CreateSender(_config[Consts.ServiceBusTopicNameConfigKey]);
+		_messageBusSender = sbClient.CreateSender(intTestTopicConfig.TopicName);
+
 		_blobServiceClient = new(new Uri(_config[Consts.LockServiceBlobConnectionStringConfigKey]), credential);
 		_blobContainerClient = _blobServiceClient.GetBlobContainerClient(_config.GetLockServiceBlobContainerNameOrDefault());
 
