@@ -76,8 +76,7 @@ jobs:
       applicationFolder: ${{ inputs.applicationFolder }}
 
   app_deployment_test:
-    if: false
-    needs: [app_package, app_integration_tests_dev]
+    needs: [app_package] #, app_integration_tests_dev
     uses: ./.github/workflows/shared-app-deployment-workflow.yaml
     secrets:
       AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
