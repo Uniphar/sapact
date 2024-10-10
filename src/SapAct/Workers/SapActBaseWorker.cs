@@ -86,7 +86,7 @@ public abstract class SapActBaseWorker<T>(
 
         JsonDocument jsonDocument = JsonDocument.Parse(Encoding.UTF8.GetString(message.Body));
 
-        for (int x = 0; x < jsonDocument.RootElement.GetArrayLength(); x++) //TODO: this is temporary, array not expected
+		for (int x = 0; x < jsonDocument.RootElement.GetArrayLength(); x++) //TODO: this is temporary, array not expected
         {
             var item = jsonDocument.RootElement[x];
 

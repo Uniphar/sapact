@@ -1,15 +1,21 @@
 param adxClusterName string
 param adxDatabase object
 param appKeyVaultName string
-param sbNamespace string
+param dawnSBNamespace string
+param devopsSBNamespace string
 param dceName string
 param logAnalytics object
+param storageAccountName string
 
 param location string = resourceGroup().location
 
 resource adxCluster 'Microsoft.Kusto/clusters@2023-08-15' existing = {
   name: adxClusterName
 
+}
+
+resource storageAccount 'Microsoft.Storage/storageAccounts@2021-04-01' existing = {
+  name: storageAccountName
 }
 
 resource database 'Microsoft.Kusto/clusters/databases@2023-08-15' = {
@@ -45,19 +51,43 @@ resource DevopsAppKeyVault 'Microsoft.KeyVault/vaults@2022-07-01'  existing = {
   name: appKeyVaultName
 }
 
-resource SBConnectionStringSecret 'Microsoft.KeyVault/vaults/secrets@2024-04-01-preview' = {
-  name: 'SapAct--ServiceBus--ConnectionString'
+resource SB0ConnectionStringSecret 'Microsoft.KeyVault/vaults/secrets@2024-04-01-preview' = {
+  name: 'SapAct--ServiceBus--Topic--0--ConnectionString'
   parent: DevopsAppKeyVault
   properties: {
-    value: '${sbNamespace}.servicebus.windows.net'
+    value: '${dawnSBNamespace}.servicebus.windows.net'
   }
 }
 
-resource SBTopicNameSecret 'Microsoft.KeyVault/vaults/secrets@2024-04-01-preview' = {
-  name: 'SapAct--ServiceBus--TopicName'
+resource SB0TopicNameSecret 'Microsoft.KeyVault/vaults/secrets@2024-04-01-preview' = {
+  name: 'SapAct--ServiceBus--Topic--0--Name'
   parent: DevopsAppKeyVault
   properties: {
     value: 'sap-events'
+  }
+}
+
+resource SB1ConnectionStringSecret 'Microsoft.KeyVault/vaults/secrets@2024-04-01-preview' = {
+  name: 'SapAct--ServiceBus--Topic--1--ConnectionString'
+  parent: DevopsAppKeyVault
+  properties: {
+    value: '${devopsSBNamespace}.servicebus.windows.net'
+  }
+}
+
+resource SB1TopicNameSecret 'Microsoft.KeyVault/vaults/secrets@2024-04-01-preview' = {
+  name: 'SapAct--ServiceBus--Topic--1--Name'
+  parent: DevopsAppKeyVault
+  properties: {
+    value: 'sapactinttests'
+  }
+}
+
+resource StorageAccountConnectionStringSecret 'Microsoft.KeyVault/vaults/secrets@2024-04-01-preview' = {
+  name: 'SapAct--LockService--BlobConnectionString'
+  parent: DevopsAppKeyVault
+  properties: {
+    value: storageAccount.properties.primaryEndpoints.blob
   }
 }
 
