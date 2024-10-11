@@ -2,7 +2,7 @@
 
 public static class HostApplicationBuilderExtension
 {
-	public static async Task SetupWorkersAsync(this HostApplicationBuilder builder)
+	public static void SetupWorkers(this HostApplicationBuilder builder)
 	{
 		var serviceBusTopics = builder.Configuration.GetServiceBusTopicConfiguration();
 

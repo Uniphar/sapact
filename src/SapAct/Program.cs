@@ -18,7 +18,7 @@ builder.Configuration.AddAzureKeyVault(new(configKVUrl), credential);
 
 builder.Configuration.CheckConfiguration();
 
-await builder.SetupWorkersAsync();
+builder.SetupWorkers();
 
 builder.Services.AddAzureClients((clientBuilder) => 
 {
