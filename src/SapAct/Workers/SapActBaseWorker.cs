@@ -1,23 +1,54 @@
 ﻿namespace SapAct.Workers;
 
-public abstract class SapActBaseWorker<T>(ServiceBusClient sbClient, ServiceBusAdministrationClient managementClient, IConfiguration configuration, ILogger<T> logger) : BackgroundService
+public abstract class SapActBaseWorker<T>(
+    string workerName, 
+    ServiceBusTopicConfiguration serviceBusTopicConfiguration, 
+    IAzureClientFactory<ServiceBusClient> sbClientFactory, 
+    IAzureClientFactory<ServiceBusAdministrationClient> sbAdminClientFactory, 
+    IConfiguration configuration, 
+    ILogger<T> logger) 
+        : BackgroundService
 {
     private ServiceBusReceiver? serviceBusReceiver;
 
-    internal async Task EnsureTopicSubscriptionAsync(string topicName, string subscriptionName, CancellationToken cancellationToken = default)
+    internal async Task EnsureServiceBusResourcesAsync(string topicName, string subscriptionName, CancellationToken cancellationToken = default)
     {
-        if (!await managementClient.SubscriptionExistsAsync(topicName, subscriptionName, cancellationToken))
+		var managementClient = sbAdminClientFactory.CreateClient(workerName);
+
+        if (!await managementClient.TopicExistsAsync(topicName, cancellationToken))
+		{
+            try
+            {
+                await managementClient.CreateTopicAsync(topicName, cancellationToken);
+            }
+            catch (ServiceBusException ex) when (ex.Reason == ServiceBusFailureReason.MessagingEntityAlreadyExists)
+			{
+                //this may happen as topic is shared by worker subscriptions so race condition is possible
+				//do nothing, topic already exists
+			}
+			catch (Exception ex)
+			{
+				logger.LogError(ex, "Error creating topic");
+				throw;
+			}
+		}
+
+		if (!await managementClient.SubscriptionExistsAsync(topicName, subscriptionName, cancellationToken))
         {
             await managementClient.CreateSubscriptionAsync(topicName, subscriptionName, cancellationToken);
-        }
+		}
     }
 
     protected override async Task ExecuteAsync(CancellationToken cancellationToken)
     {
-        var topicName = configuration.GetServiceBusTopicName()!;
+        var topicName = serviceBusTopicConfiguration.TopicName;
         var subscriptionName = configuration.GetTopicSubscriptionNameOrDefault<T>();
-        await EnsureTopicSubscriptionAsync(topicName, subscriptionName, cancellationToken);
-        serviceBusReceiver = sbClient.CreateReceiver(configuration[Consts.ServiceBusTopicNameConfigKey], subscriptionName, new ServiceBusReceiverOptions()
+
+        await EnsureServiceBusResourcesAsync(topicName, subscriptionName, cancellationToken);
+
+        var sbClient = sbClientFactory.CreateClient(workerName);
+
+		serviceBusReceiver = sbClient.CreateReceiver(topicName, subscriptionName, new ServiceBusReceiverOptions()
         {
             ReceiveMode = ServiceBusReceiveMode.PeekLock
 #if (DEBUG)
@@ -55,7 +86,7 @@ public abstract class SapActBaseWorker<T>(ServiceBusClient sbClient, ServiceBusA
 
         JsonDocument jsonDocument = JsonDocument.Parse(Encoding.UTF8.GetString(message.Body));
 
-        for (int x = 0; x < jsonDocument.RootElement.GetArrayLength(); x++) //TODO: this is temporary, array not expected
+		for (int x = 0; x < jsonDocument.RootElement.GetArrayLength(); x++) //TODO: this is temporary, array not expected
         {
             var item = jsonDocument.RootElement[x];
 

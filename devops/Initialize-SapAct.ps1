@@ -33,7 +33,9 @@ Initializes SapAct in the dev environment.
     $githubActionsDevIdentityObjectId = Get-AzADServicePrincipal -DisplayName $adapp_GithubActionsDev | Select-Object -ExpandProperty Id
     $devopsAppKeyVault = Resolve-UniResourceName 'keyvault' "$p_devopsDomain-app" -Dev:$Dev -Environment $Environment
     $dawnServiceBusName = Resolve-UniResourceName 'service-bus' $p_dawnDomain -Environment $Environment
+    $devopsServiceBusName = Resolve-UniResourceName 'service-bus' $p_devopsDomain -Environment $Environment
     $dceEndpointName = Resolve-UniResourceName 'monitor-dce' $p_sapactProjectName -Environment $Environment
+    $devopsStorageAccountName = Resolve-UniResourceName 'storage' $p_devopsDomain -Dev:$Dev -Environment $Environment
     $logAnalyticsWorkspace = Resolve-UniMainLogAnalytics $Environment
 
     $logAnalyticsDef = @{
@@ -70,9 +72,11 @@ Initializes SapAct in the dev environment.
                                       -adxClusterName $adxClusterName `
                                       -adxDatabase $adxDatabase `
                                       -appKeyVaultName $devopsAppKeyVault `
-                                      -sbNamespace $dawnServiceBusName `
+                                      -dawnSBNamespace $dawnServiceBusName `
+                                      -devopsSBNamespace $devopsServiceBusName `
                                       -dceName $dceEndpointName `
                                       -logAnalytics $logAnalyticsDef `
+                                      -storageAccountName $devopsStorageAccountName `
                                       -Verbose:($PSCmdlet.MyInvocation.BoundParameters["Verbose"].IsPresent -eq $true)
     }
     else {
@@ -82,8 +86,11 @@ Initializes SapAct in the dev environment.
                                                      -adxClusterName $adxClusterName `
                                                      -adxDatabase $adxDatabase `
                                                      -appKeyVaultName $devopsAppKeyVault `
-                                                     -sbNamespace $dawnServiceBusName `
+                                                     -dawnSBNamespace $dawnServiceBusName `
+                                                     -devopsSBNamespace $devopsServiceBusName `
                                                      -dceName $dceEndpointName `
+                                                     -logAnalytics $logAnalyticsDef `
+                                                     -storageAccountName $devopsStorageAccountName `
                                                      -Verbose:($PSCmdlet.MyInvocation.BoundParameters["Verbose"].IsPresent -eq $true)
 
         if ($TestResult) {

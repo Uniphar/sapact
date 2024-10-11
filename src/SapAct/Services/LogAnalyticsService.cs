@@ -104,9 +104,6 @@ public class LogAnalyticsService(
         var data = fullJson.GenerateBinaryData();
 
 		var response = await logsIngestionClient.UploadAsync(dcrImmutableId, $"Custom-{tableName}_CL", RequestContent.Create(data)).ConfigureAwait(false);
-#if (DEBUG)
-        var content = response.Content.ToString();
-#endif
     }
 
 	public async Task IngestMessage(JsonElement payload, CancellationToken cancellationToken)
@@ -122,7 +119,7 @@ public class LogAnalyticsService(
 
 			if (schemaCheckResult == SchemaCheckResultState.Unknown || schemaCheckResult == SchemaCheckResultState.Older)
 			{			
-				bool updateNeccessary = true;
+				bool updateNecessary = true;
 				do
 				{
 					(var lockState, string? leaseId) = await ObtainLockAsync(objectType!, dataVersion!, TargetStorageEnum.LogAnalytics);
@@ -132,20 +129,20 @@ public class LogAnalyticsService(
 						UpdateSchema(objectType, dataVersion, dcrId);
 						await ReleaseLockAsync(objectType!, dataVersion!, TargetStorageEnum.LogAnalytics, leaseId!);
 
-						updateNeccessary = false;
+						updateNecessary = false;
 					}
 					else if (lockState == LockState.Available)
 					{
 						//schema was updated by another instance but let's check against persistent storage
 						var status = await CheckObjectTypeSchemaAsync(objectType!, dataVersion!, TargetStorageEnum.LogAnalytics);
-						updateNeccessary = status != SchemaCheckResultState.Current;
-                        if (!updateNeccessary)
+						updateNecessary = status != SchemaCheckResultState.Current;
+                        if (!updateNecessary)
                         {
                             dcrId = await RefreshDCRIdAsync(objectType, cancellationToken);
 							UpdateSchema(objectType, dataVersion, dcrId);
 						}    
 					}
-				} while (updateNeccessary);
+				} while (updateNecessary);
 			}
 			else
 			{
