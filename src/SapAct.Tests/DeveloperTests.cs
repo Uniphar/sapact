@@ -1,6 +1,4 @@
-﻿using SapAct.Tests.Extensions;
-
-namespace SapAct.Tests;
+﻿namespace SapAct.Tests;
 
 [TestClass, TestCategory("Developer")]
 public class DeveloperTests
