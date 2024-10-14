@@ -13,5 +13,6 @@ global using Microsoft.Extensions.Configuration;
 global using SapAct.Extensions;
 global using SapAct.Models;
 global using SapAct.Services;
+global using SapAct.Tests.Extensions;
 global using System.Text;
 global using System.Text.Json;

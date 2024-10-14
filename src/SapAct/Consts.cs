@@ -7,6 +7,8 @@ public static class Consts
 	public const string ServiceBusConfigurationSectionName = "SapAct:ServiceBus:Topic";
 	public const string ServiceBusConnectionStringConfigKey = "ConnectionString";
 	public const string ServiceBusTopicNameConfigKey = "Name";
+	public const string ServiceBusTopicADXSinkDisabledConfigKey = "ADXSinkDisabled";
+	public const string ServiceBusTopicLASinkDisabledConfigKey = "LASinkDisabled";
 
 	public const string ServiceBusTopicSubscriptionNamePrefixConfigKey = "SapAct:ServiceBus:TopicSubscriptionNamePrefix";
 
