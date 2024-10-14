@@ -1,4 +1,6 @@
-﻿namespace SapAct.Tests;
+﻿using SapAct.Tests.Extensions;
+
+namespace SapAct.Tests;
 
 [TestClass, TestCategory("Integration")]
 public class IntegrationTests

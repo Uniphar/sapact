@@ -15,7 +15,9 @@ public static class IConfigurationExtensions
 			topics.Add(new ServiceBusTopicConfiguration
 			{
 				ConnectionString = section[Consts.ServiceBusConnectionStringConfigKey]!,
-				TopicName = section[Consts.ServiceBusTopicNameConfigKey]!
+				TopicName = section[Consts.ServiceBusTopicNameConfigKey]!,
+				ADXSinkDisabled = section.GetADXSinkDisabled(),
+				LASinkDisabled = section.GetLASinkDisabled()
 			});
 		}
 		return topics;
