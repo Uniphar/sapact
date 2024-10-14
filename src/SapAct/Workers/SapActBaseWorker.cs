@@ -5,6 +5,7 @@ public abstract class SapActBaseWorker<T>(
     ServiceBusTopicConfiguration serviceBusTopicConfiguration, 
     IAzureClientFactory<ServiceBusClient> sbClientFactory, 
     IAzureClientFactory<ServiceBusAdministrationClient> sbAdminClientFactory, 
+    TelemetryClient telemetryClient,
     IConfiguration configuration, 
     ILogger<T> logger) 
         : BackgroundService
@@ -57,26 +58,33 @@ public abstract class SapActBaseWorker<T>(
 #endif
         });
 
-        do
+        try
         {
-            ServiceBusReceivedMessage? message = null;
-            try
+            do
             {
-                message = await serviceBusReceiver.ReceiveMessageAsync(cancellationToken: cancellationToken);
-                await ProcessMessageAsync(message, cancellationToken);
-            }
-            catch (Exception ex)
-            {
-                if (message != null)
+                ServiceBusReceivedMessage? message = null;
+                try
                 {
-                    await serviceBusReceiver.AbandonMessageAsync(message, cancellationToken: cancellationToken);
+                    message = await serviceBusReceiver.ReceiveMessageAsync(cancellationToken: cancellationToken);
+                    await ProcessMessageAsync(message, cancellationToken);
+                }
+                catch (Exception ex)
+                {
+                    if (message != null)
+                    {
+                        await serviceBusReceiver.AbandonMessageAsync(message, cancellationToken: cancellationToken);
+                    }
+
+                    logger.LogError(ex, "Error processing message");
                 }
 
-                logger.LogError(ex, "Error processing message");
             }
-
+            while (cancellationToken.IsCancellationRequested == false);
         }
-        while (cancellationToken.IsCancellationRequested == false);
+        finally
+        {
+            telemetryClient.Flush();
+		}
     }
 
     private async Task ProcessMessageAsync(ServiceBusReceivedMessage message, CancellationToken cancellationToken)
@@ -91,9 +99,23 @@ public abstract class SapActBaseWorker<T>(
             var item = jsonDocument.RootElement[x];
 
             await IngestMessageAsync(item, cancellationToken);
+            
+            telemetryClient.TrackMetric(GetTelemetryMetric($"{message.MessageId}-{x}"));
+			
             await serviceBusReceiver!.CompleteMessageAsync(message, cancellationToken);
         }
     }
 
-    public abstract Task IngestMessageAsync(JsonElement item, CancellationToken cancellationToken);
+    private MetricTelemetry GetTelemetryMetric(string messageId)
+    { 
+        var message = new MetricTelemetry() { Name = "SapActMessageIngestion", Sum = 1 };
+        
+        message.Properties.Add(Consts.TelemetrySinkTypeDimensionName, typeof(T).Name);
+		message.Properties.Add(Consts.TelemetryMessageIdDimensionName, messageId);
+		message.Properties.Add(Consts.TelemetryWorkerNameDimensionName, workerName);
+
+		return message;
+	}
+
+	public abstract Task IngestMessageAsync(JsonElement item, CancellationToken cancellationToken);
 }

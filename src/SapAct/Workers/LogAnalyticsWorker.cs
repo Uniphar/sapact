@@ -5,10 +5,11 @@ public class LogAnalyticsWorker(
     ServiceBusTopicConfiguration serviceBusTopicConfiguration, 
     IAzureClientFactory<ServiceBusClient> sbClientFactory, 
     IAzureClientFactory<ServiceBusAdministrationClient> sbAdminClientFactory, 
-    LogAnalyticsService logAnalyticsService, 
-    ILogger<LogAnalyticsWorker> logger, 
-    IConfiguration configuration) 
-        : SapActBaseWorker<LogAnalyticsWorker>(workerName, serviceBusTopicConfiguration, sbClientFactory, sbAdminClientFactory, configuration, logger)
+    LogAnalyticsService logAnalyticsService,
+    ILogger<LogAnalyticsWorker> logger,
+	TelemetryClient telemetryClient,
+	IConfiguration configuration) 
+        : SapActBaseWorker<LogAnalyticsWorker>(workerName, serviceBusTopicConfiguration, sbClientFactory, sbAdminClientFactory, telemetryClient, configuration, logger)
 {
     public override async Task IngestMessageAsync(JsonElement item, CancellationToken cancellationToken)
     {

@@ -28,4 +28,8 @@ public static class Consts
 	public const string KustoTokenScope = "https://kusto.kusto.windows.net/.default";
 
 	public const string SyncedSchemaVersionLockBlobMetadataKey = "SyncedSchemaVersion";
+
+	public const string TelemetrySinkTypeDimensionName = "SinkType";
+	public const string TelemetryMessageIdDimensionName = "MessageId";
+	public const string TelemetryWorkerNameDimensionName = "WorkerName";
 }
