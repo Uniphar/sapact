@@ -15,6 +15,8 @@ global using Kusto.Data.Ingestion;
 global using Kusto.Data.Net.Client;
 global using Kusto.Ingest;
 global using Kusto.Ingest.Exceptions;
+global using Microsoft.ApplicationInsights;
+global using Microsoft.ApplicationInsights.DataContracts;
 global using Microsoft.Extensions.Azure;
 global using Microsoft.Extensions.Configuration;
 global using Microsoft.Extensions.DependencyInjection;
