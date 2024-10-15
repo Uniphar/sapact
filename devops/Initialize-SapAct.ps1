@@ -27,7 +27,8 @@ Initializes SapAct in the dev environment.
 
     $adxClusterName = Resolve-UniResourceName 'adx-cluster' $p_devopsDomain -Environment $Environment
 
-    $devopsDomainRgName = Resolve-UniResourceName 'resource-group' $p_devopsDomain -Dev:$Dev -Environment $Environment
+    $devopsDomainRgName = Resolve-UniResourceName 'resource-group' $p_devopsDomain -Environment $Environment
+    $dawnDomainRgName = Resolve-UniResourceName 'resource-group' $p_dawnDomain -Environment $Environment
     $devopsClusterIdentityName = Resolve-UniComputeDomainSAName $Environment $p_devopsDomain
     $clusterIdentityObjectId = Get-AzADServicePrincipal -DisplayName $devopsClusterIdentityName | Select-Object -ExpandProperty Id
     $githubActionsDevIdentityObjectId = Get-AzADServicePrincipal -DisplayName $adapp_GithubActionsDev | Select-Object -ExpandProperty Id
@@ -37,12 +38,22 @@ Initializes SapAct in the dev environment.
     $dceEndpointName = Resolve-UniResourceName 'monitor-dce' $p_sapactProjectName -Environment $Environment
     $devopsStorageAccountName = Resolve-UniResourceName 'storage' $p_devopsDomain -Dev:$Dev -Environment $Environment
     $logAnalyticsWorkspace = Resolve-UniMainLogAnalytics $Environment
-
+    $actionGroupDevOpsLowId = Resolve-UniResourceId 'devops-low'
+    
+    $dawnSBResource  = Get-AzResource -Name $dawnServiceBusName -ResourceGroupName $dawnDomainRgName
+    
     $logAnalyticsDef = @{
         Name = $logAnalyticsWorkspace.Name
-        Id = $logAnalyticsWorkspace.CustomerId
+        CustomerId = $logAnalyticsWorkspace.CustomerId
+        AzureId = $logAnalyticsWorkspace.ResourceId
         ResourceGroupName = $logAnalyticsWorkspace.ResourceGroupName
     }
+
+    $dawnSB = @{
+        Id = $dawnSBResource.Id
+        Name = $dawnSBResource.Name
+    }
+
     $adxDatabase = @{
                 name = 'sapact'
                 softDeletePeriod =  'P10Y'
@@ -72,11 +83,13 @@ Initializes SapAct in the dev environment.
                                       -adxClusterName $adxClusterName `
                                       -adxDatabase $adxDatabase `
                                       -appKeyVaultName $devopsAppKeyVault `
-                                      -dawnSBNamespace $dawnServiceBusName `
+                                      -dawnSB $dawnSB `
                                       -devopsSBNamespace $devopsServiceBusName `
                                       -dceName $dceEndpointName `
                                       -logAnalytics $logAnalyticsDef `
                                       -storageAccountName $devopsStorageAccountName `
+                                      -environment $Environment `
+                                      -actionGroupDevOpsLowId $actionGroupDevOpsLowId.Id `
                                       -Verbose:($PSCmdlet.MyInvocation.BoundParameters["Verbose"].IsPresent -eq $true)
     }
     else {
@@ -86,11 +99,13 @@ Initializes SapAct in the dev environment.
                                                      -adxClusterName $adxClusterName `
                                                      -adxDatabase $adxDatabase `
                                                      -appKeyVaultName $devopsAppKeyVault `
-                                                     -dawnSBNamespace $dawnServiceBusName `
+                                                     -dawnSB $dawnSB `
                                                      -devopsSBNamespace $devopsServiceBusName `
                                                      -dceName $dceEndpointName `
                                                      -logAnalytics $logAnalyticsDef `
                                                      -storageAccountName $devopsStorageAccountName `
+                                                     -environment $Environment `
+                                                     -actionGroupDevOpsLowId $actionGroupDevOpsLowId.Id `
                                                      -Verbose:($PSCmdlet.MyInvocation.BoundParameters["Verbose"].IsPresent -eq $true)
 
         if ($TestResult) {
