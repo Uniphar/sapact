@@ -1,11 +1,13 @@
 param adxClusterName string
 param adxDatabase object
 param appKeyVaultName string
-param dawnSBNamespace string
+param dawnSB object
 param devopsSBNamespace string
 param dceName string
 param logAnalytics object
 param storageAccountName string
+param environment string
+param actionGroupDevOpsLowId string
 
 param location string = resourceGroup().location
 
@@ -55,7 +57,7 @@ resource SB0ConnectionStringSecret 'Microsoft.KeyVault/vaults/secrets@2024-04-01
   name: 'SapAct--ServiceBus--Topic--0--ConnectionString'
   parent: DevopsAppKeyVault
   properties: {
-    value: '${dawnSBNamespace}.servicebus.windows.net'
+    value: '${dawnSB.Name}.servicebus.windows.net'
   }
 }
 
@@ -151,6 +153,17 @@ resource laIdSecret 'Microsoft.KeyVault/vaults/secrets@2024-04-01-preview' = {
   name: 'SapAct--LogAnalytics--WorkspaceId'
   parent: DevopsAppKeyVault
   properties: {
-    value: logAnalytics.Id
+    value: logAnalytics.CustomerId
+  }
+}
+
+module alerts 'sapact.alerts.module.bicep' = {
+  name: 'alerts'
+  params: {
+    logAnalytics: logAnalytics
+    actionGroupDevOpsLowId: actionGroupDevOpsLowId
+    environment: environment
+    sbNamespaceId: dawnSB.Id
+    sbTopicNames:['sap-events'] 
   }
 }
