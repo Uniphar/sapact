@@ -53,6 +53,14 @@ jobs:
         run: |
           echo "APPLICATION_FOLDER=${{ inputs.applicationFolder }}" >> $GITHUB_ENV
         
+      - name: azure login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          enable-AzPSSession: true
+
       - name: devops deploy WhatIf
         uses: azure/powershell@v2
         env:
