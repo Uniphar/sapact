@@ -10,7 +10,7 @@ resource alert 'Microsoft.Insights/scheduledQueryRules@2021-08-01' = {
   location: location
   properties: {
     severity: 1
-    enabled: environment == 'prod' ? true : false
+    enabled: environment == 'prod'
     scopes: [
       logAnalyticsWorkspaceId
     ]
