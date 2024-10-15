@@ -21,7 +21,7 @@ module ExceptionAlert 'alerts.scheduledqueryrules.bicep' = {
   }
 }
 
-resource deadletter 'microsoft.insights/metricAlerts@2018-03-01' =  [for sbTopicName in sbTopicNames :{
+resource DLQAlert 'microsoft.insights/metricAlerts@2018-03-01' =  [for sbTopicName in sbTopicNames :{
   name: 'SapAct DLQ message - ${sbTopicName}'
   location: 'global'
   properties: {
