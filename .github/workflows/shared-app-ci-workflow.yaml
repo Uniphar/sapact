@@ -62,7 +62,7 @@ jobs:
             Import-Module .\devops-azure\src\Uniphar.DevOps.psd1 -ErrorAction Stop -Force
             . ./devops/Initialize-SapAct.ps1
 
-            Initialize-SapAct ${{inputs.environment}} -WhatIf
+            Initialize-SapAct dev -WhatIf
           azPSVersion: "latest"
           errorActionPreference: 'stop'
           failOnStandardError: true
