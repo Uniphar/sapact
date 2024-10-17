@@ -31,7 +31,7 @@ public class IntegrationTests
 		DefaultAzureCredential credential = new();
 		
 		_config = new ConfigurationBuilder()
-			.AddAzureKeyVault(new(azureKeyVaultName), credential)
+			.AddAzureKeyVault(new(azureKeyVaultName!), credential)
 			.Build();
 
 		var intTestTopicConfig = _config.GetIntTestsServiceBusConfig();

@@ -24,7 +24,6 @@ builder.Services.AddAzureClients((clientBuilder) =>
 {
 	clientBuilder.AddLogsIngestionClient(new Uri(builder.Configuration.GetLogAnalyticsIngestionUrl()!));
 	clientBuilder.AddBlobServiceClient(new Uri(builder.Configuration.GetLockServiceBlobConnectionString()!));
-
 	clientBuilder.UseCredential(credential);
 });
 
@@ -36,6 +35,8 @@ builder.Services.AddSingleton(KustoClientFactory.CreateCslAdminProvider(KustoCon
 builder.Services.AddSingleton(KustoIngestFactory.CreateDirectIngestClient(KustoConnectionStringBuilder));
 builder.Services.AddSingleton(KustoIngestFactory.CreateQueuedIngestClient(KustoConnectionStringBuilder));
 builder.Services.AddSingleton<IAzureDataExplorerClient, AzureDataExplorerClient>();
+builder.Services.AddTransient((sp)=> new SqlConnection(builder.Configuration.GetSQLConnectionString()));
+builder.Services.AddSingleton<SQLService>();
 
 builder.Services.AddSingleton(new LogAnalyticsServiceConfiguration {
 	SubscriptionId = builder.Configuration.GetLogAnalyticsSubscriptionId()!,

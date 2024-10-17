@@ -21,6 +21,7 @@
     <PackageReference Include="Microsoft.Extensions.Http" Version="8.*" />
     <PackageReference Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets" Version="*" />
     <PackageReference Include="Microsoft.ApplicationInsights.WorkerService" Version="*" />
+    <PackageReference Include="Microsoft.Data.SqlClient" Version="*" />
     <PackageReference Include="System.Formats.Asn1" Version="*" />
     <PackageReference Include="System.Text.Json" Version="*" />
   </ItemGroup>

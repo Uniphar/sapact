@@ -43,4 +43,6 @@ public static class IConfigurationExtensions
 	public static string? GetLockServiceBlobConnectionString(this IConfiguration configuration) => configuration[Consts.LockServiceBlobConnectionStringConfigKey];
 
 	public static string GetLockServiceBlobContainerNameOrDefault(this IConfiguration configuration) => configuration[Consts.LockServiceBlobContainerNameConfigKey] ?? "sapact";
+
+	public static string GetSQLConnectionString(this IConfiguration configuration) => "Server=tcp:uni-datasql-dev.database.windows.net,1433;Initial Catalog=ohsapact;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;Authentication=Active Directory Default";
 }
