@@ -1,15 +1,145 @@
 ﻿namespace SapAct.Services;
 
-public class SQLService(IServiceProvider serviceProvider, ILogger<SQLService> logger)
-{
-	
-	public void CheckConnection()
-	{
-		using var connection = serviceProvider.GetRequiredService<SqlConnection>();
+//TODO: consider splitting schema upsert and data sink into separate services for readability
+public class SQLService(IServiceProvider serviceProvider, ILockService lockService, ILogger<SQLService> logger) : VersionedSchemaBaseService(lockService)
+{	
 
-		connection.Open();
-		var sqlCommand = new SqlCommand("SELECT 1", connection);
-		var res = sqlCommand.ExecuteScalar();
+	private SqlConnection sqlConnection { get; set; }
+	private SqlTransaction sqlTransaction { get; set; }
+
+	public async Task IngestMessageAsync(JsonElement payload, CancellationToken cancellationToken= default)
+	{
+		ExtractKeyMessageProperties(payload, out var objectKey, out var objectType, out var dataVersion);
+		if (!string.IsNullOrWhiteSpace(objectType) && !string.IsNullOrWhiteSpace(dataVersion) && !string.IsNullOrWhiteSpace(objectKey))
+		{
+			var schemaDescriptor = GenerateSchemaDescriptor(objectType, payload);
+			await UpsertSQLStructuresAsync(schemaDescriptor, cancellationToken);
+			await SinkDataAsync(payload, schemaDescriptor, objectKey);
+		}
+	}
+
+	private async Task SinkDataAsync(JsonElement payload, SQLTableDescriptor schemaDescriptor, string rootKey)
+	{
+		sqlConnection = serviceProvider.GetRequiredService<SqlConnection>();
+		using (sqlConnection)
+		{
+			sqlConnection.Open();
+			sqlTransaction = sqlConnection.BeginTransaction();
+			using (sqlTransaction)
+			{
+				try
+				{
+					await SinkDataAsyncInner(payload, schemaDescriptor, rootKey);
+					await sqlTransaction.CommitAsync();
+				}
+				catch (Exception ex)
+				{
+					logger.LogError(ex, "Error upserting SQL structures");
+
+					sqlTransaction.Rollback();
+					throw;
+				}
+			}
+		}
+	}
+
+	//TODO: refactor the whole rootkey, PK, FK handling
+	private async Task SinkDataAsyncInner(JsonElement element, SQLTableDescriptor schemaDescriptor, string rootKey, int? arrayIndex=null, string? foreignKey=null, CancellationToken cancellationToken=default)
+	{
+		if (schemaDescriptor.IsEmpty)
+			return;
+
+		var primaryKey = schemaDescriptor.Depth == 0 ? rootKey : $"{rootKey}_{schemaDescriptor.SqlTableName}";
+		if (arrayIndex.HasValue)
+		{
+			primaryKey = $"{primaryKey}_{arrayIndex.Value.ToString()}";
+		}
+
+		if (element.ValueKind == JsonValueKind.Array)
+		{
+			int arrayIndexCurrent = 0;
+			foreach (var arrayElement in element.EnumerateArray())
+			{
+				await SinkDataAsyncInner(arrayElement, schemaDescriptor, rootKey, arrayIndexCurrent, foreignKey: foreignKey);
+				arrayIndexCurrent++;
+			}
+		}
+		else if (element.ValueKind == JsonValueKind.Object)
+		{
+			
+			await SinkJsonObjectAsync(schemaDescriptor.SqlTableName, element, schemaDescriptor, primaryKey, foreignKey);
+			foreach (var nonScalar in element.GetNonScalarProperties())
+			{
+				await SinkDataAsyncInner(nonScalar.Value, schemaDescriptor.GetChildTableDescriptor(nonScalar.Name), rootKey, arrayIndex, foreignKey: primaryKey);
+			}
+		}
+		else
+		{
+			throw new InvalidOperationException("Unexpected JSON structure - only objects and arrays are expected to be processed");
+		}
+	}
+
+	private async Task SinkJsonObjectAsync(string tableName, JsonElement payload, SQLTableDescriptor schemaDescriptor, string primaryKey, string? foreignKey, CancellationToken cancellationToken=default)
+	{
+		//get fields
+		List<(string columnName, string value)> columns = [];
+
+		foreach (var column in payload.GetScalarProperties())
+		{
+			columns.Add(new(column.Name, column.Value.ToString()));
+		}
+
+		if (schemaDescriptor.Depth>0)
+		{
+			columns.Add(("PK", primaryKey));
+		}
+
+		if (!string.IsNullOrWhiteSpace(foreignKey))
+		{
+			columns.Add(("FK", foreignKey));
+		}
+
+		var sqlText = EmitTableInsertStatement(tableName, columns);
+		SqlCommand sqlCommand = new(sqlText, sqlConnection, sqlTransaction);
+		await sqlCommand.ExecuteNonQueryAsync();
+
+	}
+
+	private string EmitTableInsertStatement(string tableName, List<(string columnName, string value)> columns)
+	{
+		if (columns.Count == 0)
+			return string.Empty;
+
+		StringBuilder insertSB = new();
+		bool addComma = false;
+
+		insertSB.AppendLine($"INSERT INTO {tableName} (");
+
+		StringBuilder insertColumnNamesSB = new();
+		StringBuilder insertColumnValuesSB = new();
+
+		foreach (var (columnName, value) in columns)
+		{
+			if (addComma)
+			{
+				insertColumnNamesSB.Append(',');
+				insertColumnValuesSB.Append(',');
+			}
+
+			insertColumnNamesSB.Append($"{columnName}");
+			insertColumnValuesSB.Append(!string.IsNullOrWhiteSpace(value)? $"'{value}'" : "NULL");
+
+			addComma = true;
+		}
+
+		insertSB.Append(insertColumnNamesSB);
+		insertSB.Append(')');
+		insertSB.AppendLine(" VALUES (");
+		insertSB.Append(insertColumnValuesSB);
+		
+		insertSB.Append(");");
+
+		return insertSB.ToString();
 	}
 
 	public async Task ProjectSchemaFlowAsync(string tableName, JsonElement item, CancellationToken cancellationToken = default)
@@ -36,10 +166,15 @@ public class SQLService(IServiceProvider serviceProvider, ILogger<SQLService> lo
 			transaction.Rollback();
 			throw;
 		}
+
+		transaction = null;
 	}
 
 	private async Task UpsertSQLTableAsync(SQLTableDescriptor schemaDescriptor, SqlConnection connection, SqlTransaction transaction, SQLTableDescriptor? parent=null, int depth=0)
 	{		
+		if (schemaDescriptor.IsEmpty)
+			return;
+
 		string tableName = schemaDescriptor.SqlTableName;
 
 		(var exists, var columns) = await CheckTableExistsAsync(tableName, connection, transaction);
@@ -47,11 +182,11 @@ public class SQLService(IServiceProvider serviceProvider, ILogger<SQLService> lo
 		string sqlCommandText;
 		if (exists)
 		{
-			sqlCommandText = EmitTableUpdateCommand(tableName, columns, schemaDescriptor, depth);
+			sqlCommandText = EmitTableUpdateCommand(tableName, columns, schemaDescriptor);
 		}
 		else
 		{
-			sqlCommandText = EmitTableCreateCommand(tableName, schemaDescriptor, parent, depth);
+			sqlCommandText = EmitTableCreateCommand(tableName, schemaDescriptor, parent);
 		}
 
 		if (!string.IsNullOrWhiteSpace(sqlCommandText))
@@ -66,7 +201,7 @@ public class SQLService(IServiceProvider serviceProvider, ILogger<SQLService> lo
 		}
 	}
 
-	private string EmitTableCreateCommand(string tableName, SQLTableDescriptor schemaDescriptor, SQLTableDescriptor? parent, int depth)
+	private string EmitTableCreateCommand(string tableName, SQLTableDescriptor schemaDescriptor, SQLTableDescriptor? parent)
 	{
 		StringBuilder tableUpsertSqlSB = new();	
 
@@ -74,6 +209,8 @@ public class SQLService(IServiceProvider serviceProvider, ILogger<SQLService> lo
 		//root has implied PK - ObjectKey		
 
 		bool addComma = false;
+		int depth = schemaDescriptor.Depth;
+
 		if (depth > 0)
 		{
 			tableUpsertSqlSB.AppendLine($"PK NVARCHAR(255) NOT NULL PRIMARY KEY");
@@ -87,7 +224,7 @@ public class SQLService(IServiceProvider serviceProvider, ILogger<SQLService> lo
 			if (addComma)
 				tableUpsertSqlSB.Append(',');		
 
-			tableUpsertSqlSB.AppendLine($"FK_{parent.SqlTableName} NVARCHAR(255) FOREIGN KEY REFERENCES {parent.SqlTableName}({(depth == 1 ? "ObjectKey" : "PK")})");
+			tableUpsertSqlSB.AppendLine($"FK NVARCHAR(255) FOREIGN KEY REFERENCES {parent.SqlTableName}({(depth == 1 ? "ObjectKey" : "PK")})");
 			addComma = true;
 		}
 		foreach (var column in schemaDescriptor.Columns)
@@ -104,7 +241,7 @@ public class SQLService(IServiceProvider serviceProvider, ILogger<SQLService> lo
 		return tableUpsertSqlSB.ToString();
 	}
 
-	private string EmitTableUpdateCommand(string tableName, IEnumerable<string> columns, SQLTableDescriptor schemaDescriptor, int depth)
+	private string EmitTableUpdateCommand(string tableName, IEnumerable<string> columns, SQLTableDescriptor schemaDescriptor)
 	{
 		StringBuilder tableUpdateSB = new();
 
@@ -152,7 +289,7 @@ public class SQLService(IServiceProvider serviceProvider, ILogger<SQLService> lo
 		var rootTable = tableName;
 		Dictionary<string, int> tableNamingCtx = []; //TODO: load this from schema table eventually - mapping between JSON Path and SQL Table name
 
-		var schema =  GenerateSchemaDescriptorInner(tableName, item);
+		var schema =  GenerateSchemaDescriptorInner(tableName, item, 0);
 
 		AugmentSchema(schema, "$");
 
@@ -186,9 +323,10 @@ public class SQLService(IServiceProvider serviceProvider, ILogger<SQLService> lo
 			return value;
 		}
 
-		SQLTableDescriptor GenerateSchemaDescriptorInner(string tableName, JsonElement item)
+		SQLTableDescriptor GenerateSchemaDescriptorInner(string tableName, JsonElement item, int depth)
 		{			
-			var schemaDescriptor = new SQLTableDescriptor() { TableName = tableName };
+			
+			var schemaDescriptor = new SQLTableDescriptor() { TableName = tableName, Depth=depth };
 
 			if (item.ValueKind == JsonValueKind.Array)
 			{
@@ -196,7 +334,7 @@ public class SQLService(IServiceProvider serviceProvider, ILogger<SQLService> lo
 				{
 					if (element.ValueKind == JsonValueKind.Object)
 					{
-						ProcessJSONObject(schemaDescriptor, tableName, element, item.ValueKind);
+						ProcessJSONObject(schemaDescriptor, tableName, element, item.ValueKind, depth);
 					}
 					else
 					{
@@ -211,7 +349,7 @@ public class SQLService(IServiceProvider serviceProvider, ILogger<SQLService> lo
 				{
 					if (child.Value.ValueKind == JsonValueKind.Object || child.Value.ValueKind == JsonValueKind.Array)
 					{
-						ProcessJSONObject(schemaDescriptor, child.Name, child.Value, item.ValueKind);
+						ProcessJSONObject(schemaDescriptor, child.Name, child.Value, item.ValueKind, depth+1);
 					}
 					else
 					{
@@ -227,11 +365,11 @@ public class SQLService(IServiceProvider serviceProvider, ILogger<SQLService> lo
 			return schemaDescriptor;			
 		}
 
-		void ProcessJSONObject(SQLTableDescriptor currentLevel, string tableName, JsonElement element, JsonValueKind jsonValueKind)
+		void ProcessJSONObject(SQLTableDescriptor currentLevel, string tableName, JsonElement element, JsonValueKind jsonValueKind, int depth)
 		{
-			var levelDesc = GenerateSchemaDescriptorInner(tableName, element);
+			var levelDesc = GenerateSchemaDescriptorInner(tableName, element, depth);
 			//merge vs new
-			if (levelDesc != null && (levelDesc.Columns.Count > 0 || levelDesc.ChildTables.Count > 0))
+			if (levelDesc != null)
 			{
 				SQLTableDescriptor? existingNode = null;
 				existingNode = jsonValueKind == JsonValueKind.Array

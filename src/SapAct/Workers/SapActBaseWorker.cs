@@ -75,7 +75,7 @@ public abstract class SapActBaseWorker<T>(
                         await serviceBusReceiver.AbandonMessageAsync(message, cancellationToken: cancellationToken);
                     }
 
-                    logger.LogError(ex, "Error processing message");
+                    logger.LogError(ex, $"Error processing message - {message?.MessageId}");
                 }
 
             }

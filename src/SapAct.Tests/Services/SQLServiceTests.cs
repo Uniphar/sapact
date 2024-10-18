@@ -26,10 +26,9 @@ public class SQLServiceTests
 	public async Task ProjectSchemaFlowTest()
 	{
 		//arrange
-		var sut = new SQLService(_serviceProvider!, Mock.Of<ILogger<SQLService>>());
+		var sut = new SQLService(_serviceProvider!, Mock.Of<ILockService>(), Mock.Of<ILogger<SQLService>>());
 
         var jsontext = @"
-[
     {
         ""id"": ""23EDCD53609F1EEFA0CC814827B9D2E3"",
         ""objectType"": ""MATERIALDOCUMENT"",
@@ -495,10 +494,9 @@ public class SQLServiceTests
             ]
         }
     }
-]
 ";
 		var json = JsonSerializer.Deserialize<JsonElement>(jsontext);
 		//act
-		await sut.ProjectSchemaFlowAsync("BLAH", json);
+		await sut.IngestMessageAsync(json);
 	}
 }

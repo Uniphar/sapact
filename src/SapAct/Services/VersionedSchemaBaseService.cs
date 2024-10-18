@@ -1,6 +1,6 @@
 ﻿namespace SapAct.Services;
 
-public abstract class VersionedSchemaBaseService(LockService lockService)
+public abstract class VersionedSchemaBaseService(ILockService lockService)
 {
 	private readonly ConcurrentDictionary<string, string> _tableVersionMapping = new();
 

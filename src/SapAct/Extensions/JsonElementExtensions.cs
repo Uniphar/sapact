@@ -75,4 +75,14 @@ public static class JsonElementExtensions
 	{
 		return jsonElement.GetProperty("properties").GetProperty("immutableId").GetString()!;
 	}
+
+	public static IEnumerable<JsonProperty> GetScalarProperties(this JsonElement element)
+	{
+		return element.EnumerateObject().Where(x => x.Value.ValueKind != JsonValueKind.Object && x.Value.ValueKind != JsonValueKind.Array);
+	}
+
+	public static IEnumerable<JsonProperty> GetNonScalarProperties(this JsonElement element)
+	{
+		return element.EnumerateObject().Where(x => x.Value.ValueKind == JsonValueKind.Object || x.Value.ValueKind == JsonValueKind.Array);
+	}
 }
