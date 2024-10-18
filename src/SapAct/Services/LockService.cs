@@ -1,6 +1,6 @@
 ﻿namespace SapAct.Services;
 
-public class LockService
+public class LockService : ILockService
 {
 	public BlobServiceClient BlobServiceClient { get; init; }
 	private BlobContainerClient _containerClient;
@@ -46,7 +46,7 @@ public class LockService
 		} while (true);
 	}
 
-	public async Task<bool> CheckSchemaLockPresence(string tableName, TargetStorageEnum targetStorage)
+	private async Task<bool> CheckSchemaLockPresence(string tableName, TargetStorageEnum targetStorage)
 	{
 		var props = await GetBlobPropertiesAsync(tableName, targetStorage);
 

@@ -152,6 +152,10 @@ public class LogAnalyticsService(
 			//send to log analytics
 			await SinkToLogAnalytics(objectType, dcrId!, payload);
 		}
+		else
+		{
+			throw new InvalidOperationException("Invalid message format");
+		}
 	}
 
 	private async Task<string> RefreshDCRIdAsync(string tableName, CancellationToken cancellationToken)
