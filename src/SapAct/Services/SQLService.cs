@@ -53,9 +53,12 @@ public class SQLService(IServiceProvider serviceProvider, ILogger<SQLService> lo
 		{
 			sqlCommandText = EmitTableCreateCommand(tableName, schemaDescriptor, parent, depth);
 		}
-		
-		SqlCommand sqlCommand = new(sqlCommandText, connection, transaction);
-		await sqlCommand.ExecuteNonQueryAsync();
+
+		if (!string.IsNullOrWhiteSpace(sqlCommandText))
+		{
+			SqlCommand sqlCommand = new(sqlCommandText, connection, transaction);
+			await sqlCommand.ExecuteNonQueryAsync();
+		}
 
 		foreach (var childTable in schemaDescriptor.ChildTables)
 		{
@@ -65,12 +68,7 @@ public class SQLService(IServiceProvider serviceProvider, ILogger<SQLService> lo
 
 	private string EmitTableCreateCommand(string tableName, SQLTableDescriptor schemaDescriptor, SQLTableDescriptor? parent, int depth)
 	{
-		StringBuilder tableUpsertSqlSB = new();
-
-		//if (depth>0)
-		//{
-		//	tableName += $"{parent.SqlTableName}_{parent.TableName}";
-		//}
+		StringBuilder tableUpsertSqlSB = new();	
 
 		tableUpsertSqlSB.AppendLine($"CREATE TABLE {tableName} (");
 		//root has implied PK - ObjectKey		
@@ -108,7 +106,25 @@ public class SQLService(IServiceProvider serviceProvider, ILogger<SQLService> lo
 
 	private string EmitTableUpdateCommand(string tableName, IEnumerable<string> columns, SQLTableDescriptor schemaDescriptor, int depth)
 	{
-		throw new NotImplementedException();
+		StringBuilder tableUpdateSB = new();
+
+		List<string> addedColumns = schemaDescriptor.Columns.Select(x => x.ColumnName).Except(columns).ToList(); //find added columns - only additive schema changes are applied
+					
+		if (addedColumns.Count == 0)
+			return string.Empty;
+
+		bool addComma = false;
+		tableUpdateSB.AppendLine($"ALTER TABLE {tableName} ADD");
+		foreach (var column in addedColumns)
+		{
+			if (addComma)
+				tableUpdateSB.Append(',');
+
+			tableUpdateSB.AppendLine($"{column} NVARCHAR(255) NULL");
+			addComma = true;
+		}
+
+		return tableUpdateSB.ToString();
 	}
 
 	private async Task<(bool exists, IEnumerable<string> columns)> CheckTableExistsAsync(string tableName, SqlConnection connection, SqlTransaction transaction)
