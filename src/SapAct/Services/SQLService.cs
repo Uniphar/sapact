@@ -39,12 +39,43 @@ public class SQLService(IServiceProvider serviceProvider, ILogger<SQLService> lo
 	}
 
 	private async Task UpsertSQLTableAsync(SQLTableDescriptor schemaDescriptor, SqlConnection connection, SqlTransaction transaction, SQLTableDescriptor? parent=null, int depth=0)
+	{		
+		string tableName = schemaDescriptor.SqlTableName;
+
+		(var exists, var columns) = await CheckTableExistsAsync(tableName, connection, transaction);
+
+		string sqlCommandText;
+		if (exists)
+		{
+			sqlCommandText = EmitTableUpdateCommand(tableName, columns, schemaDescriptor, depth);
+		}
+		else
+		{
+			sqlCommandText = EmitTableCreateCommand(tableName, schemaDescriptor, parent, depth);
+		}
+		
+		SqlCommand sqlCommand = new(sqlCommandText, connection, transaction);
+		await sqlCommand.ExecuteNonQueryAsync();
+
+		foreach (var childTable in schemaDescriptor.ChildTables)
+		{
+			await UpsertSQLTableAsync(childTable, connection, transaction, schemaDescriptor, depth + 1);
+		}
+	}
+
+	private string EmitTableCreateCommand(string tableName, SQLTableDescriptor schemaDescriptor, SQLTableDescriptor? parent, int depth)
 	{
 		StringBuilder tableUpsertSqlSB = new();
-		tableUpsertSqlSB.AppendLine($"CREATE TABLE {schemaDescriptor.SqlTableName} (");
+
+		//if (depth>0)
+		//{
+		//	tableName += $"{parent.SqlTableName}_{parent.TableName}";
+		//}
+
+		tableUpsertSqlSB.AppendLine($"CREATE TABLE {tableName} (");
 		//root has implied PK - ObjectKey		
 
-		bool addComma=false;
+		bool addComma = false;
 		if (depth > 0)
 		{
 			tableUpsertSqlSB.AppendLine($"PK NVARCHAR(255) NOT NULL PRIMARY KEY");
@@ -56,40 +87,54 @@ public class SQLService(IServiceProvider serviceProvider, ILogger<SQLService> lo
 			ArgumentNullException.ThrowIfNull(parent);
 
 			if (addComma)
-				tableUpsertSqlSB.Append(',');
-			else
-				addComma = true;
+				tableUpsertSqlSB.Append(',');		
 
-			tableUpsertSqlSB.AppendLine($"FK_{parent.SqlTableName} NVARCHAR(255) FOREIGN KEY REFERENCES {parent.SqlTableName}({(depth==1 ? "ObjectKey": "PK")})");
+			tableUpsertSqlSB.AppendLine($"FK_{parent.SqlTableName} NVARCHAR(255) FOREIGN KEY REFERENCES {parent.SqlTableName}({(depth == 1 ? "ObjectKey" : "PK")})");
 			addComma = true;
 		}
 		foreach (var column in schemaDescriptor.Columns)
 		{
 			if (addComma)
-				tableUpsertSqlSB.Append(',');
-			else
-				addComma = true;
+				tableUpsertSqlSB.Append(',');			
 
-			tableUpsertSqlSB.AppendLine($"{column.ColumnName} {column.SQLDataType} {(depth==0 && "objectKey"==column.ColumnName ? "NOT NULL PRIMARY KEY": "")}");
-
+			tableUpsertSqlSB.AppendLine($"{column.ColumnName} {column.SQLDataType} {(depth == 0 && "objectKey" == column.ColumnName ? "NOT NULL PRIMARY KEY" : "")}");
+			addComma = true;
 		}
 
 		tableUpsertSqlSB.AppendLine(");");
 
+		return tableUpsertSqlSB.ToString();
+	}
 
-		string sqlStatement = tableUpsertSqlSB.ToString();
-		SqlCommand sqlCommand = new(sqlStatement, connection, transaction);
-		await sqlCommand.ExecuteNonQueryAsync();
-		foreach (var childTable in schemaDescriptor.ChildTables)
+	private string EmitTableUpdateCommand(string tableName, IEnumerable<string> columns, SQLTableDescriptor schemaDescriptor, int depth)
+	{
+		throw new NotImplementedException();
+	}
+
+	private async Task<(bool exists, IEnumerable<string> columns)> CheckTableExistsAsync(string tableName, SqlConnection connection, SqlTransaction transaction)
+	{
+		List<string> columnList = [];
+		bool exists = false;
+
+		var sqlCommand = new SqlCommand($"SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '{tableName}'", connection, transaction);
+		var res = await sqlCommand.ExecuteReaderAsync();
+
+
+		while (res.Read())
 		{
-			await UpsertSQLTableAsync(childTable, connection, transaction, schemaDescriptor, depth + 1);
+			exists = true;
+			columnList.Add(res.GetString(0));
 		}
+
+		await res.CloseAsync();
+
+		return (exists, columnList);
 	}
 
 	public SQLTableDescriptor GenerateSchemaDescriptor(string tableName, JsonElement item)
 	{
 		var rootTable = tableName;
-		Dictionary<string, string> tableNamingCtx = []; //TODO: load this from schema table eventually - mapping between JSON Path and SQL Table name
+		Dictionary<string, int> tableNamingCtx = []; //TODO: load this from schema table eventually - mapping between JSON Path and SQL Table name
 
 		var schema =  GenerateSchemaDescriptorInner(tableName, item);
 
@@ -97,13 +142,13 @@ public class SQLService(IServiceProvider serviceProvider, ILogger<SQLService> lo
 
 		return schema;
 
-		void AugmentSchema(SQLTableDescriptor schema, string parentPrefix)
+		void AugmentSchema(SQLTableDescriptor schema, string parentPrefix, SQLTableDescriptor? parentSchema = null)
 		{
 			schema.SqlTableName = GetSQLTableName(parentPrefix);
 			foreach (var child in schema.ChildTables)
 			{
 				var  childPrefix = $"{parentPrefix}.{child.TableName}";
-				AugmentSchema(child, childPrefix);
+				AugmentSchema(child, childPrefix, schema);
 			}
 		}
 
@@ -113,12 +158,15 @@ public class SQLService(IServiceProvider serviceProvider, ILogger<SQLService> lo
 			if ("$"==jsonPath)
 				return rootTable;
 
-			if (!tableNamingCtx.TryGetValue(jsonPath, out string? value))
+			if (!tableNamingCtx.TryGetValue(jsonPath, out int index))
 			{
-				value = $"{rootTable}_{tableNamingCtx.Count}";
-				tableNamingCtx.Add(jsonPath, value);
+				index = tableNamingCtx.Count;		
+
+				tableNamingCtx.Add(jsonPath, index);
 			}
 
+			string value = $"{rootTable}{index}";
+		
 			return value;
 		}
 
