@@ -139,6 +139,8 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 		
 		insertSB.Append(");");
 
+		//TODO: add IF NOT EXISTS clause
+
 		return insertSB.ToString();
 	}
 
