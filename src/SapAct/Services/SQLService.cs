@@ -99,13 +99,13 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 			columns.Add(("FK", foreignKey));
 		}
 
-		var sqlText = EmitTableInsertStatement(tableName, columns);
+		var sqlText = EmitTableInsertStatement(tableName, columns, schemaDescriptor.Depth>0 ? "PK" : Consts.MessageObjectKeyPropertyName);
 		SqlCommand sqlCommand = new(sqlText, sqlConnection, sqlTransaction);
 		await sqlCommand.ExecuteNonQueryAsync();
 
 	}
 
-	private string EmitTableInsertStatement(string tableName, List<(string columnName, string value)> columns)
+	private string EmitTableInsertStatement(string tableName, List<(string columnName, string value)> columns, string pkColumnName)
 	{
 		if (columns.Count == 0)
 			return string.Empty;
@@ -117,6 +117,8 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 
 		StringBuilder insertColumnNamesSB = new();
 		StringBuilder insertColumnValuesSB = new();
+		
+		string pkColumnValue = columns.FirstOrDefault(x => x.columnName == pkColumnName).value;
 
 		foreach (var (columnName, value) in columns)
 		{
@@ -134,12 +136,10 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 
 		insertSB.Append(insertColumnNamesSB);
 		insertSB.Append(')');
-		insertSB.AppendLine(" VALUES (");
+		insertSB.AppendLine(" SELECT ");
 		insertSB.Append(insertColumnValuesSB);
 		
-		insertSB.Append(");");
-
-		//TODO: add IF NOT EXISTS clause
+		insertSB.Append($" WHERE NOT EXISTS (SELECT {pkColumnName} FROM {tableName} where { pkColumnName}='{pkColumnValue}')");
 
 		return insertSB.ToString();
 	}
@@ -226,7 +226,7 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 			if (addComma)
 				tableUpsertSqlSB.Append(',');		
 
-			tableUpsertSqlSB.AppendLine($"FK NVARCHAR(255) FOREIGN KEY REFERENCES {parent.SqlTableName}({(depth == 1 ? "ObjectKey" : "PK")})");
+			tableUpsertSqlSB.AppendLine($"FK NVARCHAR(255) FOREIGN KEY REFERENCES {parent.SqlTableName}({(depth == 1 ? Consts.MessageObjectKeyPropertyName : "PK")})");
 			addComma = true;
 		}
 		foreach (var column in schemaDescriptor.Columns)
@@ -234,7 +234,7 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 			if (addComma)
 				tableUpsertSqlSB.Append(',');			
 
-			tableUpsertSqlSB.AppendLine($"{column.ColumnName} {column.SQLDataType} {(depth == 0 && "objectKey" == column.ColumnName ? "NOT NULL PRIMARY KEY" : "")}");
+			tableUpsertSqlSB.AppendLine($"{column.ColumnName} {column.SQLDataType} {(depth == 0 && Consts.MessageObjectKeyPropertyName == column.ColumnName ? "NOT NULL PRIMARY KEY" : "")}");
 			addComma = true;
 		}
 

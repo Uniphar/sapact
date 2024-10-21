@@ -32,4 +32,8 @@ public static class Consts
 	public const string TelemetrySinkTypeDimensionName = "SinkType";
 	public const string TelemetryMessageIdDimensionName = "MessageId";
 	public const string TelemetryWorkerNameDimensionName = "WorkerName";
+
+	public const string MessageObjectKeyPropertyName = "objectKey";
+	public const string MessageObjectTypePropertyName = "objectType";
+	public const string MessageDataVersionPropertyName = "dataVersion";
 }
