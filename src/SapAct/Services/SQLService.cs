@@ -1,4 +1,6 @@
-﻿namespace SapAct.Services;
+﻿using System.Net.Sockets;
+
+namespace SapAct.Services;
 
 //TODO: consider splitting schema upsert and data sink into separate services for readability
 public class SQLService(IServiceProvider serviceProvider, ILockService lockService, ILogger<SQLService> logger) : VersionedSchemaBaseService(lockService)
@@ -13,7 +15,38 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 		if (!string.IsNullOrWhiteSpace(objectType) && !string.IsNullOrWhiteSpace(dataVersion) && !string.IsNullOrWhiteSpace(objectKey))
 		{
 			var schemaDescriptor = GenerateSchemaDescriptor(objectType, payload);
-			await UpsertSQLStructuresAsync(schemaDescriptor, cancellationToken);
+
+			//schema check
+			var schemaCheck = await CheckObjectTypeSchemaAsync(objectType!, dataVersion!, TargetStorageEnum.SQL);
+			if (schemaCheck == SchemaCheckResultState.Older || schemaCheck == SchemaCheckResultState.Unknown)
+			{
+				bool updateNeccessary = true;
+
+				do
+				{
+					(var lockState, string? leaseId) = await ObtainLockAsync(objectType!, dataVersion!, TargetStorageEnum.SQL);
+					if (lockState == LockState.LockObtained)
+					{
+						List<ColumnDefinition> columnsList = payload.GenerateColumnList(TargetStorageEnum.SQL);
+
+						await UpsertSQLStructuresAsync(schemaDescriptor, cancellationToken);
+
+						UpdateObjectTypeSchema(objectType!, dataVersion!);
+						await ReleaseLockAsync(objectType!, dataVersion!, TargetStorageEnum.SQL, leaseId!);
+
+						updateNeccessary = false;
+					}
+					else if (lockState == LockState.Available)
+					{
+						//schema was updated by another instance but let's check against persistent storage
+						var status = await CheckObjectTypeSchemaAsync(objectType!, dataVersion!, TargetStorageEnum.SQL);
+						updateNeccessary = status != SchemaCheckResultState.Current;
+					}
+				} while (updateNeccessary);
+
+			}
+
+			
 			await SinkDataAsync(payload, schemaDescriptor, objectKey);
 		}
 	}

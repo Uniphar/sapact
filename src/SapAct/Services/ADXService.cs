@@ -1,6 +1,6 @@
 ﻿namespace SapAct.Services;
 
-public class ADXService (IAzureDataExplorerClient adxClient, LockService lockService) : VersionedSchemaBaseService(lockService)
+public class ADXService (IAzureDataExplorerClient adxClient, ILockService lockService) : VersionedSchemaBaseService(lockService)
 {
 	public async Task IngestMessage(JsonElement payload, CancellationToken cancellationToken)
 	{

@@ -3,5 +3,6 @@
 public enum TargetStorageEnum
 {
 	ADX,
-	LogAnalytics
+	LogAnalytics,
+	SQL
 }

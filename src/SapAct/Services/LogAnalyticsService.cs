@@ -5,7 +5,7 @@ public class LogAnalyticsService(
     DefaultAzureCredential defaultAzureCredential, 
     IHttpClientFactory httpClientFactory, 
     LogsIngestionClient logsIngestionClient, 
-    LockService lockService)
+    ILockService lockService)
         : VersionedSchemaBaseService(lockService)
 {
     private readonly ConcurrentDictionary<string, string> _dcrMapping = new();
