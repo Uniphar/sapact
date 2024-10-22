@@ -2,12 +2,12 @@
 
 //TODO: consider splitting schema upsert and data sink into separate services for readability
 public class SQLService(IServiceProvider serviceProvider, ILockService lockService, ILogger<SQLService> logger) : VersionedSchemaBaseService(lockService)
-{	
+{
 
 	private SqlConnection sqlConnection { get; set; }
 	private SqlTransaction sqlTransaction { get; set; }
 
-	public async Task IngestMessageAsync(JsonElement payload, CancellationToken cancellationToken= default)
+	public async Task IngestMessageAsync(JsonElement payload, CancellationToken cancellationToken = default)
 	{
 		ExtractKeyMessageProperties(payload, out var objectKey, out var objectType, out var dataVersion);
 		if (!string.IsNullOrWhiteSpace(objectType) && !string.IsNullOrWhiteSpace(dataVersion) && !string.IsNullOrWhiteSpace(objectKey))
@@ -29,7 +29,7 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 			{
 				try
 				{
-					await SinkDataAsyncInner(payload, schemaDescriptor, rootKey);
+					await SinkDataAsyncInner(payload, schemaDescriptor, new KeyDescriptor { RootKey = rootKey });
 					await sqlTransaction.CommitAsync();
 				}
 				catch (Exception ex)
@@ -43,16 +43,15 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 		}
 	}
 
-	//TODO: refactor the whole rootkey, PK, FK handling
-	private async Task SinkDataAsyncInner(JsonElement element, SQLTableDescriptor schemaDescriptor, string rootKey, int? arrayIndex=null, string? foreignKey=null, CancellationToken cancellationToken=default)
+	private async Task SinkDataAsyncInner(JsonElement element, SQLTableDescriptor schemaDescriptor, KeyDescriptor keyDescriptor, CancellationToken cancellationToken = default)
 	{
 		if (schemaDescriptor.IsEmpty)
 			return;
 
-		var primaryKey = schemaDescriptor.Depth == 0 ? rootKey : $"{rootKey}_{schemaDescriptor.SqlTableName}";
-		if (arrayIndex.HasValue)
+		var primaryKey = schemaDescriptor.Depth == 0 ? keyDescriptor.RootKey : $"{keyDescriptor.RootKey}_{schemaDescriptor.SqlTableName}";
+		if (keyDescriptor.ArrayIndex.HasValue)
 		{
-			primaryKey = $"{primaryKey}_{arrayIndex.Value.ToString()}";
+			primaryKey = $"{primaryKey}_{keyDescriptor.ArrayIndex.Value.ToString()}";
 		}
 
 		if (element.ValueKind == JsonValueKind.Array)
@@ -60,17 +59,17 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 			int arrayIndexCurrent = 0;
 			foreach (var arrayElement in element.EnumerateArray())
 			{
-				await SinkDataAsyncInner(arrayElement, schemaDescriptor, rootKey, arrayIndexCurrent, foreignKey: foreignKey);
+				await SinkDataAsyncInner(arrayElement, schemaDescriptor, keyDescriptor);
 				arrayIndexCurrent++;
 			}
 		}
 		else if (element.ValueKind == JsonValueKind.Object)
 		{
-			
-			await SinkJsonObjectAsync(schemaDescriptor.SqlTableName, element, schemaDescriptor, primaryKey, foreignKey);
+
+			await SinkJsonObjectAsync(schemaDescriptor.SqlTableName, element, schemaDescriptor, new KeyDescriptor { RootKey = primaryKey, ForeignKey = keyDescriptor.ForeignKey });
 			foreach (var nonScalar in element.GetNonScalarProperties())
 			{
-				await SinkDataAsyncInner(nonScalar.Value, schemaDescriptor.GetChildTableDescriptor(nonScalar.Name), rootKey, arrayIndex, foreignKey: primaryKey);
+				await SinkDataAsyncInner(nonScalar.Value, schemaDescriptor.GetChildTableDescriptor(nonScalar.Name), new KeyDescriptor { RootKey = keyDescriptor.RootKey, ArrayIndex = keyDescriptor.ArrayIndex, ForeignKey = primaryKey });
 			}
 		}
 		else
@@ -79,7 +78,7 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 		}
 	}
 
-	private async Task SinkJsonObjectAsync(string tableName, JsonElement payload, SQLTableDescriptor schemaDescriptor, string primaryKey, string? foreignKey, CancellationToken cancellationToken=default)
+	private async Task SinkJsonObjectAsync(string tableName, JsonElement payload, SQLTableDescriptor schemaDescriptor, KeyDescriptor keyDescriptor, CancellationToken cancellationToken = default)
 	{
 		//get fields
 		List<(string columnName, string value)> columns = [];
@@ -89,17 +88,17 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 			columns.Add(new(column.Name, column.Value.ToString()));
 		}
 
-		if (schemaDescriptor.Depth>0)
+		if (schemaDescriptor.Depth > 0)
 		{
-			columns.Add(("PK", primaryKey));
+			columns.Add(("PK", keyDescriptor.RootKey));
 		}
 
-		if (!string.IsNullOrWhiteSpace(foreignKey))
+		if (!string.IsNullOrWhiteSpace(keyDescriptor.ForeignKey))
 		{
-			columns.Add(("FK", foreignKey));
+			columns.Add(("FK", keyDescriptor.ForeignKey));
 		}
 
-		var sqlText = EmitTableInsertStatement(tableName, columns, schemaDescriptor.Depth>0 ? "PK" : Consts.MessageObjectKeyPropertyName);
+		var sqlText = EmitTableInsertStatement(tableName, columns, schemaDescriptor.Depth > 0 ? "PK" : Consts.MessageObjectKeyPropertyName);
 		SqlCommand sqlCommand = new(sqlText, sqlConnection, sqlTransaction);
 		await sqlCommand.ExecuteNonQueryAsync();
 
@@ -117,7 +116,7 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 
 		StringBuilder insertColumnNamesSB = new();
 		StringBuilder insertColumnValuesSB = new();
-		
+
 		string pkColumnValue = columns.FirstOrDefault(x => x.columnName == pkColumnName).value;
 
 		foreach (var (columnName, value) in columns)
@@ -129,7 +128,7 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 			}
 
 			insertColumnNamesSB.Append($"{columnName}");
-			insertColumnValuesSB.Append(!string.IsNullOrWhiteSpace(value)? $"'{value}'" : "NULL");
+			insertColumnValuesSB.Append(!string.IsNullOrWhiteSpace(value) ? $"'{value}'" : "NULL");
 
 			addComma = true;
 		}
@@ -138,8 +137,8 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 		insertSB.Append(')');
 		insertSB.AppendLine(" SELECT ");
 		insertSB.Append(insertColumnValuesSB);
-		
-		insertSB.Append($" WHERE NOT EXISTS (SELECT {pkColumnName} FROM {tableName} where { pkColumnName}='{pkColumnValue}')");
+
+		insertSB.Append($" WHERE NOT EXISTS (SELECT {pkColumnName} FROM {tableName} where {pkColumnName}='{pkColumnValue}')");
 
 		return insertSB.ToString();
 	}
@@ -163,7 +162,7 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 		}
 		catch (Exception ex)
 		{
-			logger.LogError(ex, "Error upserting SQL structures"); 
+			logger.LogError(ex, "Error upserting SQL structures");
 
 			transaction.Rollback();
 			throw;
@@ -172,8 +171,8 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 		transaction = null;
 	}
 
-	private async Task UpsertSQLTableAsync(SQLTableDescriptor schemaDescriptor, SqlConnection connection, SqlTransaction transaction, SQLTableDescriptor? parent=null, int depth=0)
-	{		
+	private async Task UpsertSQLTableAsync(SQLTableDescriptor schemaDescriptor, SqlConnection connection, SqlTransaction transaction, SQLTableDescriptor? parent = null, int depth = 0)
+	{
 		if (schemaDescriptor.IsEmpty)
 			return;
 
@@ -205,7 +204,7 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 
 	private string EmitTableCreateCommand(string tableName, SQLTableDescriptor schemaDescriptor, SQLTableDescriptor? parent)
 	{
-		StringBuilder tableUpsertSqlSB = new();	
+		StringBuilder tableUpsertSqlSB = new();
 
 		tableUpsertSqlSB.AppendLine($"CREATE TABLE {tableName} (");
 		//root has implied PK - ObjectKey		
@@ -224,7 +223,7 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 			ArgumentNullException.ThrowIfNull(parent);
 
 			if (addComma)
-				tableUpsertSqlSB.Append(',');		
+				tableUpsertSqlSB.Append(',');
 
 			tableUpsertSqlSB.AppendLine($"FK NVARCHAR(255) FOREIGN KEY REFERENCES {parent.SqlTableName}({(depth == 1 ? Consts.MessageObjectKeyPropertyName : "PK")})");
 			addComma = true;
@@ -232,7 +231,7 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 		foreach (var column in schemaDescriptor.Columns)
 		{
 			if (addComma)
-				tableUpsertSqlSB.Append(',');			
+				tableUpsertSqlSB.Append(',');
 
 			tableUpsertSqlSB.AppendLine($"{column.ColumnName} {column.SQLDataType} {(depth == 0 && Consts.MessageObjectKeyPropertyName == column.ColumnName ? "NOT NULL PRIMARY KEY" : "")}");
 			addComma = true;
@@ -248,7 +247,7 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 		StringBuilder tableUpdateSB = new();
 
 		List<string> addedColumns = schemaDescriptor.Columns.Select(x => x.ColumnName).Except(columns).ToList(); //find added columns - only additive schema changes are applied
-					
+
 		if (addedColumns.Count == 0)
 			return string.Empty;
 
@@ -291,7 +290,7 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 		var rootTable = tableName;
 		Dictionary<string, int> tableNamingCtx = []; //TODO: load this from schema table eventually - mapping between JSON Path and SQL Table name
 
-		var schema =  GenerateSchemaDescriptorInner(tableName, item, 0);
+		var schema = GenerateSchemaDescriptorInner(tableName, item, 0);
 
 		AugmentSchema(schema, "$");
 
@@ -302,7 +301,7 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 			schema.SqlTableName = GetSQLTableName(parentPrefix);
 			foreach (var child in schema.ChildTables)
 			{
-				var  childPrefix = $"{parentPrefix}.{child.TableName}";
+				var childPrefix = $"{parentPrefix}.{child.TableName}";
 				AugmentSchema(child, childPrefix, schema);
 			}
 		}
@@ -310,25 +309,25 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 
 		string GetSQLTableName(string jsonPath)
 		{
-			if ("$"==jsonPath)
+			if ("$" == jsonPath)
 				return rootTable;
 
 			if (!tableNamingCtx.TryGetValue(jsonPath, out int index))
 			{
-				index = tableNamingCtx.Count;		
+				index = tableNamingCtx.Count;
 
 				tableNamingCtx.Add(jsonPath, index);
 			}
 
 			string value = $"{rootTable}{index}";
-		
+
 			return value;
 		}
 
 		SQLTableDescriptor GenerateSchemaDescriptorInner(string tableName, JsonElement item, int depth)
-		{			
-			
-			var schemaDescriptor = new SQLTableDescriptor() { TableName = tableName, Depth=depth };
+		{
+
+			var schemaDescriptor = new SQLTableDescriptor() { TableName = tableName, Depth = depth };
 
 			if (item.ValueKind == JsonValueKind.Array)
 			{
@@ -351,7 +350,7 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 				{
 					if (child.Value.ValueKind == JsonValueKind.Object || child.Value.ValueKind == JsonValueKind.Array)
 					{
-						ProcessJSONObject(schemaDescriptor, child.Name, child.Value, item.ValueKind, depth+1);
+						ProcessJSONObject(schemaDescriptor, child.Name, child.Value, item.ValueKind, depth + 1);
 					}
 					else
 					{
@@ -364,7 +363,7 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 				throw new InvalidOperationException("Unexpected JSON structure - only objects and arrays are expected to be processed");
 			}
 
-			return schemaDescriptor;			
+			return schemaDescriptor;
 		}
 
 		void ProcessJSONObject(SQLTableDescriptor currentLevel, string tableName, JsonElement element, JsonValueKind jsonValueKind, int depth)
@@ -390,7 +389,7 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 
 			}
 		}
-	}	
+	}
 
 	private void MergeTableDescriptors(SQLTableDescriptor currentLevel, SQLTableDescriptor levelDesc)
 	{
@@ -414,5 +413,12 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 				currentLevel.ChildTables.Add(child);
 			}
 		}
+	}
+
+	private record KeyDescriptor
+	{
+		public required string RootKey { get; set; }
+		public string? ForeignKey { get; set; } = null;
+		public int? ArrayIndex { get; set; }
 	}
 }
