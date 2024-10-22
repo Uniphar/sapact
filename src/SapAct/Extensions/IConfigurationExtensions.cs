@@ -17,7 +17,8 @@ public static class IConfigurationExtensions
 				ConnectionString = section[Consts.ServiceBusConnectionStringConfigKey]!,
 				TopicName = section[Consts.ServiceBusTopicNameConfigKey]!,
 				ADXSinkDisabled = section.GetADXSinkDisabled(),
-				LASinkDisabled = section.GetLASinkDisabled()
+				LASinkDisabled = section.GetLASinkDisabled(),
+				SQLSinkDisabled = section.GetSQLSinkDisabled()
 			});
 		}
 		return topics;

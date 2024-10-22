@@ -7,9 +7,11 @@ builder.Services.AddSingleton(credential);
 
 builder.Services.AddApplicationInsightsTelemetryWorkerService(options => options.EnableAdaptiveSampling = false);
 
-builder.Services.AddSingleton<LockService>();
+builder.Services.AddSingleton<ILockService, LockService>();
 builder.Services.AddSingleton<LogAnalyticsService>();
 builder.Services.AddSingleton<ADXService>();
+builder.Services.AddSingleton<SQLService>();
+
 builder.Services.AddSingleton<ResourceInitializerService>();
 
 builder.Services.AddHttpClient();

@@ -12,6 +12,11 @@ public static class IConfigurationSectionExtensions
 		return section.GetBoolConfig(Consts.ServiceBusTopicLASinkDisabledConfigKey);
 	}
 
+	public static bool GetSQLSinkDisabled(this IConfigurationSection section)
+	{
+		return section.GetBoolConfig(Consts.ServiceBusTopicSQLSinkDisabledConfigKey);
+	}
+
 	public static bool GetBoolConfig(this IConfigurationSection section, string configKey)
 	{
 		string? value = section[configKey];

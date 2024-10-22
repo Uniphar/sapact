@@ -9,6 +9,7 @@ public static class Consts
 	public const string ServiceBusTopicNameConfigKey = "Name";
 	public const string ServiceBusTopicADXSinkDisabledConfigKey = "ADXSinkDisabled";
 	public const string ServiceBusTopicLASinkDisabledConfigKey = "LASinkDisabled";
+	public const string ServiceBusTopicSQLSinkDisabledConfigKey = "SQLSinkDisabled";
 
 	public const string ServiceBusTopicSubscriptionNamePrefixConfigKey = "SapAct:ServiceBus:TopicSubscriptionNamePrefix";
 
