@@ -13,7 +13,7 @@ public class ADXService (IAzureDataExplorerClient adxClient, ILockService lockSe
 			var schemaCheck = await CheckObjectTypeSchemaAsync(objectType!, dataVersion!, TargetStorageEnum.ADX);
 			if (schemaCheck == SchemaCheckResultState.Older || schemaCheck == SchemaCheckResultState.Unknown)
 			{
-				bool updateNeccessary = true;
+				bool updateNecessary = true;
 				do
 				{
 					(var lockState, string? leaseId) = await ObtainLockAsync(objectType!, dataVersion!, TargetStorageEnum.ADX);
@@ -25,15 +25,15 @@ public class ADXService (IAzureDataExplorerClient adxClient, ILockService lockSe
 						UpdateObjectTypeSchema(objectType!, dataVersion!);
 						await ReleaseLockAsync(objectType!, dataVersion!, TargetStorageEnum.ADX, leaseId!);
 
-						updateNeccessary = false;
+						updateNecessary = false;
 					}
 					else if (lockState == LockState.Available)
 					{
 						//schema was updated by another instance but let's check against persistent storage
 						var status = await CheckObjectTypeSchemaAsync(objectType!, dataVersion!, TargetStorageEnum.ADX);
-						updateNeccessary = status != SchemaCheckResultState.Current;
+						updateNecessary = status != SchemaCheckResultState.Current;
 					}
-				} while (updateNeccessary);
+				} while (updateNecessary);
 
 			}
 			

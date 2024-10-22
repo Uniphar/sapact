@@ -20,7 +20,7 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 			var schemaCheck = await CheckObjectTypeSchemaAsync(objectType!, dataVersion!, TargetStorageEnum.SQL);
 			if (schemaCheck == SchemaCheckResultState.Older || schemaCheck == SchemaCheckResultState.Unknown)
 			{
-				bool updateNeccessary = true;
+				bool updateNecessary = true;
 
 				do
 				{
@@ -34,15 +34,15 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 						UpdateObjectTypeSchema(objectType!, dataVersion!);
 						await ReleaseLockAsync(objectType!, dataVersion!, TargetStorageEnum.SQL, leaseId!);
 
-						updateNeccessary = false;
+						updateNecessary = false;
 					}
 					else if (lockState == LockState.Available)
 					{
 						//schema was updated by another instance but let's check against persistent storage
 						var status = await CheckObjectTypeSchemaAsync(objectType!, dataVersion!, TargetStorageEnum.SQL);
-						updateNeccessary = status != SchemaCheckResultState.Current;
+						updateNecessary = status != SchemaCheckResultState.Current;
 					}
-				} while (updateNeccessary);
+				} while (updateNecessary);
 
 			}
 
