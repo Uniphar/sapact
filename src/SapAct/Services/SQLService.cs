@@ -176,12 +176,6 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 		return insertSB.ToString();
 	}
 
-	public async Task ProjectSchemaFlowAsync(string tableName, JsonElement item, CancellationToken cancellationToken = default)
-	{
-		var schemaDescriptor = GenerateSchemaDescriptor(tableName, item);
-		await UpsertSQLStructuresAsync(schemaDescriptor, cancellationToken);
-	}
-
 	private async Task UpsertSQLStructuresAsync(SQLTableDescriptor schemaDescriptor, CancellationToken cancellationToken)
 	{
 		using var connection = serviceProvider.GetRequiredService<SqlConnection>();
