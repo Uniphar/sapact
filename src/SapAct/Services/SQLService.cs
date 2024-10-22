@@ -1,6 +1,4 @@
-﻿using System.Net.Sockets;
-
-namespace SapAct.Services;
+﻿namespace SapAct.Services;
 
 //TODO: consider splitting schema upsert and data sink into separate services for readability
 public class SQLService(IServiceProvider serviceProvider, ILockService lockService, ILogger<SQLService> logger) : VersionedSchemaBaseService(lockService)
@@ -14,63 +12,59 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 		ExtractKeyMessageProperties(payload, out var objectKey, out var objectType, out var dataVersion);
 		if (!string.IsNullOrWhiteSpace(objectType) && !string.IsNullOrWhiteSpace(dataVersion) && !string.IsNullOrWhiteSpace(objectKey))
 		{
-			var schemaDescriptor = GenerateSchemaDescriptor(objectType, payload);
-
-			//schema check
-			var schemaCheck = await CheckObjectTypeSchemaAsync(objectType!, dataVersion!, TargetStorageEnum.SQL);
-			if (schemaCheck == SchemaCheckResultState.Older || schemaCheck == SchemaCheckResultState.Unknown)
+			sqlConnection = serviceProvider.GetRequiredService<SqlConnection>();
+			using (sqlConnection)
 			{
-				bool updateNecessary = true;
-
-				do
+				sqlConnection.Open();
+				sqlTransaction = sqlConnection.BeginTransaction();
+				using (sqlTransaction)
 				{
-					(var lockState, string? leaseId) = await ObtainLockAsync(objectType!, dataVersion!, TargetStorageEnum.SQL);
-					if (lockState == LockState.LockObtained)
-					{
-						List<ColumnDefinition> columnsList = payload.GenerateColumnList(TargetStorageEnum.SQL);
+					try
+					{						
+						//schema check
+						var schemaCheck = await CheckObjectTypeSchemaAsync(objectType!, dataVersion!, TargetStorageEnum.SQL);
+						
+						var schemaDescriptor = await GenerateSchemaDescriptorAsync(objectType, payload);
 
-						await UpsertSQLStructuresAsync(schemaDescriptor, cancellationToken);
+						if (schemaCheck == SchemaCheckResultState.Older || schemaCheck == SchemaCheckResultState.Unknown)
+						{
+							bool updateNecessary = true;
 
-						UpdateObjectTypeSchema(objectType!, dataVersion!);
-						await ReleaseLockAsync(objectType!, dataVersion!, TargetStorageEnum.SQL, leaseId!);
+							do
+							{
+								(var lockState, string? leaseId) = await ObtainLockAsync(objectType!, dataVersion!, TargetStorageEnum.SQL);
+								if (lockState == LockState.LockObtained)
+								{
+									List<ColumnDefinition> columnsList = payload.GenerateColumnList(TargetStorageEnum.SQL);
 
-						updateNecessary = false;
+									await UpsertSQLStructuresAsync(schemaDescriptor, cancellationToken);
+									
+									UpdateObjectTypeSchema(objectType!, dataVersion!);
+
+									await ReleaseLockAsync(objectType!, dataVersion!, TargetStorageEnum.SQL, leaseId!);
+
+									updateNecessary = false;
+								}
+								else if (lockState == LockState.Available)
+								{
+									//schema was updated by another instance but let's check against persistent storage
+									var status = await CheckObjectTypeSchemaAsync(objectType!, dataVersion!, TargetStorageEnum.SQL);
+									updateNecessary = status != SchemaCheckResultState.Current;
+								}
+							} while (updateNecessary);
+						}
+
+
+						await SinkDataAsyncInner(payload, schemaDescriptor, new KeyDescriptor { RootKey = objectKey });
+						await sqlTransaction.CommitAsync();
 					}
-					else if (lockState == LockState.Available)
+					catch (Exception ex)
 					{
-						//schema was updated by another instance but let's check against persistent storage
-						var status = await CheckObjectTypeSchemaAsync(objectType!, dataVersion!, TargetStorageEnum.SQL);
-						updateNecessary = status != SchemaCheckResultState.Current;
+						logger.LogError(ex, "Error upserting SQL structures");
+
+						sqlTransaction.Rollback();
+						throw;
 					}
-				} while (updateNecessary);
-
-			}
-
-			
-			await SinkDataAsync(payload, schemaDescriptor, objectKey);
-		}
-	}
-
-	private async Task SinkDataAsync(JsonElement payload, SQLTableDescriptor schemaDescriptor, string rootKey)
-	{
-		sqlConnection = serviceProvider.GetRequiredService<SqlConnection>();
-		using (sqlConnection)
-		{
-			sqlConnection.Open();
-			sqlTransaction = sqlConnection.BeginTransaction();
-			using (sqlTransaction)
-			{
-				try
-				{
-					await SinkDataAsyncInner(payload, schemaDescriptor, new KeyDescriptor { RootKey = rootKey });
-					await sqlTransaction.CommitAsync();
-				}
-				catch (Exception ex)
-				{
-					logger.LogError(ex, "Error upserting SQL structures");
-
-					sqlTransaction.Rollback();
-					throw;
 				}
 			}
 		}
@@ -312,15 +306,22 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 		return (exists, columnList);
 	}
 
-	public SQLTableDescriptor GenerateSchemaDescriptor(string tableName, JsonElement item)
+	public async Task<SQLTableDescriptor> GenerateSchemaDescriptorAsync(string tableName, JsonElement item)
 	{
 		var rootTable = tableName;
-		Dictionary<string, int> tableNamingCtx = []; //TODO: load this from schema table eventually - mapping between JSON Path and SQL Table name
+		Dictionary<string, int> tableNamingCtx = [];
+		bool tableNamingCtxChanged = false;
+		
+		await PrefillSchemaTableAsync(rootTable, sqlConnection, sqlTransaction);
 
 		var schema = GenerateSchemaDescriptorInner(tableName, item, 0);
 
 		AugmentSchema(schema, "$");
 
+		if (tableNamingCtxChanged)
+		{
+			await UpdateSchemaTableAsync(tableName, sqlConnection, sqlTransaction);
+		}
 		return schema;
 
 		void AugmentSchema(SQLTableDescriptor schema, string parentPrefix, SQLTableDescriptor? parentSchema = null)
@@ -333,6 +334,44 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 			}
 		}
 
+		async Task PrefillSchemaTableAsync(string rootCtx, SqlConnection sqlConnection, SqlTransaction sqlTransaction)
+		{
+			string schemaTableName = $"{rootCtx}_SchemaTable";
+			(bool exists, var _) = await CheckTableExistsAsync(schemaTableName, sqlConnection, sqlTransaction);
+			if (exists)
+			{
+				var sqlCommand = new SqlCommand($"SELECT * FROM {schemaTableName}", sqlConnection, sqlTransaction);
+				var res = sqlCommand.ExecuteReader();
+
+				while (res.Read())
+				{
+					tableNamingCtx.Add(res.GetString(0), res.GetInt32(1));
+				}
+
+				res.Close();
+			}
+			else
+			{
+				await CreateSchemaTableAsync(schemaTableName, sqlConnection, sqlTransaction);
+			}
+		}
+
+		async Task CreateSchemaTableAsync(string tableName, SqlConnection sqlConnection, SqlTransaction sqlTransaction)
+		{
+			var sqlCommand = new SqlCommand($"CREATE TABLE {tableName} (Path NVARCHAR(255) PRIMARY KEY, TableIndex INT)", sqlConnection, sqlTransaction);
+			await sqlCommand.ExecuteNonQueryAsync();
+		}
+
+		async Task UpdateSchemaTableAsync(string rootCtx, SqlConnection sqlConnection, SqlTransaction sqlTransaction)
+		{
+			string schemaTableName = $"{rootCtx}_SchemaTable";
+
+			foreach (var item in tableNamingCtx)
+			{
+				var sqlCommand = new SqlCommand($"INSERT INTO {schemaTableName} (Path, TableIndex) SELECT '{item.Key}', {item.Value} WHERE NOT EXISTS(SELECT Path from {schemaTableName} WHERE Path='{item.Key}')", sqlConnection, sqlTransaction);
+				await sqlCommand.ExecuteNonQueryAsync();
+			}
+		}
 
 		string GetSQLTableName(string jsonPath)
 		{
@@ -342,7 +381,7 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 			if (!tableNamingCtx.TryGetValue(jsonPath, out int index))
 			{
 				index = tableNamingCtx.Count;
-
+				tableNamingCtxChanged = true;
 				tableNamingCtx.Add(jsonPath, index);
 			}
 
