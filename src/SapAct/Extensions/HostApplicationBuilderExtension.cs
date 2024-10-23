@@ -28,22 +28,22 @@ public static class HostApplicationBuilderExtension
 
 			//see https://github.com/dotnet/runtime/issues/38751
 
-			//if (!serviceBusTopic.ADXSinkDisabled)
-			//{
-			//	builder.Services.AddSingleton<IHostedService, ADXWorker>((sp) =>
-			//	{
-			//		return new ADXWorker(name, serviceBusTopic, sp.GetRequiredService<IAzureClientFactory<ServiceBusClient>>(), sp.GetRequiredService<IAzureClientFactory<ServiceBusAdministrationClient>>(), sp.GetRequiredService<ADXService>(), sp.GetRequiredService<ILogger<ADXWorker>>(), sp.GetRequiredService<TelemetryClient>(), builder.Configuration);
-			//	});
-			//}
+			if (!serviceBusTopic.ADXSinkDisabled)
+			{
+				builder.Services.AddSingleton<IHostedService, ADXWorker>((sp) =>
+				{
+					return new ADXWorker(name, serviceBusTopic, sp.GetRequiredService<IAzureClientFactory<ServiceBusClient>>(), sp.GetRequiredService<IAzureClientFactory<ServiceBusAdministrationClient>>(), sp.GetRequiredService<ADXService>(), sp.GetRequiredService<ILogger<ADXWorker>>(), sp.GetRequiredService<TelemetryClient>(), builder.Configuration);
+				});
+			}
 
-			//if (!serviceBusTopic.LASinkDisabled)
-			//{
+			if (!serviceBusTopic.LASinkDisabled)
+			{
 
-			//	builder.Services.AddSingleton<IHostedService, LogAnalyticsWorker>((sp) =>
-			//	{
-			//		return new LogAnalyticsWorker(name, serviceBusTopic, sp.GetRequiredService<IAzureClientFactory<ServiceBusClient>>(), sp.GetRequiredService<IAzureClientFactory<ServiceBusAdministrationClient>>(), sp.GetRequiredService<LogAnalyticsService>(), sp.GetRequiredService<ILogger<LogAnalyticsWorker>>(), sp.GetRequiredService<TelemetryClient>(), builder.Configuration);
-			//	});
-			//}
+				builder.Services.AddSingleton<IHostedService, LogAnalyticsWorker>((sp) =>
+				{
+					return new LogAnalyticsWorker(name, serviceBusTopic, sp.GetRequiredService<IAzureClientFactory<ServiceBusClient>>(), sp.GetRequiredService<IAzureClientFactory<ServiceBusAdministrationClient>>(), sp.GetRequiredService<LogAnalyticsService>(), sp.GetRequiredService<ILogger<LogAnalyticsWorker>>(), sp.GetRequiredService<TelemetryClient>(), builder.Configuration);
+				});
+			}
 
 			if (!serviceBusTopic.SQLSinkDisabled)
 			{
