@@ -104,6 +104,10 @@ jobs:
         with: 
           inlineScript: |
            Import-Module .\devops-azure\src\Uniphar.DevOps.psd1 -ErrorAction Stop -Force
+
+           Install-Module -Name SqlServer -Force
+           Import-Module SqlServer
+
            . ./devops/Initialize-SapAct.ps1
 
             Initialize-SapAct ${{inputs.environment}}
