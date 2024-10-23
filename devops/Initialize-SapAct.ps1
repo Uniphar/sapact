@@ -32,7 +32,6 @@ Initializes SapAct in the dev environment.
     $devopsClusterIdentityName = Resolve-UniComputeDomainSAName $Environment $p_devopsDomain
     $cluserIdentity = Get-AzADServicePrincipal -DisplayName $devopsClusterIdentityName
     $clusterIdentityObjectId = $cluserIdentity| Select-Object -ExpandProperty Id
-    $clusterIdentityAppId = $cluserIdentity| Select-Object -ExpandProperty AppId
 
     $githubActionsDevIdentityObjectId = Get-AzADServicePrincipal -DisplayName $adapp_GithubActionsDev | Select-Object -ExpandProperty Id
     $devopsAppKeyVault = Resolve-UniResourceName 'keyvault' "$p_devopsDomain-app" -Dev:$Dev -Environment $Environment
@@ -106,22 +105,22 @@ Initializes SapAct in the dev environment.
 
         $deploymentName = Resolve-DeploymentName
 
-        # New-AzResourceGroupDeployment -Mode Incremental `
-        #                               -Name $deploymentName `
-        #                               -ResourceGroupName $devopsDomainRgName `
-        #                               -TemplateFile $sapactTemplateFile `
-        #                               -adxClusterName $adxClusterName `
-        #                               -adxDatabase $adxDatabase `
-        #                               -appKeyVaultName $devopsAppKeyVault `
-        #                               -dawnSB $dawnSB `
-        #                               -devopsSBNamespace $devopsServiceBusName `
-        #                               -dceName $dceEndpointName `
-        #                               -logAnalytics $logAnalyticsDef `
-        #                               -storageAccountName $devopsStorageAccountName `
-        #                               -environment $Environment `
-        #                               -actionGroupDevOpsLowId $actionGroupDevOpsLowId.Id `
-        #                               -sqlDatabase $sqlDatabase `
-        #                               -Verbose:($PSCmdlet.MyInvocation.BoundParameters["Verbose"].IsPresent -eq $true)
+        New-AzResourceGroupDeployment -Mode Incremental `
+                                      -Name $deploymentName `
+                                      -ResourceGroupName $devopsDomainRgName `
+                                      -TemplateFile $sapactTemplateFile `
+                                      -adxClusterName $adxClusterName `
+                                      -adxDatabase $adxDatabase `
+                                      -appKeyVaultName $devopsAppKeyVault `
+                                      -dawnSB $dawnSB `
+                                      -devopsSBNamespace $devopsServiceBusName `
+                                      -dceName $dceEndpointName `
+                                      -logAnalytics $logAnalyticsDef `
+                                      -storageAccountName $devopsStorageAccountName `
+                                      -environment $Environment `
+                                      -actionGroupDevOpsLowId $actionGroupDevOpsLowId.Id `
+                                      -sqlDatabase $sqlDatabase `
+                                      -Verbose:($PSCmdlet.MyInvocation.BoundParameters["Verbose"].IsPresent -eq $true)
   
   
         New-SqlDatabaseADUser -ServerName $sqlDatabase.server.name `
