@@ -62,5 +62,10 @@ public class ConfigurationValidator :AbstractValidator<IConfiguration>
 			.NotEmpty()
 			.WithMessage("ADX Cluster Host Url is missing in configuration");
 
+		RuleFor(configuration => configuration.GetSQLConnectionString())
+			.NotNull()
+			.NotEmpty()
+			.WithMessage("SQL Connection String is missing in configuration");
+
 	}
 }

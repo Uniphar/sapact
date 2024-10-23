@@ -8,6 +8,7 @@ param logAnalytics object
 param storageAccountName string
 param environment string
 param actionGroupDevOpsLowId string
+param sqlDatabase object
 
 param location string = resourceGroup().location
 
@@ -20,7 +21,7 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2021-04-01' existing 
   name: storageAccountName
 }
 
-resource database 'Microsoft.Kusto/clusters/databases@2023-08-15' = {
+resource adxDatabaseResource 'Microsoft.Kusto/clusters/databases@2023-08-15' = {
   parent: adxCluster
   name: adxDatabase.name
   location: location
@@ -105,7 +106,7 @@ resource ADXDatabaseSecret 'Microsoft.KeyVault/vaults/secrets@2024-04-01-preview
   name: 'SapAct--Adx--Database'
   parent: DevopsAppKeyVault
   properties: {
-    value: database.name
+    value: adxDatabaseResource.name
   }
 }
 
@@ -167,3 +168,13 @@ module alerts 'sapact.alerts.module.bicep' = {
     sbTopicNames:['sap-events'] 
   }
 }
+
+module sqlDataBaseResource 'sapact.db.module.bicep' = {
+  name: 'db'
+  scope: resourceGroup(sqlDatabase.resourceGroup.name)
+  params: {
+    Database: sqlDatabase
+  }
+}
+
+

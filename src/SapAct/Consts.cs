@@ -23,6 +23,8 @@ public static class Consts
 	public const string ADXClusterHostUrlConfigKey = "SapAct:Adx:HostUrl";
 	public const string ADXClusterDBConfigKey = "SapAct:Adx:Database";
 
+	public const string SQLConnectionStringConfigKey = "SapAct:SQL:ConnectionString";
+
 	public const string LockServiceBlobConnectionStringConfigKey = "SapAct:LockService:BlobConnectionString";
 	public const string LockServiceBlobContainerNameConfigKey = "SapAct:LockService:BlobContainerName";
 
