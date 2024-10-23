@@ -86,7 +86,7 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 			int arrayIndexCurrent = 0;
 			foreach (var arrayElement in element.EnumerateArray())
 			{
-				await SinkDataAsyncInner(arrayElement, schemaDescriptor, keyDescriptor);
+				await SinkDataAsyncInner(arrayElement, schemaDescriptor, new KeyDescriptor { RootKey = keyDescriptor.RootKey, ForeignKey = keyDescriptor.ForeignKey, ArrayIndex = arrayIndexCurrent });
 				arrayIndexCurrent++;
 			}
 		}
@@ -312,7 +312,7 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 		Dictionary<string, int> tableNamingCtx = [];
 		bool tableNamingCtxChanged = false;
 		
-		await PrefillSchemaTableAsync(rootTable, sqlConnection, sqlTransaction);
+		await PrefillSchemaTableAsync(rootTable, sqlConnection, sqlTransaction); //TODO: consider caching
 
 		var schema = GenerateSchemaDescriptorInner(tableName, item, 0);
 
