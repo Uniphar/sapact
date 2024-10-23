@@ -4,8 +4,8 @@
 public class SQLService(IServiceProvider serviceProvider, ILockService lockService, ILogger<SQLService> logger) : VersionedSchemaBaseService(lockService)
 {
 
-	private SqlConnection sqlConnection { get; set; }
-	private SqlTransaction sqlTransaction { get; set; }
+	private SqlConnection? sqlConnection { get; set; }
+	private SqlTransaction? sqlTransaction { get; set; }
 
 	public async Task IngestMessageAsync(JsonElement payload, CancellationToken cancellationToken = default)
 	{
@@ -312,7 +312,7 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 		Dictionary<string, int> tableNamingCtx = [];
 		bool tableNamingCtxChanged = false;
 		
-		await PrefillSchemaTableAsync(rootTable, sqlConnection, sqlTransaction); //TODO: consider caching
+		await PrefillSchemaTableAsync(rootTable, sqlConnection!, sqlTransaction!); //TODO: consider caching
 
 		var schema = GenerateSchemaDescriptorInner(tableName, item, 0);
 
@@ -320,7 +320,7 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 
 		if (tableNamingCtxChanged)
 		{
-			await UpdateSchemaTableAsync(tableName, sqlConnection, sqlTransaction);
+			await UpdateSchemaTableAsync(tableName, sqlConnection!, sqlTransaction!);
 		}
 		return schema;
 
