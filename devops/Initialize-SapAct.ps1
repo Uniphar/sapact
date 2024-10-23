@@ -75,28 +75,17 @@ Initializes SapAct in the dev environment.
             }
 
     $rgDatabase = az group show --name (Resolve-UniResourceName 'resource-group' $global:p_dataSql -Environment $Environment) | ConvertFrom-Json
-    $replicaRGDatabase = az group show --name (Resolve-UniResourceName 'resource-group' $global:p_dataSql -Environment $Environment -Region 'we') | ConvertFrom-Json
         
     $sqlDatabase = @{
         resourceGroup = @{
             name = $rgDatabase.name
             location = $rgDatabase.location
-        }
-        replicaResourceGroup = @{
-            name = $replicaRGDatabase.name
-            location = $replicaRGDatabase.location
-        }
+        }      
         name = Resolve-UniResourceName 'sql-server-database' $p_sapactProjectName -Environment $Environment
         server = @{
             name = Resolve-UniResourceName 'sql-server' $global:p_dataSql -Environment $Environment
             elasticPool = @{
                 name = Resolve-UniResourceName 'sql-elastic-pool' $global:p_dataSql -Environment $Environment
-            }
-        }
-        replicaServer = @{
-            name = Resolve-UniResourceName 'sql-server' $global:p_dataSql -Environment $Environment -Region "we"
-            elasticPool = @{
-                name = Resolve-UniResourceName 'sql-elastic-pool' $global:p_dataSql -Environment $Environment -Region "we"
             }
         }
     } 
