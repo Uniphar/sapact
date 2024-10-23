@@ -55,7 +55,7 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 						}
 
 
-						await SinkDataAsyncInner(payload, schemaDescriptor, new KeyDescriptor { RootKey = objectKey });
+						await SinkDataAsyncInner(payload, schemaDescriptor, new KeyDescriptor { RootKey = objectKey, ForeignKey = string.Empty });
 						await sqlTransaction.CommitAsync();
 					}
 					catch (Exception ex)
@@ -75,10 +75,10 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 		if (schemaDescriptor.IsEmpty)
 			return;
 
-		var primaryKey = schemaDescriptor.Depth == 0 ? keyDescriptor.RootKey : $"{keyDescriptor.RootKey}_{schemaDescriptor.SqlTableName}";
+		var primaryKey = schemaDescriptor.Depth == 0 ? keyDescriptor.RootKey : keyDescriptor.ForeignKey;
 		if (keyDescriptor.ArrayIndex.HasValue)
 		{
-			primaryKey = $"{primaryKey}_{keyDescriptor.ArrayIndex.Value.ToString()}";
+			primaryKey = $"{primaryKey}_{keyDescriptor.ArrayIndex.Value}";
 		}
 
 		if (element.ValueKind == JsonValueKind.Array)
@@ -484,7 +484,7 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 	private record KeyDescriptor
 	{
 		public required string RootKey { get; set; }
-		public string? ForeignKey { get; set; } = null;
+		public required string ForeignKey { get; set; }
 		public int? ArrayIndex { get; set; }
 	}
 }
