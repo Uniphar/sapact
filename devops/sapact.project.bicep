@@ -9,6 +9,7 @@ param storageAccountName string
 param environment string
 param actionGroupDevOpsLowId string
 param sqlDatabase object
+param workloadIdentityClientId string
 
 param location string = resourceGroup().location
 
@@ -174,6 +175,15 @@ module sqlDataBaseResource 'sapact.db.module.bicep' = {
   scope: resourceGroup(sqlDatabase.resourceGroup.name)
   params: {
     Database: sqlDatabase
+    workloadIdentityClientId: workloadIdentityClientId
+  }
+}
+
+resource sqlConnectionStringSecret 'Microsoft.KeyVault/vaults/secrets@2024-04-01-preview' = {
+  name: 'SapAct--SQL--ConnectionString'
+  parent: DevopsAppKeyVault
+  properties: {
+    value: sqlDataBaseResource.outputs.connectionString
   }
 }
 

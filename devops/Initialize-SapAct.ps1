@@ -32,6 +32,7 @@ Initializes SapAct in the dev environment.
     $devopsClusterIdentityName = Resolve-UniComputeDomainSAName $Environment $p_devopsDomain
     $cluserIdentity = Get-AzADServicePrincipal -DisplayName $devopsClusterIdentityName
     $clusterIdentityObjectId = $cluserIdentity| Select-Object -ExpandProperty Id
+    $clusterIdentityClientId = $cluserIdentity| Select-Object -ExpandProperty AppId
 
     $githubActionsDevIdentityObjectId = Get-AzADServicePrincipal -DisplayName $adapp_GithubActionsDev | Select-Object -ExpandProperty Id
     $devopsAppKeyVault = Resolve-UniResourceName 'keyvault' "$p_devopsDomain-app" -Dev:$Dev -Environment $Environment
@@ -109,6 +110,7 @@ Initializes SapAct in the dev environment.
                                       -environment $Environment `
                                       -actionGroupDevOpsLowId $actionGroupDevOpsLowId.Id `
                                       -sqlDatabase $sqlDatabase `
+                                      -workloadIdentityClientId $clusterIdentityClientId `
                                       -Verbose:($PSCmdlet.MyInvocation.BoundParameters["Verbose"].IsPresent -eq $true)
   
   
@@ -133,6 +135,7 @@ Initializes SapAct in the dev environment.
                                                      -environment $Environment `
                                                      -actionGroupDevOpsLowId $actionGroupDevOpsLowId.Id `
                                                      -sqlDatabase $sqlDatabase `
+                                                     -workloadIdentityClientId $clusterIdentityClientId `
                                                      -Verbose:($PSCmdlet.MyInvocation.BoundParameters["Verbose"].IsPresent -eq $true)
 
         if ($TestResult) {
