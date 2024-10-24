@@ -5,7 +5,7 @@ public class LogAnalyticsService(
     DefaultAzureCredential defaultAzureCredential, 
     IHttpClientFactory httpClientFactory, 
     LogsIngestionClient logsIngestionClient, 
-    LockService lockService)
+    ILockService lockService)
         : VersionedSchemaBaseService(lockService)
 {
     private readonly ConcurrentDictionary<string, string> _dcrMapping = new();
@@ -151,6 +151,10 @@ public class LogAnalyticsService(
 
 			//send to log analytics
 			await SinkToLogAnalytics(objectType, dcrId!, payload);
+		}
+		else
+		{
+			throw new InvalidOperationException("Invalid message format");
 		}
 	}
 

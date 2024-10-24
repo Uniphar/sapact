@@ -8,7 +8,7 @@ public static class HostApplicationBuilderExtension
 
 		foreach (var serviceBusTopic in serviceBusTopics)
 		{
-			if (serviceBusTopic.ADXSinkDisabled && serviceBusTopic.LASinkDisabled)
+			if (serviceBusTopic.ADXSinkDisabled && serviceBusTopic.LASinkDisabled && serviceBusTopic.SQLSinkDisabled)
 			{
 				continue;
 			}
@@ -32,7 +32,7 @@ public static class HostApplicationBuilderExtension
 			{
 				builder.Services.AddSingleton<IHostedService, ADXWorker>((sp) =>
 				{
-					return new ADXWorker(name, serviceBusTopic, sp.GetRequiredService<IAzureClientFactory<ServiceBusClient>>(), sp.GetRequiredService<IAzureClientFactory<ServiceBusAdministrationClient>>(), sp.GetRequiredService<ADXService>(), sp.GetRequiredService<ILogger<ADXWorker>>(), sp.GetRequiredService<TelemetryClient>(),  builder.Configuration);
+					return new ADXWorker(name, serviceBusTopic, sp.GetRequiredService<IAzureClientFactory<ServiceBusClient>>(), sp.GetRequiredService<IAzureClientFactory<ServiceBusAdministrationClient>>(), sp.GetRequiredService<ADXService>(), sp.GetRequiredService<ILogger<ADXWorker>>(), sp.GetRequiredService<TelemetryClient>(), builder.Configuration);
 				});
 			}
 
@@ -42,6 +42,15 @@ public static class HostApplicationBuilderExtension
 				builder.Services.AddSingleton<IHostedService, LogAnalyticsWorker>((sp) =>
 				{
 					return new LogAnalyticsWorker(name, serviceBusTopic, sp.GetRequiredService<IAzureClientFactory<ServiceBusClient>>(), sp.GetRequiredService<IAzureClientFactory<ServiceBusAdministrationClient>>(), sp.GetRequiredService<LogAnalyticsService>(), sp.GetRequiredService<ILogger<LogAnalyticsWorker>>(), sp.GetRequiredService<TelemetryClient>(), builder.Configuration);
+				});
+			}
+
+			if (!serviceBusTopic.SQLSinkDisabled)
+			{
+
+				builder.Services.AddSingleton<IHostedService, SQLWorker>((sp) =>
+				{
+					return new SQLWorker(name, serviceBusTopic, sp.GetRequiredService<IAzureClientFactory<ServiceBusClient>>(), sp.GetRequiredService<IAzureClientFactory<ServiceBusAdministrationClient>>(), sp.GetRequiredService<SQLService>(), sp.GetRequiredService<ILogger<SQLWorker>>(), sp.GetRequiredService<TelemetryClient>(), builder.Configuration);
 				});
 			}
 		}

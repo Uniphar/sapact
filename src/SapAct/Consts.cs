@@ -9,6 +9,7 @@ public static class Consts
 	public const string ServiceBusTopicNameConfigKey = "Name";
 	public const string ServiceBusTopicADXSinkDisabledConfigKey = "ADXSinkDisabled";
 	public const string ServiceBusTopicLASinkDisabledConfigKey = "LASinkDisabled";
+	public const string ServiceBusTopicSQLSinkDisabledConfigKey = "SQLSinkDisabled";
 
 	public const string ServiceBusTopicSubscriptionNamePrefixConfigKey = "SapAct:ServiceBus:TopicSubscriptionNamePrefix";
 
@@ -22,6 +23,8 @@ public static class Consts
 	public const string ADXClusterHostUrlConfigKey = "SapAct:Adx:HostUrl";
 	public const string ADXClusterDBConfigKey = "SapAct:Adx:Database";
 
+	public const string SQLConnectionStringConfigKey = "SapAct:SQL:ConnectionString";
+
 	public const string LockServiceBlobConnectionStringConfigKey = "SapAct:LockService:BlobConnectionString";
 	public const string LockServiceBlobContainerNameConfigKey = "SapAct:LockService:BlobContainerName";
 
@@ -32,4 +35,8 @@ public static class Consts
 	public const string TelemetrySinkTypeDimensionName = "SinkType";
 	public const string TelemetryMessageIdDimensionName = "MessageId";
 	public const string TelemetryWorkerNameDimensionName = "WorkerName";
+
+	public const string MessageObjectKeyPropertyName = "objectKey";
+	public const string MessageObjectTypePropertyName = "objectType";
+	public const string MessageDataVersionPropertyName = "dataVersion";
 }
