@@ -38,7 +38,7 @@ builder.Services.AddSingleton(KustoIngestFactory.CreateDirectIngestClient(KustoC
 builder.Services.AddSingleton(KustoIngestFactory.CreateQueuedIngestClient(KustoConnectionStringBuilder));
 builder.Services.AddSingleton<IAzureDataExplorerClient, AzureDataExplorerClient>();
 builder.Services.AddTransient((sp)=> new SqlConnection(builder.Configuration.GetSQLConnectionString()));
-builder.Services.AddSingleton<SQLService>();
+builder.Services.AddTransient<SQLService>(); //per topic as it is stateless - (connection, transaction)
 
 builder.Services.AddSingleton(new LogAnalyticsServiceConfiguration {
 	SubscriptionId = builder.Configuration.GetLogAnalyticsSubscriptionId()!,

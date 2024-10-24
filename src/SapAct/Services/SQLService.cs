@@ -3,7 +3,7 @@
 //TODO: consider splitting schema upsert and data sink into separate services for readability
 public class SQLService(IServiceProvider serviceProvider, ILockService lockService, ILogger<SQLService> logger) : VersionedSchemaBaseService(lockService)
 {
-
+	//TODO: consider creating add hoc and passing along call chain
 	private SqlConnection? sqlConnection { get; set; }
 	private SqlTransaction? sqlTransaction { get; set; }
 
