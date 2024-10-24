@@ -312,7 +312,7 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 		Dictionary<string, int> tableNamingCtx = [];
 		bool tableNamingCtxChanged = false;
 		
-		await PrefillSchemaTableAsync(rootTable, sqlConnection!, sqlTransaction!); //TODO: consider caching
+		await PrefillSchemaTableAsync(rootTable, sqlConnection!, sqlTransaction!); //TODO: consider caching based on schema version check
 
 		var schema = GenerateSchemaDescriptorInner(tableName, item, 0);
 
