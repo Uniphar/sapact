@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
@@ -18,8 +18,6 @@
     <PackageReference Include="MSTest.TestAdapter" Version="*" />
     <PackageReference Include="MSTest.TestFramework" Version="*" />
     <PackageReference Include="Azure.Messaging.ServiceBus" Version="*" />
-    <PackageReference Include="System.Formats.Asn1" Version="*" />
-    <PackageReference Include="System.Text.Json" Version="*" />
     <PackageReference Include="microsoft.extensions.logging.abstractions" Version="8.*" />
 
   </ItemGroup>

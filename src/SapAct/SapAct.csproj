@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
@@ -22,8 +22,8 @@
     <PackageReference Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets" Version="*" />
     <PackageReference Include="Microsoft.ApplicationInsights.WorkerService" Version="*" />
     <PackageReference Include="Microsoft.Data.SqlClient" Version="*" />
-    <PackageReference Include="System.Formats.Asn1" Version="*" />
-    <PackageReference Include="System.Text.Json" Version="*" />
+    <PackageReference Include="System.Formats.Asn1" Version="8.*" />
+    <PackageReference Include="System.Text.Json" Version="8.*" />
   </ItemGroup>
 
   <ItemGroup>
