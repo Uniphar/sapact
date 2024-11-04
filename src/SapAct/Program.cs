@@ -18,6 +18,8 @@ builder.Services.AddHttpClient();
 
 builder.Configuration.AddAzureKeyVault(new(configKVUrl), credential);
 
+builder.Configuration.AddEnvironmentVariables(); //potentially overwrite KV (even for local dev)
+
 builder.Configuration.CheckConfiguration();
 
 builder.SetupWorkers();
