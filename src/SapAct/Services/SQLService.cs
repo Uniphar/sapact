@@ -188,8 +188,6 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 			transaction.Rollback();
 			throw;
 		}
-
-		transaction = null;
 	}
 
 	private async Task UpsertSQLTableAsync(SQLTableDescriptor schemaDescriptor, SqlConnection connection, SqlTransaction transaction, SQLTableDescriptor? parent = null, int depth = 0)
@@ -272,16 +270,11 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 		if (addedColumns.Count == 0)
 			return string.Empty;
 
-		bool addComma = false;
-		tableUpdateSB.AppendLine($"ALTER TABLE {tableName} ADD");
-		foreach (var column in addedColumns)
-		{
-			if (addComma)
-				tableUpdateSB.Append(',');
+		
+		tableUpdateSB.AppendLine($"ALTER TABLE {tableName} ADD");		
 
-			tableUpdateSB.AppendLine($"{column} NVARCHAR(255) NULL");
-			addComma = true;
-		}
+		var columnString = string.Join(',', addedColumns.Select(x => $"{x} NVARCHAR(255) NULL"));
+		tableUpdateSB.Append(columnString);
 
 		return tableUpdateSB.ToString();
 	}

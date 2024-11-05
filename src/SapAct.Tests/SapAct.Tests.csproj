@@ -18,7 +18,7 @@
     <PackageReference Include="MSTest.TestAdapter" Version="*" />
     <PackageReference Include="MSTest.TestFramework" Version="*" />
     <PackageReference Include="Azure.Messaging.ServiceBus" Version="*" />
-    <PackageReference Include="microsoft.extensions.logging.abstractions" Version="8.*" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.*" />
 
   </ItemGroup>
 
