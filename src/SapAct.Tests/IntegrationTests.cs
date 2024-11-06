@@ -71,7 +71,6 @@ public class IntegrationTests
 		//arrange
 		await DropSQLTable("SapActIntTests");
 		await DropSQLTable("SapActIntTests_SchemaTable");
-		await DropSQLTable("SapActIntTests0");
 
 		await DropADXTableAsync();
 
@@ -118,7 +117,6 @@ public class IntegrationTests
 		//arrange
 		await DropSQLTable("SapActIntTests");
 		await DropSQLTable("SapActIntTests_SchemaTable");
-		await DropSQLTable("SapActIntTests0");
 
 		await DropADXTableAsync();
 
