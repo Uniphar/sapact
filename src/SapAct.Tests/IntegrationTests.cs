@@ -1,10 +1,4 @@
-﻿using Azure.Messaging.ServiceBus.Administration;
-using Microsoft.Azure.Amqp.Framing;
-using SapAct.Workers;
-using System.Data;
-using System.Threading;
-
-namespace SapAct.Tests;
+﻿namespace SapAct.Tests;
 
 [TestClass, TestCategory("Integration")]
 public class IntegrationTests
