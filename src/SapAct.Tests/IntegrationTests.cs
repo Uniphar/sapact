@@ -10,6 +10,7 @@ public class IntegrationTests
 	private static ICslAdminProvider? _adxAdminProvider;
 	private static LogsQueryClient? _logsQueryClient;
 	private static IConfiguration? _config;
+	private static SqlConnection? _sqlConnection;
 
 	private static string _databaseName = "devops";
 
@@ -20,6 +21,7 @@ public class IntegrationTests
 	private bool schemaCheckPassed = false;
 	private bool adxIngestCheckPassed = false;
 	private bool laIngestCheckPassed = false;
+	private bool sqlIngestCheckPassed = false;
 
 	[ClassInitialize]
 	public static async Task ClassInitialize(TestContext context)
@@ -29,9 +31,10 @@ public class IntegrationTests
 		var azureKeyVaultName = Environment.GetEnvironmentVariable(Consts.KEYVAULT_CONFIG_URL);
 
 		DefaultAzureCredential credential = new();
-		
+
 		_config = new ConfigurationBuilder()
-			.AddAzureKeyVault(new(azureKeyVaultName), credential)
+			.AddAzureKeyVault(new(azureKeyVaultName!), credential)
+			.AddEnvironmentVariables()
 			.Build();
 
 		var intTestTopicConfig = _config.GetIntTestsServiceBusConfig();
@@ -52,15 +55,22 @@ public class IntegrationTests
 		_adxAdminProvider = KustoClientFactory.CreateCslAdminProvider(kcsb);
 
 		_logsQueryClient = new LogsQueryClient(credential);
-	}	
+
+		_sqlConnection = new SqlConnection(_config.GetSQLConnectionString());
+		_sqlConnection.Open();
+	}
 
 	[TestMethod]
 	public async Task E2EMessageIngestionTest()
 	{
 		//arrange
+		await DropSQLTable("SapActIntTests");
+		await DropSQLTable("SapActIntTests_SchemaTable");
+		await DropSQLTable("SapActIntTests0");
+
 		await DropADXTableAsync();
 
-		string version  = DateTime.UtcNow.ToString("yyyyMMddHHmmss");
+		string version = DateTime.UtcNow.ToString("yyyyMMddHHmmss");
 		string extendedVersion = $"{version}Ext";
 
 		var objectKey = Guid.NewGuid().ToString();
@@ -80,13 +90,14 @@ public class IntegrationTests
 		timer.Elapsed += (s, e) => timerFired = true;
 		timer.Start();
 
-		
+
 		//assert
 
 		while (
 			!await CheckSchemasProjected(extendedVersion, _cancellationToken)
 			|| !await CheckADXDataIngest(objectKey, extendedObjectKey, _cancellationToken)
 			|| !await CheckLADataIngest(objectKey, extendedObjectKey, _cancellationToken)
+			|| !await CheckSQLDataIngest(objectKey, extendedObjectKey, _cancellationToken)
 			)
 		{
 			if (timerFired)
@@ -96,39 +107,58 @@ public class IntegrationTests
 		}
 	}
 
-	private async Task<bool> CheckSchemasProjected(string version, CancellationToken cancellationToken=default)
+	private async Task<bool> CheckSchemasProjected(string version, CancellationToken cancellationToken = default)
 	{
 		if (schemaCheckPassed)
 			return true;
 
 		try
 		{
-			var adxBlobProps = await _blobContainerClient!.GetBlobClient(LockService.GetBlobName(ObjectType, Models.TargetStorageEnum.ADX)).GetPropertiesAsync(cancellationToken: cancellationToken);
-			var laBlobProps = await _blobContainerClient!.GetBlobClient(LockService.GetBlobName(ObjectType, Models.TargetStorageEnum.LogAnalytics)).GetPropertiesAsync(cancellationToken: cancellationToken);
+			var adxBlobProps = await _blobContainerClient!.GetBlobClient(LockService.GetBlobName(ObjectType, TargetStorageEnum.ADX)).GetPropertiesAsync(cancellationToken: cancellationToken);
+			var laBlobProps = await _blobContainerClient!.GetBlobClient(LockService.GetBlobName(ObjectType, TargetStorageEnum.LogAnalytics)).GetPropertiesAsync(cancellationToken: cancellationToken);
+			var sqlBlobProps = await _blobContainerClient!.GetBlobClient(LockService.GetBlobName(ObjectType, TargetStorageEnum.SQL)).GetPropertiesAsync(cancellationToken: cancellationToken);
 
-			if (adxBlobProps.Value.Metadata.Count != 1)
+			if (adxBlobProps.Value.Metadata.Count != 1 || laBlobProps.Value.Metadata.Count != 1 || sqlBlobProps.Value.Metadata.Count != 1)
 			{
 				return false;
 			}
 
-			if (laBlobProps.Value.Metadata.Count != 1)
-			{
-				return false;
-			}
-
-			var schemaCheckPassed =   
-				adxBlobProps.Value.Metadata[Consts.SyncedSchemaVersionLockBlobMetadataKey] == version
-				&&
-				laBlobProps.Value.Metadata[Consts.SyncedSchemaVersionLockBlobMetadataKey] == version;
+			var schemaCheckPassed =
+				adxBlobProps.Value.Metadata[Consts.SyncedSchemaVersionLockBlobMetadataKey] == version &&
+				laBlobProps.Value.Metadata[Consts.SyncedSchemaVersionLockBlobMetadataKey] == version &&
+				sqlBlobProps.Value.Metadata[Consts.SyncedSchemaVersionLockBlobMetadataKey] == version;
 
 			return schemaCheckPassed;
 
-			
+
 		}
-		catch (RequestFailedException ex) when (ex.Status == 404) 
+		catch (RequestFailedException ex) when (ex.Status == 404)
 		{
 			return false;
 		}
+	}
+
+	private async Task<bool> CheckSQLDataIngest(string objectKey, string extendedObjectKey, CancellationToken cancellationToken = default)
+	{
+		if (sqlIngestCheckPassed)
+			return true;
+
+		using var sqlCommand = new SqlCommand($"SELECT * FROM SapActIntTests WHERE objectKey in ('{objectKey}', '{extendedObjectKey}')", _sqlConnection);
+		using var reader = await sqlCommand.ExecuteReaderAsync(cancellationToken);
+
+		int rowCount = 0;
+
+		while (reader.Read())
+		{
+			rowCount++;
+		}
+
+		if (rowCount != 2)
+			return false;
+
+		sqlIngestCheckPassed = true;
+
+		return true;
 	}
 
 	private async Task<bool> CheckADXDataIngest(string objectKey, string extendedObjectKey, CancellationToken cancellationToken = default)
@@ -175,7 +205,7 @@ public class IntegrationTests
 			laIngestCheckPassed = true;
 
 			return true;
-		}		
+		}
 	}
 
 	private async Task DropADXTableAsync()
@@ -185,6 +215,19 @@ public class IntegrationTests
 			await _adxAdminProvider!.ExecuteControlCommandAsync(_databaseName, $".drop table {ObjectType}", null);
 		}
 		catch (EntityNotFoundException)
+		{
+			//ignore
+		}
+	}
+
+	private async Task DropSQLTable(string tableName)
+	{
+		try
+		{
+			using var sqlCommand = new SqlCommand($"DROP TABLE {tableName}", _sqlConnection);
+			await sqlCommand.ExecuteNonQueryAsync(_cancellationToken);
+		}
+		catch (SqlException ex) when (ex.Number == 3701)
 		{
 			//ignore
 		}

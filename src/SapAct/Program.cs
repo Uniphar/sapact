@@ -7,14 +7,18 @@ builder.Services.AddSingleton(credential);
 
 builder.Services.AddApplicationInsightsTelemetryWorkerService(options => options.EnableAdaptiveSampling = false);
 
-builder.Services.AddSingleton<LockService>();
+builder.Services.AddSingleton<ILockService, LockService>();
 builder.Services.AddSingleton<LogAnalyticsService>();
 builder.Services.AddSingleton<ADXService>();
+builder.Services.AddSingleton<SQLService>();
+
 builder.Services.AddSingleton<ResourceInitializerService>();
 
 builder.Services.AddHttpClient();
 
 builder.Configuration.AddAzureKeyVault(new(configKVUrl), credential);
+
+builder.Configuration.AddEnvironmentVariables(); //potentially overwrite KV (even for local dev)
 
 builder.Configuration.CheckConfiguration();
 
@@ -24,7 +28,6 @@ builder.Services.AddAzureClients((clientBuilder) =>
 {
 	clientBuilder.AddLogsIngestionClient(new Uri(builder.Configuration.GetLogAnalyticsIngestionUrl()!));
 	clientBuilder.AddBlobServiceClient(new Uri(builder.Configuration.GetLockServiceBlobConnectionString()!));
-
 	clientBuilder.UseCredential(credential);
 });
 
@@ -36,6 +39,8 @@ builder.Services.AddSingleton(KustoClientFactory.CreateCslAdminProvider(KustoCon
 builder.Services.AddSingleton(KustoIngestFactory.CreateDirectIngestClient(KustoConnectionStringBuilder));
 builder.Services.AddSingleton(KustoIngestFactory.CreateQueuedIngestClient(KustoConnectionStringBuilder));
 builder.Services.AddSingleton<IAzureDataExplorerClient, AzureDataExplorerClient>();
+builder.Services.AddTransient((sp)=> new SqlConnection(builder.Configuration.GetSQLConnectionString()));
+builder.Services.AddTransient<SQLService>(); //per topic as it is stateless - (connection, transaction)
 
 builder.Services.AddSingleton(new LogAnalyticsServiceConfiguration {
 	SubscriptionId = builder.Configuration.GetLogAnalyticsSubscriptionId()!,

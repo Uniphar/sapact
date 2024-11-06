@@ -1,6 +1,6 @@
 ﻿namespace SapAct.Services;
 
-public abstract class VersionedSchemaBaseService(LockService lockService)
+public abstract class VersionedSchemaBaseService(ILockService lockService)
 {
 	private readonly ConcurrentDictionary<string, string> _tableVersionMapping = new();
 
@@ -48,9 +48,9 @@ public abstract class VersionedSchemaBaseService(LockService lockService)
 
 	protected static void ExtractKeyMessageProperties(JsonElement payload, out string? objectKey, out string? objectType, out string? dataVersion)
 	{
-		objectKey = payload.GetProperty("objectKey").GetString();
-		objectType = payload.GetProperty("objectType").GetString();
-		dataVersion = payload.GetProperty("dataVersion").GetString();
+		objectKey = payload.GetProperty(Consts.MessageObjectKeyPropertyName).GetString();
+		objectType = payload.GetProperty(Consts.MessageObjectTypePropertyName).GetString();
+		dataVersion = payload.GetProperty(Consts.MessageDataVersionPropertyName).GetString();
 	}
 
 	protected void UpdateObjectTypeSchema(string objectType, string version)

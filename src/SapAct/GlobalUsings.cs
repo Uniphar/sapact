@@ -30,6 +30,7 @@ global using SapAct.Services;
 global using SapAct.Workers;
 global using System.Collections.Concurrent;
 global using System.Data;
+global using Microsoft.Data.SqlClient;
 global using System.Net;
 global using System.Net.Http.Headers;
 global using System.Text;

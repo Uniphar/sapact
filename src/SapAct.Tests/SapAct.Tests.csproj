@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
@@ -14,11 +14,11 @@
     <PackageReference Include="coverlet.collector" Version="*" />
     <PackageReference Include="FluentAssertions" Version="*" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="*" />
+    <PackageReference Include="Moq" Version="*" />
     <PackageReference Include="MSTest.TestAdapter" Version="*" />
     <PackageReference Include="MSTest.TestFramework" Version="*" />
     <PackageReference Include="Azure.Messaging.ServiceBus" Version="*" />
-    <PackageReference Include="System.Formats.Asn1" Version="8.*" />
-    <PackageReference Include="System.Text.Json" Version="8.*" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.*" />
 
   </ItemGroup>
 

@@ -30,7 +30,10 @@ Initializes SapAct in the dev environment.
     $devopsDomainRgName = Resolve-UniResourceName 'resource-group' $p_devopsDomain -Environment $Environment
     $dawnDomainRgName = Resolve-UniResourceName 'resource-group' $p_dawnDomain -Environment $Environment
     $devopsClusterIdentityName = Resolve-UniComputeDomainSAName $Environment $p_devopsDomain
-    $clusterIdentityObjectId = Get-AzADServicePrincipal -DisplayName $devopsClusterIdentityName | Select-Object -ExpandProperty Id
+    $cluserIdentity = Get-AzADServicePrincipal -DisplayName $devopsClusterIdentityName
+    $clusterIdentityObjectId = $cluserIdentity| Select-Object -ExpandProperty Id
+    $clusterIdentityClientId = $cluserIdentity| Select-Object -ExpandProperty AppId
+
     $githubActionsDevIdentityObjectId = Get-AzADServicePrincipal -DisplayName $adapp_GithubActionsDev | Select-Object -ExpandProperty Id
     $devopsAppKeyVault = Resolve-UniResourceName 'keyvault' "$p_devopsDomain-app" -Dev:$Dev -Environment $Environment
     $dawnServiceBusName = Resolve-UniResourceName 'service-bus' $p_dawnDomain -Environment $Environment
@@ -72,6 +75,22 @@ Initializes SapAct in the dev environment.
                 )
             }
 
+    $rgDatabase = az group show --name (Resolve-UniResourceName 'resource-group' $global:p_dataSql -Environment $Environment) | ConvertFrom-Json
+        
+    $sqlDatabase = @{
+        resourceGroup = @{
+            name = $rgDatabase.name
+            location = $rgDatabase.location
+        }      
+        name = Resolve-UniResourceName 'sql-server-database' $p_sapactProjectName -Environment $Environment
+        server = @{
+            name = Resolve-UniResourceName 'sql-server' $global:p_dataSql -Environment $Environment
+            elasticPool = @{
+                name = Resolve-UniResourceName 'sql-elastic-pool' $global:p_dataSql -Environment $Environment
+            }
+        }
+    } 
+
     if ($PSCmdlet.ShouldProcess('SapAct', 'Deploy')) {
 
         $deploymentName = Resolve-DeploymentName
@@ -90,8 +109,17 @@ Initializes SapAct in the dev environment.
                                       -storageAccountName $devopsStorageAccountName `
                                       -environment $Environment `
                                       -actionGroupDevOpsLowId $actionGroupDevOpsLowId.Id `
+                                      -sqlDatabase $sqlDatabase `
+                                      -workloadIdentityClientId $clusterIdentityClientId `
                                       -Verbose:($PSCmdlet.MyInvocation.BoundParameters["Verbose"].IsPresent -eq $true)
-    }
+  
+  
+        New-SqlDatabaseADUser -ServerName $sqlDatabase.server.name `
+                              -DatabaseName $sqlDatabase.name `
+                              -UserName $devopsClusterIdentityName `
+                              -Roles @("db_datareader", "db_datawriter", "db_ddladmin") `
+                              -Verbose:$PSCmdlet.MyInvocation.BoundParameters['Verbose'].IsPresent
+}
     else {
         $TestResult = Test-AzResourceGroupDeployment -Mode Incremental `
                                                      -ResourceGroupName $devopsDomainRgName `
@@ -106,6 +134,8 @@ Initializes SapAct in the dev environment.
                                                      -storageAccountName $devopsStorageAccountName `
                                                      -environment $Environment `
                                                      -actionGroupDevOpsLowId $actionGroupDevOpsLowId.Id `
+                                                     -sqlDatabase $sqlDatabase `
+                                                     -workloadIdentityClientId $clusterIdentityClientId `
                                                      -Verbose:($PSCmdlet.MyInvocation.BoundParameters["Verbose"].IsPresent -eq $true)
 
         if ($TestResult) {

@@ -17,7 +17,8 @@ public static class IConfigurationExtensions
 				ConnectionString = section[Consts.ServiceBusConnectionStringConfigKey]!,
 				TopicName = section[Consts.ServiceBusTopicNameConfigKey]!,
 				ADXSinkDisabled = section.GetADXSinkDisabled(),
-				LASinkDisabled = section.GetLASinkDisabled()
+				LASinkDisabled = section.GetLASinkDisabled(),
+				SQLSinkDisabled = section.GetSQLSinkDisabled()
 			});
 		}
 		return topics;
@@ -43,4 +44,6 @@ public static class IConfigurationExtensions
 	public static string? GetLockServiceBlobConnectionString(this IConfiguration configuration) => configuration[Consts.LockServiceBlobConnectionStringConfigKey];
 
 	public static string GetLockServiceBlobContainerNameOrDefault(this IConfiguration configuration) => configuration[Consts.LockServiceBlobContainerNameConfigKey] ?? "sapact";
+
+	public static string? GetSQLConnectionString(this IConfiguration configuration) => configuration[Consts.SQLConnectionStringConfigKey];
 }
