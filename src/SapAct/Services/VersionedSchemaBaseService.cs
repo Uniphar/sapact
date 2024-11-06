@@ -46,11 +46,26 @@ public abstract class VersionedSchemaBaseService(ILockService lockService)
 		return schemaCompareResult;
 	}
 
-	protected static void ExtractKeyMessageProperties(JsonElement payload, out string? objectKey, out string? objectType, out string? dataVersion)
+	protected static RootMessageProperties ExtractKeyMessageProperties(JsonElement payload)
 	{
-		objectKey = payload.GetProperty(Consts.MessageObjectKeyPropertyName).GetString();
-		objectType = payload.GetProperty(Consts.MessageObjectTypePropertyName).GetString();
-		dataVersion = payload.GetProperty(Consts.MessageDataVersionPropertyName).GetString();
+		var objectKey = payload.GetProperty(Consts.MessageObjectKeyPropertyName).GetString();
+		var objectType = payload.GetProperty(Consts.MessageObjectTypePropertyName).GetString();
+		var dataVersion = payload.GetProperty(Consts.MessageDataVersionPropertyName).GetString();
+		
+		var eventTypePropertyExists = payload.TryGetProperty(Consts.MessageEventTypePropertyName, out var eventTypeProperty);
+		var eventType = eventTypePropertyExists ? eventTypeProperty.GetString() : null;
+
+		ArgumentException.ThrowIfNullOrWhiteSpace(objectKey);
+		ArgumentException.ThrowIfNullOrWhiteSpace(objectType);
+		ArgumentException.ThrowIfNullOrWhiteSpace(dataVersion);
+
+		return new RootMessageProperties
+		{
+			objectKey = objectKey,
+			objectType = objectType,
+			dataVersion = dataVersion,
+			eventType = eventType
+		};	
 	}
 
 	protected void UpdateObjectTypeSchema(string objectType, string version)

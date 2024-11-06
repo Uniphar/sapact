@@ -39,4 +39,7 @@ public static class Consts
 	public const string MessageObjectKeyPropertyName = "objectKey";
 	public const string MessageObjectTypePropertyName = "objectType";
 	public const string MessageDataVersionPropertyName = "dataVersion";
+	public const string MessageEventTypePropertyName = "eventType";
+
+	public const string DeltaEventType = "ChangeDelta";
 }

@@ -9,62 +9,62 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 
 	public async Task IngestMessageAsync(JsonElement payload, CancellationToken cancellationToken = default)
 	{
-		ExtractKeyMessageProperties(payload, out var objectKey, out var objectType, out var dataVersion);
-		if (!string.IsNullOrWhiteSpace(objectType) && !string.IsNullOrWhiteSpace(dataVersion) && !string.IsNullOrWhiteSpace(objectKey))
+		var messageProperties = ExtractKeyMessageProperties(payload);
+		if (Consts.DeltaEventType == messageProperties.eventType)
+			return;
+
+		sqlConnection = serviceProvider.GetRequiredService<SqlConnection>();
+		using (sqlConnection)
 		{
-			sqlConnection = serviceProvider.GetRequiredService<SqlConnection>();
-			using (sqlConnection)
+			sqlConnection.Open();
+			sqlTransaction = sqlConnection.BeginTransaction();
+			using (sqlTransaction)
 			{
-				sqlConnection.Open();
-				sqlTransaction = sqlConnection.BeginTransaction();
-				using (sqlTransaction)
-				{
-					try
-					{						
-						//schema check
-						var schemaCheck = await CheckObjectTypeSchemaAsync(objectType!, dataVersion!, TargetStorageEnum.SQL);
+				try
+				{						
+					//schema check
+					var schemaCheck = await CheckObjectTypeSchemaAsync(messageProperties.objectType, messageProperties.dataVersion, TargetStorageEnum.SQL);
 						
-						var schemaDescriptor = await GenerateSchemaDescriptorAsync(objectType, payload);
+					var schemaDescriptor = await GenerateSchemaDescriptorAsync(messageProperties.objectType, payload);
 
-						if (schemaCheck == SchemaCheckResultState.Older || schemaCheck == SchemaCheckResultState.Unknown)
-						{
-							bool updateNecessary = true;
-
-							do
-							{
-								(var lockState, string? leaseId) = await ObtainLockAsync(objectType!, dataVersion!, TargetStorageEnum.SQL);
-								if (lockState == LockState.LockObtained)
-								{
-									List<ColumnDefinition> columnsList = payload.GenerateColumnList(TargetStorageEnum.SQL);
-
-									await UpsertSQLStructuresAsync(schemaDescriptor, cancellationToken);
-									
-									UpdateObjectTypeSchema(objectType!, dataVersion!);
-
-									await ReleaseLockAsync(objectType!, dataVersion!, TargetStorageEnum.SQL, leaseId!);
-
-									updateNecessary = false;
-								}
-								else if (lockState == LockState.Available)
-								{
-									//schema was updated by another instance but let's check against persistent storage
-									var status = await CheckObjectTypeSchemaAsync(objectType!, dataVersion!, TargetStorageEnum.SQL);
-									updateNecessary = status != SchemaCheckResultState.Current;
-								}
-							} while (updateNecessary);
-						}
-
-
-						await SinkDataAsyncInner(payload, schemaDescriptor, new KeyDescriptor { RootKey = objectKey, ForeignKey = string.Empty });
-						await sqlTransaction.CommitAsync();
-					}
-					catch (Exception ex)
+					if (schemaCheck == SchemaCheckResultState.Older || schemaCheck == SchemaCheckResultState.Unknown)
 					{
-						logger.LogError(ex, "Error upserting SQL structures");
+						bool updateNecessary = true;
 
-						sqlTransaction.Rollback();
-						throw;
+						do
+						{
+							(var lockState, string? leaseId) = await ObtainLockAsync(messageProperties.objectType, messageProperties.dataVersion, TargetStorageEnum.SQL);
+							if (lockState == LockState.LockObtained)
+							{
+								List<ColumnDefinition> columnsList = payload.GenerateColumnList(TargetStorageEnum.SQL);
+
+								await UpsertSQLStructuresAsync(schemaDescriptor, cancellationToken);
+									
+								UpdateObjectTypeSchema(messageProperties.objectType, messageProperties.dataVersion);
+
+								await ReleaseLockAsync(messageProperties.objectType, messageProperties.dataVersion, TargetStorageEnum.SQL, leaseId!);
+
+								updateNecessary = false;
+							}
+							else if (lockState == LockState.Available)
+							{
+								//schema was updated by another instance but let's check against persistent storage
+								var status = await CheckObjectTypeSchemaAsync(messageProperties.objectType, messageProperties.dataVersion, TargetStorageEnum.SQL);
+								updateNecessary = status != SchemaCheckResultState.Current;
+							}
+						} while (updateNecessary);
 					}
+
+
+					await SinkDataAsyncInner(payload, schemaDescriptor, new KeyDescriptor { RootKey = messageProperties.objectKey, ForeignKey = string.Empty });
+					await sqlTransaction.CommitAsync();
+				}
+				catch (Exception ex)
+				{
+					logger.LogError(ex, "Error upserting SQL structures");
+
+					sqlTransaction.Rollback();
+					throw;
 				}
 			}
 		}
