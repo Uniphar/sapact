@@ -1,8 +1,16 @@
-﻿namespace SapAct.Tests;
+﻿using Azure.Messaging.ServiceBus.Administration;
+using Microsoft.Azure.Amqp.Framing;
+using SapAct.Workers;
+using System.Data;
+using System.Threading;
+
+namespace SapAct.Tests;
 
 [TestClass, TestCategory("Integration")]
 public class IntegrationTests
 {
+	private static ServiceBusTopicConfiguration? _messageBusConfiguration;
+	private static ServiceBusAdministrationClient? _messageBusAdminClient;
 	private static ServiceBusSender? _messageBusSender;
 	private static BlobServiceClient? _blobServiceClient;
 	private static BlobContainerClient? _blobContainerClient;
@@ -11,6 +19,7 @@ public class IntegrationTests
 	private static LogsQueryClient? _logsQueryClient;
 	private static IConfiguration? _config;
 	private static SqlConnection? _sqlConnection;
+	private static DefaultAzureCredential? _credential;
 
 	private static string _databaseName = "devops";
 
@@ -30,31 +39,33 @@ public class IntegrationTests
 
 		var azureKeyVaultName = Environment.GetEnvironmentVariable(Consts.KEYVAULT_CONFIG_URL);
 
-		DefaultAzureCredential credential = new();
+		_credential = new();
 
 		_config = new ConfigurationBuilder()
-			.AddAzureKeyVault(new(azureKeyVaultName!), credential)
+			.AddAzureKeyVault(new(azureKeyVaultName!), _credential)
 			.AddEnvironmentVariables()
 			.Build();
 
-		var intTestTopicConfig = _config.GetIntTestsServiceBusConfig();
+		_messageBusConfiguration = _config.GetIntTestsServiceBusConfig();
 
-		var sbClient = new ServiceBusClient(intTestTopicConfig.ConnectionString, credential);
+		var sbClient = new ServiceBusClient(_messageBusConfiguration.ConnectionString, _credential);
 
-		_messageBusSender = sbClient.CreateSender(intTestTopicConfig.TopicName);
+		_messageBusAdminClient = new(_messageBusConfiguration.ConnectionString, _credential);
 
-		_blobServiceClient = new(new Uri(_config[Consts.LockServiceBlobConnectionStringConfigKey]), credential);
+		_messageBusSender = sbClient.CreateSender(_messageBusConfiguration.TopicName);
+		
+		_blobServiceClient = new(new Uri(_config[Consts.LockServiceBlobConnectionStringConfigKey]), _credential);
 		_blobContainerClient = _blobServiceClient.GetBlobContainerClient(_config.GetLockServiceBlobContainerNameOrDefault());
 
 		_databaseName = _config.GetADXClusterDBNameOrDefault();
 
 		var kcsb = new KustoConnectionStringBuilder(_config[Consts.ADXClusterHostUrlConfigKey], _databaseName)
-		   .WithAadTokenProviderAuthentication(async () => (await credential.GetTokenAsync(new([Consts.KustoTokenScope]))).Token);
+		   .WithAadTokenProviderAuthentication(async () => (await _credential.GetTokenAsync(new([Consts.KustoTokenScope]))).Token);
 
 		_adxQueryProvider = KustoClientFactory.CreateCslQueryProvider(kcsb);
 		_adxAdminProvider = KustoClientFactory.CreateCslAdminProvider(kcsb);
 
-		_logsQueryClient = new LogsQueryClient(credential);
+		_logsQueryClient = new LogsQueryClient(_credential);
 
 		_sqlConnection = new SqlConnection(_config.GetSQLConnectionString());
 		_sqlConnection.Open();
@@ -107,6 +118,102 @@ public class IntegrationTests
 		}
 	}
 
+	[TestMethod]
+	public async Task DeltaChangeIngestionTest()
+	{
+		//arrange
+		await DropSQLTable("SapActIntTests");
+		await DropSQLTable("SapActIntTests_SchemaTable");
+		await DropSQLTable("SapActIntTests0");
+
+		await DropADXTableAsync();
+
+		string version = DateTime.UtcNow.ToString("yyyyMMddHHmmss");
+
+		var objectKey = Guid.NewGuid().ToString();
+		var deltaEventKey = Guid.NewGuid().ToString();
+
+		await PurgeDLQForServiceBusSubscriptionAsync(_config.GetTopicSubscriptionNameOrDefault<SQLWorker>());
+		await PurgeDLQForServiceBusSubscriptionAsync(_config.GetTopicSubscriptionNameOrDefault<ADXWorker>());
+		await PurgeDLQForServiceBusSubscriptionAsync(_config.GetTopicSubscriptionNameOrDefault<LogAnalyticsWorker>());
+
+		await _messageBusSender!.SendMessageAsync(new ServiceBusMessage(Encoding.UTF8.GetBytes(PayloadHelper.GetPayload(ObjectType, objectKey, version))));
+		await _messageBusSender!.SendMessageAsync(new ServiceBusMessage(Encoding.UTF8.GetBytes(PayloadHelper.GetPayload(ObjectType, deltaEventKey, version, deltaChangePayload: true))));
+
+		//act
+
+		bool timerFired = false;
+		System.Timers.Timer timer = new(TimeSpan.FromMinutes(20))
+		{
+			AutoReset = false
+		};
+
+		timer.Elapsed += (s, e) => timerFired = true;
+		timer.Start();
+
+
+		//assert
+
+		while (
+			!await CheckADXDataIngest(objectKey, cancellationToken: _cancellationToken)
+			|| !await CheckLADataIngest(objectKey, cancellationToken: _cancellationToken)
+			|| !await CheckSQLDataIngest(objectKey, cancellationToken: _cancellationToken)
+			)
+		{
+			if (timerFired)
+				throw new TimeoutException("IntegrationTests.E2EMessageIngestionTest timeout");
+
+			await Task.Delay(TimeSpan.FromSeconds(10));
+		}
+		
+		var postCheck = await CheckNoDLQMessagePresentForSubscriptionAsync(_config.GetTopicSubscriptionNameOrDefault<SQLWorker>())
+						&& await CheckNoDLQMessagePresentForSubscriptionAsync(_config.GetTopicSubscriptionNameOrDefault<ADXWorker>())
+						&& await CheckNoDLQMessagePresentForSubscriptionAsync(_config.GetTopicSubscriptionNameOrDefault<LogAnalyticsWorker>())
+						&& !await CheckLARecordPresent(deltaEventKey)
+						&& !await CheckSQLRecordPresent(deltaEventKey)
+						&& !await CheckADXRecordPresentAsync(deltaEventKey);
+
+	}
+
+	private async Task<bool> CheckNoDLQMessagePresentForSubscriptionAsync(string subscriptionName)
+	{
+		var dlqCount = await GetSubscriptionDLQCountAsync(subscriptionName);
+
+		return dlqCount == 0;
+	}
+
+
+	private async Task PurgeDLQForServiceBusSubscriptionAsync(string subscriptionName)
+	{
+		await using var client = new ServiceBusClient(_messageBusConfiguration.ConnectionString, _credential);
+		var receiver = client.CreateReceiver(_messageBusConfiguration.TopicName, subscriptionName, new ServiceBusReceiverOptions
+		{
+			SubQueue = SubQueue.DeadLetter
+		});
+
+		while (true)
+		{
+			var message = await receiver.ReceiveMessageAsync(TimeSpan.FromSeconds(1));
+			if (message == null)
+			{
+				break;
+			}
+
+			await receiver.CompleteMessageAsync(message);
+			Console.WriteLine($"Message with ID {message.MessageId} has been purged.");
+		}
+
+		await receiver.CloseAsync();
+	}
+
+	private async Task<long> GetSubscriptionDLQCountAsync(string subscriptionName)
+	{
+		var subscriptionRuntimeProperties = await _messageBusAdminClient!.GetSubscriptionRuntimePropertiesAsync(_messageBusConfiguration!.TopicName, subscriptionName);
+		
+		return subscriptionRuntimeProperties.Value.DeadLetterMessageCount;
+	}
+
+
 	private async Task<bool> CheckSchemasProjected(string version, CancellationToken cancellationToken = default)
 	{
 		if (schemaCheckPassed)
@@ -123,7 +230,7 @@ public class IntegrationTests
 				return false;
 			}
 
-			var schemaCheckPassed =
+			schemaCheckPassed =
 				adxBlobProps.Value.Metadata[Consts.SyncedSchemaVersionLockBlobMetadataKey] == version &&
 				laBlobProps.Value.Metadata[Consts.SyncedSchemaVersionLockBlobMetadataKey] == version &&
 				sqlBlobProps.Value.Metadata[Consts.SyncedSchemaVersionLockBlobMetadataKey] == version;
@@ -138,12 +245,27 @@ public class IntegrationTests
 		}
 	}
 
-	private async Task<bool> CheckSQLDataIngest(string objectKey, string extendedObjectKey, CancellationToken cancellationToken = default)
+	private async Task<bool> CheckSQLDataIngest(string objectKey, string? extendedObjectKey=null, CancellationToken cancellationToken = default)
 	{
 		if (sqlIngestCheckPassed)
 			return true;
+		
+		bool extendedSchemaColumnPresent = !string.IsNullOrWhiteSpace(extendedObjectKey);
 
-		using var sqlCommand = new SqlCommand($"SELECT * FROM SapActIntTests WHERE objectKey in ('{objectKey}', '{extendedObjectKey}')", _sqlConnection);
+		if (!await CheckSQLRecordPresent(objectKey, cancellationToken))
+			return false;
+
+		if (extendedSchemaColumnPresent && !await CheckSQLRecordPresent(extendedObjectKey!, cancellationToken))
+			return false;
+
+		sqlIngestCheckPassed = true;
+
+		return true;
+	}
+
+	private async Task<bool> CheckSQLRecordPresent(string objectKey, CancellationToken cancellationToken = default)
+	{
+		using var sqlCommand = new SqlCommand($"SELECT * FROM SapActIntTests WHERE objectKey in ('{objectKey}')", _sqlConnection);
 		using var reader = await sqlCommand.ExecuteReaderAsync(cancellationToken);
 
 		int rowCount = 0;
@@ -153,59 +275,78 @@ public class IntegrationTests
 			rowCount++;
 		}
 
-		if (rowCount != 2)
-			return false;
-
-		sqlIngestCheckPassed = true;
-
-		return true;
+		return rowCount == 1;
 	}
 
-	private async Task<bool> CheckADXDataIngest(string objectKey, string extendedObjectKey, CancellationToken cancellationToken = default)
+	private async Task<bool> CheckADXRecordPresentAsync(string objectKey, CancellationToken cancellationToken= default)
 	{
-		if (adxIngestCheckPassed)
-			return true;
-
-		var result = await _adxQueryProvider!.ExecuteQueryAsync(_databaseName, $"{ObjectType} | where objectKey == '{objectKey}'", null, cancellationToken);
-		var extendedResult = await _adxQueryProvider.ExecuteQueryAsync(_databaseName, $"{ObjectType} | where objectKey == '{extendedObjectKey}'", null, cancellationToken);
+		var result = await GetADXRecordAsync(objectKey, cancellationToken);
 
 		if (!result.Read())
 			return false;
 
-		if (!extendedResult.Read())
-			return false;
+		return true;
+	}
 
-		extendedResult[extendedResult.GetOrdinal(PayloadHelper.ExtendedSchemaColumnName)].Should().Be("value");
+	private async Task<IDataReader> GetADXRecordAsync(string objectKey, CancellationToken cancellationToken = default)
+	{
+		return await _adxQueryProvider!.ExecuteQueryAsync(_databaseName, $"{ObjectType} | where objectKey == '{objectKey}'", null, cancellationToken);
+	}
 
+	private async Task<bool> CheckADXDataIngest(string objectKey, string? extendedObjectKey=null, CancellationToken cancellationToken = default)
+	{
+		if (adxIngestCheckPassed)
+			return true;
+
+		try
+		{
+			if (!await CheckADXRecordPresentAsync(objectKey, cancellationToken))
+				return false;
+
+			if (!string.IsNullOrEmpty(extendedObjectKey))
+			{
+				var extendedResult = await GetADXRecordAsync(extendedObjectKey);
+
+				if (!extendedResult.Read())
+					return false;
+
+				extendedResult[extendedResult.GetOrdinal(PayloadHelper.ExtendedSchemaColumnName)].Should().Be("value");
+			}
+		}
+		catch (SemanticException)
+		{
+			return false; //table does not exist yet
+		}
 		adxIngestCheckPassed = true;
 
 		return true;
 	}
 
-	private async Task<bool> CheckLADataIngest(string objectKey, string extendedObjectKey, CancellationToken cancellationToken)
+	private async Task<bool> CheckLADataIngest(string objectKey, string? extendedObjectKey=null, CancellationToken cancellationToken= default)
 	{
 		if (laIngestCheckPassed)
 			return true;
 
+		bool extendedSchemaColumnPresent = !string.IsNullOrWhiteSpace(extendedObjectKey);
+
+		if (!await CheckLARecordPresent(objectKey, cancellationToken: cancellationToken))
+			return false;
+
+		if (extendedSchemaColumnPresent && !await CheckLARecordPresent(extendedObjectKey!, checkExtendedColumn: true, cancellationToken: cancellationToken))
+			return false;
+
+		laIngestCheckPassed = true;
+
+		return true;
+	}
+
+	private async Task<bool> CheckLARecordPresent(string objectKey, bool checkExtendedColumn = false, CancellationToken cancellationToken= default)
+	{
 		var tableName = LogAnalyticsService.GetTableName(ObjectType);
 
-		Response<LogsQueryResult> result = await _logsQueryClient!.QueryWorkspaceAsync(_config!.GetLogAnalyticsWorkspaceId(), $"{tableName} | where objectKey in ('{objectKey}', '{extendedObjectKey}')", QueryTimeRange.All, cancellationToken: cancellationToken);
+		Response<LogsQueryResult> result = await _logsQueryClient!.QueryWorkspaceAsync(_config!.GetLogAnalyticsWorkspaceId(), $"{tableName} | where objectKey in ('{objectKey}')", QueryTimeRange.All, cancellationToken: cancellationToken);
 
-		int rowCount = result.Value.Table.Rows.Count;
-
-		if (rowCount != 2)
-			return false;
-		else
-		{
-			if (!result.Value.Table.Columns.Any((c) => c.Name == PayloadHelper.ExtendedSchemaColumnName))
-			{
-				throw new InvalidOperationException("Log analytics schema does not contain expected extended schema column");
-			}
-
-			laIngestCheckPassed = true;
-
-			return true;
-		}
+		return result.Value.Table.Rows.Count==1 && (!checkExtendedColumn || result.Value.Table.Columns.Any((c) => c.Name == PayloadHelper.ExtendedSchemaColumnName));
 	}
 
 	private async Task DropADXTableAsync()
