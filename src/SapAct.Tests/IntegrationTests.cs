@@ -125,9 +125,9 @@ public class IntegrationTests
 		var objectKey = Guid.NewGuid().ToString();
 		var deltaEventKey = Guid.NewGuid().ToString();
 
-		await PurgeDLQForServiceBusSubscriptionAsync(_config.GetTopicSubscriptionNameOrDefault<SQLWorker>());
-		await PurgeDLQForServiceBusSubscriptionAsync(_config.GetTopicSubscriptionNameOrDefault<ADXWorker>());
-		await PurgeDLQForServiceBusSubscriptionAsync(_config.GetTopicSubscriptionNameOrDefault<LogAnalyticsWorker>());
+		await PurgeDLQForServiceBusSubscriptionAsync(_config!.GetTopicSubscriptionNameOrDefault<SQLWorker>());
+		await PurgeDLQForServiceBusSubscriptionAsync(_config!.GetTopicSubscriptionNameOrDefault<ADXWorker>());
+		await PurgeDLQForServiceBusSubscriptionAsync(_config!.GetTopicSubscriptionNameOrDefault<LogAnalyticsWorker>());
 
 		await _messageBusSender!.SendMessageAsync(new ServiceBusMessage(Encoding.UTF8.GetBytes(PayloadHelper.GetPayload(ObjectType, objectKey, version))));
 		await _messageBusSender!.SendMessageAsync(new ServiceBusMessage(Encoding.UTF8.GetBytes(PayloadHelper.GetPayload(ObjectType, deltaEventKey, version, deltaChangePayload: true))));
@@ -158,11 +158,11 @@ public class IntegrationTests
 			await Task.Delay(TimeSpan.FromSeconds(10));
 		}
 		
-		var postCheck = await CheckNoDLQMessagePresentForSubscriptionAsync(_config.GetTopicSubscriptionNameOrDefault<SQLWorker>())
-						&& await CheckNoDLQMessagePresentForSubscriptionAsync(_config.GetTopicSubscriptionNameOrDefault<ADXWorker>())
-						&& await CheckNoDLQMessagePresentForSubscriptionAsync(_config.GetTopicSubscriptionNameOrDefault<LogAnalyticsWorker>())
-						&& !await CheckLARecordPresent(deltaEventKey)
-						&& !await CheckSQLRecordPresent(deltaEventKey)
+		var postCheck = await CheckNoDLQMessagePresentForSubscriptionAsync(_config!.GetTopicSubscriptionNameOrDefault<SQLWorker>())
+						&& await CheckNoDLQMessagePresentForSubscriptionAsync(_config!.GetTopicSubscriptionNameOrDefault<ADXWorker>())
+						&& await CheckNoDLQMessagePresentForSubscriptionAsync(_config!.GetTopicSubscriptionNameOrDefault<LogAnalyticsWorker>())
+						&& !await CheckLARecordPresentAsync(deltaEventKey)
+						&& !await CheckSQLRecordPresentAsync(deltaEventKey)
 						&& !await CheckADXRecordPresentAsync(deltaEventKey);
 
 	}
@@ -244,10 +244,10 @@ public class IntegrationTests
 		
 		bool extendedSchemaColumnPresent = !string.IsNullOrWhiteSpace(extendedObjectKey);
 
-		if (!await CheckSQLRecordPresent(objectKey, cancellationToken))
+		if (!await CheckSQLRecordPresentAsync(objectKey, cancellationToken))
 			return false;
 
-		if (extendedSchemaColumnPresent && !await CheckSQLRecordPresent(extendedObjectKey!, cancellationToken))
+		if (extendedSchemaColumnPresent && !await CheckSQLRecordPresentAsync(extendedObjectKey!, cancellationToken))
 			return false;
 
 		sqlIngestCheckPassed = true;
@@ -255,7 +255,7 @@ public class IntegrationTests
 		return true;
 	}
 
-	private async Task<bool> CheckSQLRecordPresent(string objectKey, CancellationToken cancellationToken = default)
+	private async Task<bool> CheckSQLRecordPresentAsync(string objectKey, CancellationToken cancellationToken = default)
 	{
 		using var sqlCommand = new SqlCommand($"SELECT * FROM SapActIntTests WHERE objectKey in ('{objectKey}')", _sqlConnection);
 		using var reader = await sqlCommand.ExecuteReaderAsync(cancellationToken);
@@ -321,10 +321,10 @@ public class IntegrationTests
 
 		bool extendedSchemaColumnPresent = !string.IsNullOrWhiteSpace(extendedObjectKey);
 
-		if (!await CheckLARecordPresent(objectKey, cancellationToken: cancellationToken))
+		if (!await CheckLARecordPresentAsync(objectKey, cancellationToken: cancellationToken))
 			return false;
 
-		if (extendedSchemaColumnPresent && !await CheckLARecordPresent(extendedObjectKey!, checkExtendedColumn: true, cancellationToken: cancellationToken))
+		if (extendedSchemaColumnPresent && !await CheckLARecordPresentAsync(extendedObjectKey!, checkExtendedColumn: true, cancellationToken: cancellationToken))
 			return false;
 
 		laIngestCheckPassed = true;
@@ -332,7 +332,7 @@ public class IntegrationTests
 		return true;
 	}
 
-	private async Task<bool> CheckLARecordPresent(string objectKey, bool checkExtendedColumn = false, CancellationToken cancellationToken= default)
+	private async Task<bool> CheckLARecordPresentAsync(string objectKey, bool checkExtendedColumn = false, CancellationToken cancellationToken= default)
 	{
 		var tableName = LogAnalyticsService.GetTableName(ObjectType);
 
