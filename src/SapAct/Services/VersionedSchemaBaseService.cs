@@ -46,7 +46,7 @@ public abstract class VersionedSchemaBaseService(ILockService lockService)
 		return schemaCompareResult;
 	}
 
-	protected static RootMessageProperties ExtractKeyMessageProperties(JsonElement payload)
+	protected static MessageRootProperties ExtractMessageRootProperties(JsonElement payload)
 	{
 		var objectKey = payload.GetProperty(Consts.MessageObjectKeyPropertyName).GetString();
 		var objectType = payload.GetProperty(Consts.MessageObjectTypePropertyName).GetString();
@@ -59,7 +59,7 @@ public abstract class VersionedSchemaBaseService(ILockService lockService)
 		ArgumentException.ThrowIfNullOrWhiteSpace(objectType);
 		ArgumentException.ThrowIfNullOrWhiteSpace(dataVersion);
 
-		return new RootMessageProperties
+		return new MessageRootProperties
 		{
 			objectKey = objectKey,
 			objectType = objectType,

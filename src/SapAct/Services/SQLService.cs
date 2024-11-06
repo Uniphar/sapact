@@ -9,7 +9,7 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 
 	public async Task IngestMessageAsync(JsonElement payload, CancellationToken cancellationToken = default)
 	{
-		var messageProperties = ExtractKeyMessageProperties(payload);
+		var messageProperties = ExtractMessageRootProperties(payload);
 		if (Consts.DeltaEventType == messageProperties.eventType)
 			return;
 

@@ -1,6 +1,6 @@
 ﻿namespace SapAct.Models;
 
-public record RootMessageProperties
+public record MessageRootProperties
 {
 	public required string objectKey;
 	public required string objectType;

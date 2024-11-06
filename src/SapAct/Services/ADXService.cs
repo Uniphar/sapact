@@ -5,7 +5,7 @@ public class ADXService (IAzureDataExplorerClient adxClient, ILockService lockSe
 	public async Task IngestMessage(JsonElement payload, CancellationToken cancellationToken)
 	{
 		//get key properties
-		var messageProperties = ExtractKeyMessageProperties(payload);
+		var messageProperties = ExtractMessageRootProperties(payload);
 		if (Consts.DeltaEventType == messageProperties.eventType)
 			return;
 
