@@ -109,53 +109,48 @@ public class LogAnalyticsService(
 	public async Task IngestMessage(JsonElement payload, CancellationToken cancellationToken)
 	{
 		//get key properties
-		ExtractKeyMessageProperties(payload, out var objectKey, out var objectType, out var dataVersion);
+		var messageProperties = ExtractMessageRootProperties(payload);
+		if (Consts.DeltaEventType == messageProperties.eventType)
+			return;
 
-		if (!string.IsNullOrWhiteSpace(objectKey) && !string.IsNullOrWhiteSpace(objectType) && !string.IsNullOrWhiteSpace(dataVersion))
-		{
-			var schemaCheckResult = await CheckObjectTypeSchemaAsync(objectType, dataVersion, TargetStorageEnum.LogAnalytics);
+		var schemaCheckResult = await CheckObjectTypeSchemaAsync(messageProperties.objectType, messageProperties.dataVersion, TargetStorageEnum.LogAnalytics);
 
-			string dcrId = "";
+		string dcrId = "";
 
-			if (schemaCheckResult == SchemaCheckResultState.Unknown || schemaCheckResult == SchemaCheckResultState.Older)
-			{			
-				bool updateNecessary = true;
-				do
-				{
-					(var lockState, string? leaseId) = await ObtainLockAsync(objectType!, dataVersion!, TargetStorageEnum.LogAnalytics);
-					if (lockState == LockState.LockObtained)
-					{
-						dcrId = await SyncTableSchema(objectType, payload, schemaCheckResult, cancellationToken);
-						UpdateSchema(objectType, dataVersion, dcrId);
-						await ReleaseLockAsync(objectType!, dataVersion!, TargetStorageEnum.LogAnalytics, leaseId!);
-
-						updateNecessary = false;
-					}
-					else if (lockState == LockState.Available)
-					{
-						//schema was updated by another instance but let's check against persistent storage
-						var status = await CheckObjectTypeSchemaAsync(objectType!, dataVersion!, TargetStorageEnum.LogAnalytics);
-						updateNecessary = status != SchemaCheckResultState.Current;
-                        if (!updateNecessary)
-                        {
-                            dcrId = await RefreshDCRIdAsync(objectType, cancellationToken);
-							UpdateSchema(objectType, dataVersion, dcrId);
-						}    
-					}
-				} while (updateNecessary);
-			}
-			else
+		if (schemaCheckResult == SchemaCheckResultState.Unknown || schemaCheckResult == SchemaCheckResultState.Older)
+		{			
+			bool updateNecessary = true;
+			do
 			{
-				dcrId = await RefreshDCRIdAsync(objectType, cancellationToken); //TODO: maybe store as another metadata piece in the blob
-			}			
+				(var lockState, string? leaseId) = await ObtainLockAsync(messageProperties.objectType, messageProperties.dataVersion, TargetStorageEnum.LogAnalytics);
+				if (lockState == LockState.LockObtained)
+				{
+					dcrId = await SyncTableSchema(messageProperties.objectType, payload, schemaCheckResult, cancellationToken);
+					UpdateSchema(messageProperties.objectType, messageProperties.dataVersion, dcrId);
+					await ReleaseLockAsync(messageProperties.objectType, messageProperties.dataVersion, TargetStorageEnum.LogAnalytics, leaseId!);
 
-			//send to log analytics
-			await SinkToLogAnalytics(objectType, dcrId!, payload);
+					updateNecessary = false;
+				}
+				else if (lockState == LockState.Available)
+				{
+					//schema was updated by another instance but let's check against persistent storage
+					var status = await CheckObjectTypeSchemaAsync(messageProperties.objectType, messageProperties.dataVersion, TargetStorageEnum.LogAnalytics);
+					updateNecessary = status != SchemaCheckResultState.Current;
+                    if (!updateNecessary)
+                    {
+                        dcrId = await RefreshDCRIdAsync(messageProperties.objectType, cancellationToken);
+						UpdateSchema(messageProperties.objectType, messageProperties.dataVersion, dcrId);
+					}    
+				}
+			} while (updateNecessary);
 		}
 		else
 		{
-			throw new InvalidOperationException("Invalid message format");
-		}
+			dcrId = await RefreshDCRIdAsync(messageProperties.objectType, cancellationToken); //TODO: maybe store as another metadata piece in the blob
+		}			
+
+		//send to log analytics
+		await SinkToLogAnalytics(messageProperties.objectType, dcrId!, payload);		
 	}
 
 	private async Task<string> RefreshDCRIdAsync(string tableName, CancellationToken cancellationToken)
