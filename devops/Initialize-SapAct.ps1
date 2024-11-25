@@ -119,6 +119,13 @@ Initializes SapAct in the dev environment.
                               -UserName $devopsClusterIdentityName `
                               -Roles @("db_datareader", "db_datawriter", "db_ddladmin") `
                               -Verbose:$PSCmdlet.MyInvocation.BoundParameters['Verbose'].IsPresent
+
+        New-SqlDatabaseADUser -ServerName $sqlDatabase.server.name `
+                              -DatabaseName $sqlDatabase.name `
+                              -UserName $global:adapp_GithubActionsDev `
+                              -Roles @("db_datareader") `
+                              -Verbose:$PSCmdlet.MyInvocation.BoundParameters['Verbose'].IsPresent
+
 }
     else {
         $TestResult = Test-AzResourceGroupDeployment -Mode Incremental `

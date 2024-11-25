@@ -47,7 +47,7 @@ jobs:
       applicationFolder: ${{ inputs.applicationFolder }}
       applicationName: ${{ inputs.applicationName }}
 
-  app_deployment_dev:   
+  app_deployment_dev:
     needs: app_package
     uses: ./.github/workflows/shared-app-deployment-workflow.yaml
     secrets:

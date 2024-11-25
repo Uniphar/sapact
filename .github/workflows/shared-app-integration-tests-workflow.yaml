@@ -58,6 +58,7 @@ jobs:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          enable-AzPSSession: true
 
       - name: compute environment variables
         uses: azure/powershell@v1
@@ -69,8 +70,13 @@ jobs:
               Import-Module ./devops-azure/src/Uniphar.DevOps.psd1 -ErrorAction Stop -Force
 
               $AzureKeyVaultName = Resolve-UniResourceName 'keyvault' "$p_devopsDomain-app" -Environment '${{ inputs.environment }}'
+              $githubActionsDevOID = Get-AzADServicePrincipal -DisplayName $adapp_GithubActionsDev | Select-Object -ExpandProperty Id
+              $sqlServerName = Resolve-UniResourceName 'sql-server' $global:p_dataSql -Environment ${{ inputs.environment }}
 
               echo "SAPACT_CONFIGURATION_URL=https://$AzureKeyVaultName.vault.azure.net" >> $env:GITHUB_ENV
+              echo "SQL_SERVER_NAME=$sqlServerName" >> $env:GITHUB_ENV
+              echo "ENVIRONMENT=${{ inputs.environment }}" >> $env:GITHUB_ENV
+
             }
             catch {
               Write-Error $_
