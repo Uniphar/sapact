@@ -61,9 +61,11 @@ public class IntegrationTests
 
 		_logsQueryClient = new LogsQueryClient(_credential);
 
-		_sqlConnection = new SqlConnection(_config.GetSQLConnectionString());
+		_sqlConnection = new SqlConnection(GetIntTestSqlConnectionString());
 		_sqlConnection.Open();
 	}
+
+	public static string GetIntTestSqlConnectionString() => $"Server=tcp:{Environment.GetEnvironmentVariable("SQL_SERVER_NAME")}.database.windows.net,1433;Initial Catalog=sapact-dev-db;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;Authentication=Active Directory Default;";
 
 	[TestMethod]
 	public async Task E2EMessageIngestionTest()
