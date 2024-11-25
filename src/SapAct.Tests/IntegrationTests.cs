@@ -20,6 +20,8 @@ public class IntegrationTests
 	private static CancellationToken _cancellationToken = default;
 
 	private const string ObjectType = "SapActIntTests";
+	private const string SQL_SERVER_NAME_ENV_VAR = "SQL_SERVER_NAME";
+	private const string ENVIRONMENT_NAME_ENV_VAR = "ENVIRONMENT";
 
 	private bool schemaCheckPassed = false;
 	private bool adxIngestCheckPassed = false;
@@ -65,7 +67,7 @@ public class IntegrationTests
 		_sqlConnection.Open();
 	}
 
-	public static string GetIntTestSqlConnectionString() => $"Server=tcp:{Environment.GetEnvironmentVariable("SQL_SERVER_NAME")}.database.windows.net,1433;Initial Catalog=sapact-dev-db;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;Authentication=Active Directory Default;";
+	public static string GetIntTestSqlConnectionString() => $"Server=tcp:{Environment.GetEnvironmentVariable(SQL_SERVER_NAME_ENV_VAR)}.database.windows.net,1433;Initial Catalog=sapact-{Environment.GetEnvironmentVariable(ENVIRONMENT_NAME_ENV_VAR)}-db;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;Authentication=Active Directory Default;";
 
 	[TestMethod]
 	public async Task E2EMessageIngestionTest()

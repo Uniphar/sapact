@@ -75,6 +75,7 @@ jobs:
 
               echo "SAPACT_CONFIGURATION_URL=https://$AzureKeyVaultName.vault.azure.net" >> $env:GITHUB_ENV
               echo "SQL_SERVER_NAME=$sqlServerName" >> $env:GITHUB_ENV
+              echo "ENVIRONMENT=${{ inputs.environment }}" >> $env:GITHUB_ENV
 
             }
             catch {
