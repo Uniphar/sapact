@@ -36,7 +36,19 @@ public abstract class SapActBaseWorker<T>(
 
 		if (!await managementClient.SubscriptionExistsAsync(topicName, subscriptionName, cancellationToken))
         {
-            await managementClient.CreateSubscriptionAsync(topicName, subscriptionName, cancellationToken);
+			try
+			{
+				await managementClient.CreateSubscriptionAsync(topicName, subscriptionName, cancellationToken);
+			}
+			catch (ServiceBusException ex) when (ex.Reason == ServiceBusFailureReason.MessagingEntityAlreadyExists)
+			{
+				//do nothing, subscription already exists
+			}
+			catch (Exception ex)
+			{
+				logger.LogError(ex, "Error creating subscription");
+				throw;
+			}
 		}
     }
 
