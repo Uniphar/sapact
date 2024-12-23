@@ -26,8 +26,9 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 					var schemaCheck = await CheckObjectTypeSchemaAsync(messageProperties.objectType, messageProperties.dataVersion, TargetStorageEnum.SQL);
 						
 					var schemaDescriptor = await GenerateSchemaDescriptorAsync(messageProperties.objectType, payload);
+					var dryRunSchemaCheck = !schemaCheck.IsUpdateRequired() && await UpsertSQLStructuresAsync(schemaDescriptor, cancellationToken, dryRun: true);
 
-					if (schemaCheck == SchemaCheckResultState.Older || schemaCheck == SchemaCheckResultState.Unknown)
+					if (schemaCheck.IsUpdateRequired() || dryRunSchemaCheck)
 					{
 						bool updateNecessary = true;
 
@@ -54,7 +55,6 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 							}
 						} while (updateNecessary);
 					}
-
 
 					await SinkDataAsyncInner(payload, schemaDescriptor, new KeyDescriptor { RootKey = messageProperties.objectKey, ForeignKey = string.Empty });
 					await sqlTransaction.CommitAsync();
@@ -125,13 +125,19 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 			columns.Add(("FK", keyDescriptor.ForeignKey));
 		}
 
-		var sqlText = EmitTableInsertStatement(tableName, columns, schemaDescriptor.Depth > 0 ? "PK" : Consts.MessageObjectKeyPropertyName);
-		SqlCommand sqlCommand = new(sqlText, sqlConnection, sqlTransaction);
+		var sqlText = EmitTableInsertStatement(tableName, columns.Select(x=>x.columnName).ToList(), schemaDescriptor.Depth > 0 ? "PK" : Consts.MessageObjectKeyPropertyName);
+		SqlCommand sqlCommand = new(sqlText, sqlConnection, sqlTransaction);		
+
+		foreach (var (columnName, value) in columns)
+		{
+			sqlCommand.Parameters.AddWithValue($"@{columnName}", value ??  (object) DBNull.Value);
+		}
+
 		await sqlCommand.ExecuteNonQueryAsync();
 
 	}
 
-	private string EmitTableInsertStatement(string tableName, List<(string columnName, string value)> columns, string pkColumnName)
+	private static string EmitTableInsertStatement(string tableName, IList<string> columns, string pkColumnName)
 	{
 		if (columns.Count == 0)
 			return string.Empty;
@@ -144,9 +150,9 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 		StringBuilder insertColumnNamesSB = new();
 		StringBuilder insertColumnValuesSB = new();
 
-		string pkColumnValue = columns.FirstOrDefault(x => x.columnName == pkColumnName).value;
+		string pkColumnValue = columns.First(x => x == pkColumnName);
 
-		foreach (var (columnName, value) in columns)
+		foreach (var columnName in columns)
 		{
 			if (addComma)
 			{
@@ -155,7 +161,7 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 			}
 
 			insertColumnNamesSB.Append($"{columnName}");
-			insertColumnValuesSB.Append(!string.IsNullOrWhiteSpace(value) ? $"'{value}'" : "NULL");
+			insertColumnValuesSB.Append($"@{columnName}");
 
 			addComma = true;
 		}
@@ -165,12 +171,12 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 		insertSB.AppendLine(" SELECT ");
 		insertSB.Append(insertColumnValuesSB);
 
-		insertSB.Append($" WHERE NOT EXISTS (SELECT {pkColumnName} FROM {tableName} where {pkColumnName}='{pkColumnValue}')");
+		insertSB.Append($" WHERE NOT EXISTS (SELECT {pkColumnName} FROM {tableName} where {pkColumnName}=@{pkColumnName})");
 
 		return insertSB.ToString();
 	}
 
-	private async Task UpsertSQLStructuresAsync(SQLTableDescriptor schemaDescriptor, CancellationToken cancellationToken)
+	private async Task<bool> UpsertSQLStructuresAsync(SQLTableDescriptor schemaDescriptor, CancellationToken cancellationToken = default, bool dryRun = false)
 	{
 		using var connection = serviceProvider.GetRequiredService<SqlConnection>();
 		connection.Open();
@@ -178,8 +184,14 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 
 		try
 		{
-			await UpsertSQLTableAsync(schemaDescriptor, connection, transaction);
-			await transaction.CommitAsync();
+			var schemaChangeDetected =  await UpsertSQLTableAsync(schemaDescriptor, connection, transaction, dryRun: dryRun);
+
+			if (!dryRun)
+			{
+				await transaction.CommitAsync();
+			}
+
+			return schemaChangeDetected;
 		}
 		catch (Exception ex)
 		{
@@ -190,10 +202,10 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 		}
 	}
 
-	private async Task UpsertSQLTableAsync(SQLTableDescriptor schemaDescriptor, SqlConnection connection, SqlTransaction transaction, SQLTableDescriptor? parent = null, int depth = 0)
+	private async Task<bool> UpsertSQLTableAsync(SQLTableDescriptor schemaDescriptor, SqlConnection connection, SqlTransaction transaction, SQLTableDescriptor? parent = null, int depth = 0, bool dryRun = false)
 	{
 		if (schemaDescriptor.IsEmpty)
-			return;
+			return false;
 
 		string tableName = schemaDescriptor.SqlTableName;
 
@@ -209,19 +221,26 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 			sqlCommandText = EmitTableCreateCommand(tableName, schemaDescriptor, parent);
 		}
 
-		if (!string.IsNullOrWhiteSpace(sqlCommandText))
+		bool schemaChanged = !string.IsNullOrWhiteSpace(sqlCommandText);
+
+		if (schemaChanged && !dryRun)
 		{
 			SqlCommand sqlCommand = new(sqlCommandText, connection, transaction);
 			await sqlCommand.ExecuteNonQueryAsync();
 		}
 
+		bool childSchemaChanged = false;
+
 		foreach (var childTable in schemaDescriptor.ChildTables)
 		{
-			await UpsertSQLTableAsync(childTable, connection, transaction, schemaDescriptor, depth + 1);
+			var childSchemaResult = await UpsertSQLTableAsync(childTable, connection, transaction, schemaDescriptor, depth + 1, dryRun: dryRun);
+			childSchemaChanged =  childSchemaResult || childSchemaChanged;
 		}
+
+		return schemaChanged || childSchemaChanged;
 	}
 
-	private string EmitTableCreateCommand(string tableName, SQLTableDescriptor schemaDescriptor, SQLTableDescriptor? parent)
+	private static string EmitTableCreateCommand(string tableName, SQLTableDescriptor schemaDescriptor, SQLTableDescriptor? parent)
 	{
 		StringBuilder tableUpsertSqlSB = new();
 
@@ -261,7 +280,7 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 		return tableUpsertSqlSB.ToString();
 	}
 
-	private string EmitTableUpdateCommand(string tableName, IEnumerable<string> columns, SQLTableDescriptor schemaDescriptor)
+	private static string EmitTableUpdateCommand(string tableName, IEnumerable<string> columns, SQLTableDescriptor schemaDescriptor)
 	{
 		StringBuilder tableUpdateSB = new();
 
@@ -279,7 +298,7 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 		return tableUpdateSB.ToString();
 	}
 
-	private async Task<(bool exists, IEnumerable<string> columns)> CheckTableExistsAsync(string tableName, SqlConnection connection, SqlTransaction transaction)
+	private static async Task<(bool exists, IEnumerable<string> columns)> CheckTableExistsAsync(string tableName, SqlConnection connection, SqlTransaction transaction)
 	{
 		List<string> columnList = [];
 		bool exists = false;
@@ -450,7 +469,7 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 		}
 	}
 
-	private void MergeTableDescriptors(SQLTableDescriptor currentLevel, SQLTableDescriptor levelDesc)
+	private static void MergeTableDescriptors(SQLTableDescriptor currentLevel, SQLTableDescriptor levelDesc)
 	{
 		foreach (var column in levelDesc.Columns)
 		{
