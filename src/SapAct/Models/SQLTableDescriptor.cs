@@ -13,10 +13,16 @@ public record SQLTableDescriptor
 	}
 
 	public bool IsEmpty => Columns.Count == 0 && ChildTables.Count == 0;
+
+	public SQLColumnDescriptor FindColumnCaseInsensitive(string columnName)
+	{
+		return Columns.First(x => x.ColumnName.Equals(columnName, StringComparison.OrdinalIgnoreCase));
+	}
 }
 
 public record SQLColumnDescriptor
 {
-	public required string ColumnName { get; init; }
+	public required string ColumnName { get; set; }
 	public required string SQLDataType { get; init; }
+	public bool IsSchemaColumn { get; set; }
 }

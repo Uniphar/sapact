@@ -130,7 +130,9 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 
 		foreach (var (columnName, value) in columns)
 		{
-			sqlCommand.Parameters.AddWithValue($"@{columnName}", value ??  (object) DBNull.Value);
+			var translatedColumnName = schemaDescriptor.FindColumnCaseInsensitive(columnName).ColumnName;
+
+			sqlCommand.Parameters.AddWithValue($"@{translatedColumnName}", value ?? (object)DBNull.Value);
 		}
 
 		await sqlCommand.ExecuteNonQueryAsync();
@@ -252,21 +254,15 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 
 		if (depth > 0)
 		{
-			tableUpsertSqlSB.AppendLine($"PK NVARCHAR(255) NOT NULL PRIMARY KEY");
-			addComma = true;
-		}
-
-		if (depth > 0)
-		{
 			ArgumentNullException.ThrowIfNull(parent);
 
-			if (addComma)
-				tableUpsertSqlSB.Append(',');
-
-			tableUpsertSqlSB.AppendLine($"FK NVARCHAR(255) FOREIGN KEY REFERENCES {parent.SqlTableName}({(depth == 1 ? Consts.MessageObjectKeyPropertyName : "PK")})");
+			tableUpsertSqlSB.AppendLine($"PK NVARCHAR(255) NOT NULL PRIMARY KEY");
+			tableUpsertSqlSB.AppendLine($",FK NVARCHAR(255) FOREIGN KEY REFERENCES {parent.SqlTableName}({(depth == 1 ? Consts.MessageObjectKeyPropertyName : "PK")})");
 			addComma = true;
-		}
-		foreach (var column in schemaDescriptor.Columns)
+		}		
+
+		//project data columns
+		foreach (var column in schemaDescriptor.Columns.Where(x=>!x.IsSchemaColumn))
 		{
 			if (addComma)
 				tableUpsertSqlSB.Append(',');
@@ -284,7 +280,21 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 	{
 		StringBuilder tableUpdateSB = new();
 
-		List<string> addedColumns = schemaDescriptor.Columns.Select(x => x.ColumnName).Except(columns).ToList(); //find added columns - only additive schema changes are applied
+		var schemaDescriptorColumnNames = schemaDescriptor.Columns.Select(x => x.ColumnName).ToList();
+
+		List<string> addedColumns = schemaDescriptorColumnNames
+			.Except(columns, StringComparer.OrdinalIgnoreCase).ToList(); //find added columns - only additive schema changes are applied - ingnore casing
+
+		//for updates, we must consider casing changes so best to update schema object to use previously seen casing
+		var differentCasingColumns = schemaDescriptorColumnNames
+			.Except(addedColumns, StringComparer.OrdinalIgnoreCase)
+			.Except(columns);
+
+		foreach (var diffCasingColumn in differentCasingColumns)
+		{
+			var columnToRename = schemaDescriptor.FindColumnCaseInsensitive(diffCasingColumn);
+			columnToRename.ColumnName = columns.Where(x => x.Equals(diffCasingColumn, StringComparison.OrdinalIgnoreCase)).First();
+		}
 
 		if (addedColumns.Count == 0)
 			return string.Empty;
@@ -326,7 +336,7 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 		
 		await PrefillSchemaTableAsync(rootTable, sqlConnection!, sqlTransaction!); //TODO: consider caching based on schema version check
 
-		var schema = GenerateSchemaDescriptorInner(tableName, item, 0);
+		var schema = GenerateSchemaDescriptorInner(tableName, item);
 
 		AugmentSchema(schema, "$");
 
@@ -402,10 +412,16 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 			return value;
 		}
 
-		SQLTableDescriptor GenerateSchemaDescriptorInner(string tableName, JsonElement item, int depth)
+		SQLTableDescriptor GenerateSchemaDescriptorInner(string tableName, JsonElement item, int depth=0)
 		{
-
 			var schemaDescriptor = new SQLTableDescriptor() { TableName = tableName, Depth = depth };
+
+			if (depth > 0)
+			{
+				//add PK and FK as implied columns
+				schemaDescriptor.Columns.Add(new SQLColumnDescriptor() { ColumnName = "PK", SQLDataType = "NVARCHAR(255)", IsSchemaColumn = true });
+				schemaDescriptor.Columns.Add(new SQLColumnDescriptor() { ColumnName = "FK", SQLDataType = "NVARCHAR(255)", IsSchemaColumn = true });
+			}
 
 			if (item.ValueKind == JsonValueKind.Array)
 			{
