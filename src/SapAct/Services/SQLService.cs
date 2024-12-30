@@ -300,7 +300,7 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 			columnToRename.ColumnName = columns.Where(x => x.Equals(diffCasingColumn, StringComparison.OrdinalIgnoreCase)).First();
 		}
 
-		if (addedColumns.Count() == 0)
+		if (!addedColumns.Any())
 			return string.Empty;
 
 		
