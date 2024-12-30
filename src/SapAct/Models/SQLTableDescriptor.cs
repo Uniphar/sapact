@@ -7,16 +7,16 @@ public record SQLTableDescriptor
 	public required int Depth { get; set; }
 	public List<SQLColumnDescriptor> Columns { get; init; } = [];
 	public List<SQLTableDescriptor> ChildTables { get; init; } = [];
-	public SQLTableDescriptor GetChildTableDescriptor(string childTableName)
+	public SQLTableDescriptor? GetChildTableDescriptor(string childTableName)
 	{
-		return ChildTables.First(x => x.TableName == childTableName);
+		return ChildTables.FirstOrDefault(x => x.TableName == childTableName);
 	}
 
 	public bool IsEmpty => Columns.Count == 0 && ChildTables.Count == 0;
 
-	public SQLColumnDescriptor FindColumnCaseInsensitive(string columnName)
+	public SQLColumnDescriptor? GetIgnoreCaseColumnDescriptor(string columnName)
 	{
-		return Columns.First(x => x.ColumnName.Equals(columnName, StringComparison.OrdinalIgnoreCase));
+		return Columns.FirstOrDefault(x => x.ColumnName.Equals(columnName, StringComparison.OrdinalIgnoreCase));
 	}
 }
 

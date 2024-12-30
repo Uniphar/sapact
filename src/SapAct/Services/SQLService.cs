@@ -98,7 +98,8 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 			await SinkJsonObjectAsync(schemaDescriptor.SqlTableName, element, schemaDescriptor, new KeyDescriptor { RootKey = primaryKey, ForeignKey = keyDescriptor.ForeignKey });
 			foreach (var nonScalar in element.GetNonScalarProperties())
 			{
-				await SinkDataAsyncInner(nonScalar.Value, schemaDescriptor.GetChildTableDescriptor(nonScalar.Name), new KeyDescriptor { RootKey = keyDescriptor.RootKey, ArrayIndex = keyDescriptor.ArrayIndex, ForeignKey = primaryKey });
+				var childTable = schemaDescriptor.GetChildTableDescriptor(nonScalar.Name);
+				await SinkDataAsyncInner(nonScalar.Value, childTable!, new KeyDescriptor { RootKey = keyDescriptor.RootKey, ArrayIndex = keyDescriptor.ArrayIndex, ForeignKey = primaryKey });
 			}
 		}
 		else
@@ -128,11 +129,12 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 		}
 
 		var sqlText = EmitTableInsertStatement(tableName, columns.Select(x=>x.columnName).ToList(), schemaDescriptor.Depth > 0 ? "PK" : Consts.MessageObjectKeyPropertyName);
-		SqlCommand sqlCommand = new(sqlText, sqlConnection, sqlTransaction);		
+		SqlCommand sqlCommand = new(sqlText, sqlConnection, sqlTransaction);	
 
 		foreach (var (columnName, value) in columns)
 		{
-			var translatedColumnName = schemaDescriptor.FindColumnCaseInsensitive(columnName).ColumnName;
+			var columnDescriptor = schemaDescriptor.GetIgnoreCaseColumnDescriptor(columnName) ?? throw new InvalidOperationException($"Column {columnName} not found in schema descriptor, this is unexpected");
+			var translatedColumnName = columnDescriptor!.ColumnName;
 
 			sqlCommand.Parameters.AddWithValue($"@{translatedColumnName}", value ?? (object)DBNull.Value);
 		}
@@ -294,7 +296,7 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 
 		foreach (var diffCasingColumn in differentCasingColumns)
 		{
-			var columnToRename = schemaDescriptor.FindColumnCaseInsensitive(diffCasingColumn);
+			var columnToRename = schemaDescriptor.GetIgnoreCaseColumnDescriptor(diffCasingColumn)!;
 			columnToRename.ColumnName = columns.Where(x => x.Equals(diffCasingColumn, StringComparison.OrdinalIgnoreCase)).First();
 		}
 
