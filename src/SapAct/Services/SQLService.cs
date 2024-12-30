@@ -282,10 +282,10 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 	{
 		StringBuilder tableUpdateSB = new();
 
-		var schemaDescriptorColumnNames = schemaDescriptor.Columns.Select(x => x.ColumnName).ToList();
+		var schemaDescriptorColumnNames = schemaDescriptor.Columns.Select(x => x.ColumnName);
 
-		List<string> addedColumns = schemaDescriptorColumnNames
-			.Except(columns, StringComparer.OrdinalIgnoreCase).ToList(); //find added columns - only additive schema changes are applied - ignore casing
+		var addedColumns = schemaDescriptorColumnNames
+			.Except(columns, StringComparer.OrdinalIgnoreCase); //find added columns - only additive schema changes are applied - ignore casing
 
 		//for updates, we must consider casing changes so best to update schema object to use previously seen casing
 		var differentCasingColumns = schemaDescriptorColumnNames
@@ -298,7 +298,7 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 			columnToRename.ColumnName = columns.Where(x => x.Equals(diffCasingColumn, StringComparison.OrdinalIgnoreCase)).First();
 		}
 
-		if (addedColumns.Count == 0)
+		if (addedColumns.Count() == 0)
 			return string.Empty;
 
 		
