@@ -26,6 +26,8 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 					var schemaCheck = await CheckObjectTypeSchemaAsync(messageProperties.objectType, messageProperties.dataVersion, TargetStorageEnum.SQL);
 						
 					var schemaDescriptor = await GenerateSchemaDescriptorAsync(messageProperties.objectType, payload);
+					///dry run to check if schema update is necessary as certain (sub)structures may only be populated for specific payload instances
+					///so we can only build up a schema when these are set - data version property refers to logical schema but not it used in its entirety
 					var dryRunSchemaCheck = !schemaCheck.IsUpdateRequired() && await UpsertSQLStructuresAsync(schemaDescriptor, cancellationToken, dryRun: true);
 
 					if (schemaCheck.IsUpdateRequired() || dryRunSchemaCheck)
