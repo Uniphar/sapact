@@ -418,7 +418,7 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 
 			if (depth > 0)
 			{
-				//add PK and FK as implied columns
+				//add PK and FK as explicit columns
 				schemaDescriptor.Columns.Add(new SQLColumnDescriptor() { ColumnName = "PK", SQLDataType = "NVARCHAR(255)", IsSchemaColumn = true });
 				schemaDescriptor.Columns.Add(new SQLColumnDescriptor() { ColumnName = "FK", SQLDataType = "NVARCHAR(255)", IsSchemaColumn = true });
 			}
