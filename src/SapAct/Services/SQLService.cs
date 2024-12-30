@@ -283,7 +283,7 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 		var schemaDescriptorColumnNames = schemaDescriptor.Columns.Select(x => x.ColumnName).ToList();
 
 		List<string> addedColumns = schemaDescriptorColumnNames
-			.Except(columns, StringComparer.OrdinalIgnoreCase).ToList(); //find added columns - only additive schema changes are applied - ingnore casing
+			.Except(columns, StringComparer.OrdinalIgnoreCase).ToList(); //find added columns - only additive schema changes are applied - ignore casing
 
 		//for updates, we must consider casing changes so best to update schema object to use previously seen casing
 		var differentCasingColumns = schemaDescriptorColumnNames
