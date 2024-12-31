@@ -23,6 +23,6 @@ public record SQLTableDescriptor
 public record SQLColumnDescriptor
 {
 	public required string ColumnName { get; set; }
-	public required string SQLDataType { get; init; }
+	public required string SQLDataType { get; set; }
 	public bool IsSchemaColumn { get; set; }
 }

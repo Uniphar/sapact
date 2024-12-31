@@ -120,15 +120,15 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 
 		if (schemaDescriptor.Depth > 0)
 		{
-			columns.Add(("PK", keyDescriptor.RootKey));
+			columns.Add((Consts.SQLPKColumnName, keyDescriptor.RootKey));
 		}
 
 		if (!string.IsNullOrWhiteSpace(keyDescriptor.ForeignKey))
 		{
-			columns.Add(("FK", keyDescriptor.ForeignKey));
+			columns.Add((Consts.SQLFKColumnName, keyDescriptor.ForeignKey));
 		}
 
-		var sqlText = EmitTableInsertStatement(tableName, columns.Select(x=>x.columnName).ToList(), schemaDescriptor.Depth > 0 ? "PK" : Consts.MessageObjectKeyPropertyName);
+		var sqlText = EmitTableInsertStatement(tableName, columns.Select(x=>x.columnName).ToList(), schemaDescriptor.Depth > 0 ? Consts.SQLPKColumnName : Consts.MessageObjectKeyPropertyName);
 		SqlCommand sqlCommand = new(sqlText, sqlConnection, sqlTransaction);	
 
 		foreach (var (columnName, value) in columns)
@@ -260,8 +260,12 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 		{
 			ArgumentNullException.ThrowIfNull(parent);
 
-			tableUpsertSqlSB.AppendLine($"PK NVARCHAR(255) NOT NULL PRIMARY KEY");
-			tableUpsertSqlSB.AppendLine($",FK NVARCHAR(255) FOREIGN KEY REFERENCES {parent.SqlTableName}({(depth == 1 ? Consts.MessageObjectKeyPropertyName : "PK")})");
+			var pkColumn = schemaDescriptor.GetIgnoreCaseColumnDescriptor(Consts.SQLPKColumnName) ?? throw new InvalidOperationException($"Column {Consts.SQLPKColumnName} not found in schema descriptor, this is unexpected");
+			var fkColumn = schemaDescriptor.GetIgnoreCaseColumnDescriptor(Consts.SQLFKColumnName) ?? throw new InvalidOperationException($"Column {Consts.SQLFKColumnName} not found in schema descriptor, this is unexpected");
+
+			tableUpsertSqlSB.AppendLine($"{pkColumn.ColumnName} {pkColumn.SQLDataType} NOT NULL PRIMARY KEY");
+			tableUpsertSqlSB.AppendLine($",{fkColumn.ColumnName} {fkColumn.SQLDataType} FOREIGN KEY REFERENCES {parent.SqlTableName}({(depth == 1 ? Consts.MessageObjectKeyPropertyName : "PK")})");
+			
 			addComma = true;
 		}		
 
@@ -304,9 +308,14 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 			return string.Empty;
 
 		
-		tableUpdateSB.AppendLine($"ALTER TABLE {tableName} ADD");		
+		tableUpdateSB.AppendLine($"ALTER TABLE {tableName} ADD");
 
-		var columnString = string.Join(',', addedColumns.Select(x => $"{x} NVARCHAR(255) NULL"));
+		var columnString = string.Join(',', addedColumns.Select(x =>
+		{
+			var column = schemaDescriptor.GetIgnoreCaseColumnDescriptor(x)!;
+			return $"{column.ColumnName} {column.SQLDataType} NULL";
+		}));
+		
 		tableUpdateSB.Append(columnString);
 
 		return tableUpdateSB.ToString();
@@ -350,9 +359,18 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 		}
 		return schema;
 
+
 		void AugmentSchema(SQLTableDescriptor schema, string parentPrefix, SQLTableDescriptor? parentSchema = null)
 		{
 			schema.SqlTableName = GetSQLTableName(parentPrefix);
+
+			if (parentSchema == null)//top level
+			{
+				//handle designation of primary key for objectKey property of the payload - we have to use key column type rather than generic property type
+				var pkColumn = schema.GetIgnoreCaseColumnDescriptor(Consts.MessageObjectKeyPropertyName) ?? throw new InvalidOperationException($"Column {Consts.MessageObjectKeyPropertyName} not found in schema descriptor, this is unexpected");
+				pkColumn.SQLDataType = Consts.SQLKeyColumnDefaultDataType;
+			}
+
 			foreach (var child in schema.ChildTables)
 			{
 				var childPrefix = $"{parentPrefix}.{child.TableName}";
@@ -384,7 +402,7 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 
 		async Task CreateSchemaTableAsync(string tableName, SqlConnection sqlConnection, SqlTransaction sqlTransaction)
 		{
-			var sqlCommand = new SqlCommand($"CREATE TABLE {tableName} (Path NVARCHAR(255) PRIMARY KEY, TableIndex INT)", sqlConnection, sqlTransaction);
+			var sqlCommand = new SqlCommand($"CREATE TABLE {tableName} (Path {Consts.SQLKeyColumnDefaultDataType} PRIMARY KEY, TableIndex INT)", sqlConnection, sqlTransaction);
 			await sqlCommand.ExecuteNonQueryAsync();
 		}
 
@@ -423,8 +441,8 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 			if (depth > 0)
 			{
 				//add PK and FK as explicit columns
-				schemaDescriptor.Columns.Add(new SQLColumnDescriptor() { ColumnName = "PK", SQLDataType = "NVARCHAR(255)", IsSchemaColumn = true });
-				schemaDescriptor.Columns.Add(new SQLColumnDescriptor() { ColumnName = "FK", SQLDataType = "NVARCHAR(255)", IsSchemaColumn = true });
+				schemaDescriptor.Columns.Add(new SQLColumnDescriptor() { ColumnName = Consts.SQLPKColumnName, SQLDataType = Consts.SQLKeyColumnDefaultDataType, IsSchemaColumn = true });
+				schemaDescriptor.Columns.Add(new SQLColumnDescriptor() { ColumnName = Consts.SQLFKColumnName, SQLDataType = Consts.SQLKeyColumnDefaultDataType, IsSchemaColumn = true });
 			}
 
 			if (item.ValueKind == JsonValueKind.Array)
@@ -452,7 +470,7 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 					}
 					else
 					{
-						schemaDescriptor.Columns.Add(new SQLColumnDescriptor() { ColumnName = child.Name, SQLDataType = "NVARCHAR(255)" }); //TODO: provide type mapping
+						schemaDescriptor.Columns.Add(new SQLColumnDescriptor() { ColumnName = child.Name, SQLDataType = Consts.SQLDefaultDataType });
 					}
 				}
 			}

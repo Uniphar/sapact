@@ -42,4 +42,9 @@ public static class Consts
 	public const string MessageEventTypePropertyName = "eventType";
 
 	public const string DeltaEventType = "ChangeDelta";
+
+	public const string SQLDefaultDataType= "NVARCHAR(MAX)";
+	public const string SQLKeyColumnDefaultDataType = "NVARCHAR(900)"; //this is max for key columns
+	public const string SQLPKColumnName = "PK";
+	public const string SQLFKColumnName = "FK";
 }
