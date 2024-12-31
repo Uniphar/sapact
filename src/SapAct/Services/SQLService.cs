@@ -229,11 +229,17 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 
 		bool schemaChanged = !string.IsNullOrWhiteSpace(sqlCommandText);
 
+		if (schemaChanged && dryRun)
+		{
+			return true;
+		}
+
 		if (schemaChanged && !dryRun)
 		{
 			SqlCommand sqlCommand = new(sqlCommandText, connection, transaction);
 			await sqlCommand.ExecuteNonQueryAsync();
 		}
+		
 
 		bool childSchemaChanged = false;
 
