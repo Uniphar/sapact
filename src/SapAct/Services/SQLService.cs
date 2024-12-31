@@ -238,8 +238,7 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 		{
 			SqlCommand sqlCommand = new(sqlCommandText, connection, transaction);
 			await sqlCommand.ExecuteNonQueryAsync();
-		}
-		
+		}		
 
 		bool childSchemaChanged = false;
 
@@ -364,7 +363,6 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 			await UpdateSchemaTableAsync(tableName, sqlConnection!, sqlTransaction!);
 		}
 		return schema;
-
 
 		void AugmentSchema(SQLTableDescriptor schema, string parentPrefix, SQLTableDescriptor? parentSchema = null)
 		{
