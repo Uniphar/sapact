@@ -26,6 +26,8 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 					var schemaCheck = await CheckObjectTypeSchemaAsync(messageProperties.objectType, messageProperties.dataVersion, TargetStorageEnum.SQL);
 						
 					var schemaDescriptor = await GenerateSchemaDescriptorAsync(messageProperties.objectType, payload);
+					///dry run to check if schema update is necessary as certain (sub)structures may only be populated for specific payload instances
+					///so we can only build up a schema when these are set - data version property refers to logical schema but not it used in its entirety
 					var dryRunSchemaCheck = !schemaCheck.IsUpdateRequired() && await UpsertSQLStructuresAsync(schemaDescriptor, cancellationToken, dryRun: true);
 
 					if (schemaCheck.IsUpdateRequired() || dryRunSchemaCheck)
@@ -96,7 +98,8 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 			await SinkJsonObjectAsync(schemaDescriptor.SqlTableName, element, schemaDescriptor, new KeyDescriptor { RootKey = primaryKey, ForeignKey = keyDescriptor.ForeignKey });
 			foreach (var nonScalar in element.GetNonScalarProperties())
 			{
-				await SinkDataAsyncInner(nonScalar.Value, schemaDescriptor.GetChildTableDescriptor(nonScalar.Name), new KeyDescriptor { RootKey = keyDescriptor.RootKey, ArrayIndex = keyDescriptor.ArrayIndex, ForeignKey = primaryKey });
+				var childTable = schemaDescriptor.GetChildTableDescriptor(nonScalar.Name);
+				await SinkDataAsyncInner(nonScalar.Value, childTable!, new KeyDescriptor { RootKey = keyDescriptor.RootKey, ArrayIndex = keyDescriptor.ArrayIndex, ForeignKey = primaryKey });
 			}
 		}
 		else
@@ -126,11 +129,14 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 		}
 
 		var sqlText = EmitTableInsertStatement(tableName, columns.Select(x=>x.columnName).ToList(), schemaDescriptor.Depth > 0 ? "PK" : Consts.MessageObjectKeyPropertyName);
-		SqlCommand sqlCommand = new(sqlText, sqlConnection, sqlTransaction);		
+		SqlCommand sqlCommand = new(sqlText, sqlConnection, sqlTransaction);	
 
 		foreach (var (columnName, value) in columns)
 		{
-			sqlCommand.Parameters.AddWithValue($"@{columnName}", value ??  (object) DBNull.Value);
+			var columnDescriptor = schemaDescriptor.GetIgnoreCaseColumnDescriptor(columnName) ?? throw new InvalidOperationException($"Column {columnName} not found in schema descriptor, this is unexpected");
+			var translatedColumnName = columnDescriptor!.ColumnName;
+
+			sqlCommand.Parameters.AddWithValue($"@{translatedColumnName}", value ?? (object)DBNull.Value);
 		}
 
 		await sqlCommand.ExecuteNonQueryAsync();
@@ -252,21 +258,15 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 
 		if (depth > 0)
 		{
-			tableUpsertSqlSB.AppendLine($"PK NVARCHAR(255) NOT NULL PRIMARY KEY");
-			addComma = true;
-		}
-
-		if (depth > 0)
-		{
 			ArgumentNullException.ThrowIfNull(parent);
 
-			if (addComma)
-				tableUpsertSqlSB.Append(',');
-
-			tableUpsertSqlSB.AppendLine($"FK NVARCHAR(255) FOREIGN KEY REFERENCES {parent.SqlTableName}({(depth == 1 ? Consts.MessageObjectKeyPropertyName : "PK")})");
+			tableUpsertSqlSB.AppendLine($"PK NVARCHAR(255) NOT NULL PRIMARY KEY");
+			tableUpsertSqlSB.AppendLine($",FK NVARCHAR(255) FOREIGN KEY REFERENCES {parent.SqlTableName}({(depth == 1 ? Consts.MessageObjectKeyPropertyName : "PK")})");
 			addComma = true;
-		}
-		foreach (var column in schemaDescriptor.Columns)
+		}		
+
+		//project data columns
+		foreach (var column in schemaDescriptor.Columns.Where(x=>!x.IsSchemaColumn))
 		{
 			if (addComma)
 				tableUpsertSqlSB.Append(',');
@@ -284,9 +284,23 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 	{
 		StringBuilder tableUpdateSB = new();
 
-		List<string> addedColumns = schemaDescriptor.Columns.Select(x => x.ColumnName).Except(columns).ToList(); //find added columns - only additive schema changes are applied
+		var schemaDescriptorColumnNames = schemaDescriptor.Columns.Select(x => x.ColumnName);
 
-		if (addedColumns.Count == 0)
+		var addedColumns = schemaDescriptorColumnNames
+			.Except(columns, StringComparer.OrdinalIgnoreCase); //find added columns - only additive schema changes are applied - ignore casing
+
+		//for updates, we must consider casing changes so best to update schema object to use previously seen casing
+		var differentCasingColumns = schemaDescriptorColumnNames
+			.Except(addedColumns, StringComparer.OrdinalIgnoreCase)
+			.Except(columns);
+
+		foreach (var diffCasingColumn in differentCasingColumns)
+		{
+			var columnToRename = schemaDescriptor.GetIgnoreCaseColumnDescriptor(diffCasingColumn)!;
+			columnToRename.ColumnName = columns.Where(x => x.Equals(diffCasingColumn, StringComparison.OrdinalIgnoreCase)).First();
+		}
+
+		if (!addedColumns.Any())
 			return string.Empty;
 
 		
@@ -326,7 +340,7 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 		
 		await PrefillSchemaTableAsync(rootTable, sqlConnection!, sqlTransaction!); //TODO: consider caching based on schema version check
 
-		var schema = GenerateSchemaDescriptorInner(tableName, item, 0);
+		var schema = GenerateSchemaDescriptorInner(tableName, item);
 
 		AugmentSchema(schema, "$");
 
@@ -402,10 +416,16 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 			return value;
 		}
 
-		SQLTableDescriptor GenerateSchemaDescriptorInner(string tableName, JsonElement item, int depth)
+		SQLTableDescriptor GenerateSchemaDescriptorInner(string tableName, JsonElement item, int depth=0)
 		{
-
 			var schemaDescriptor = new SQLTableDescriptor() { TableName = tableName, Depth = depth };
+
+			if (depth > 0)
+			{
+				//add PK and FK as explicit columns
+				schemaDescriptor.Columns.Add(new SQLColumnDescriptor() { ColumnName = "PK", SQLDataType = "NVARCHAR(255)", IsSchemaColumn = true });
+				schemaDescriptor.Columns.Add(new SQLColumnDescriptor() { ColumnName = "FK", SQLDataType = "NVARCHAR(255)", IsSchemaColumn = true });
+			}
 
 			if (item.ValueKind == JsonValueKind.Array)
 			{
