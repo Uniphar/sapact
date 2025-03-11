@@ -92,19 +92,31 @@ public abstract class SapActBaseWorker<T>(
         if (message == null || message.Body == null)
             return;
 
-        JsonDocument jsonDocument = JsonDocument.Parse(Encoding.UTF8.GetString(message.Body));
+		JsonDocument jsonDocument = JsonDocument.Parse(Encoding.UTF8.GetString(message.Body));
 
-		for (int x = 0; x < jsonDocument.RootElement.GetArrayLength(); x++) //TODO: this is temporary, array not expected
+		if (jsonDocument.RootElement.ValueKind == JsonValueKind.Array)
         {
-            var item = jsonDocument.RootElement[x];
+            for (int x = 0; x < jsonDocument.RootElement.GetArrayLength(); x++) //TODO: this is temporary, array not expected
+            {
+                var item = jsonDocument.RootElement[x];
 
-            await IngestMessageAsync(item, cancellationToken);
-            
-            telemetryClient.TrackMetric(GetTelemetryMetric($"{message.MessageId}-{x}"));
-			
-            await serviceBusReceiver!.CompleteMessageAsync(message, cancellationToken);
+                await IngestMessageAsync(item, cancellationToken);
+
+                telemetryClient.TrackMetric(GetTelemetryMetric($"{message.MessageId}-{x}"));
+            }
         }
-    }
+        else if (jsonDocument.RootElement.ValueKind == JsonValueKind.Object)
+		{
+			await IngestMessageAsync(jsonDocument.RootElement, cancellationToken);
+			telemetryClient.TrackMetric(GetTelemetryMetric(message.MessageId));
+		}
+		else
+		{
+			throw new ApplicationException("Unexpected message format");
+		}
+
+		await serviceBusReceiver!.CompleteMessageAsync(message, cancellationToken);
+	}
 
     private MetricTelemetry GetTelemetryMetric(string messageId)
     { 
