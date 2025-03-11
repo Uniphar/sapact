@@ -6,9 +6,7 @@ public static class JsonElementExtensions
 
 	public static List<ColumnDefinition> GenerateColumnList(this JsonElement payload, TargetStorageEnum targetStorage)
 	{
-		List<ColumnDefinition> columnsList =
-			[				 
-			];
+		List<ColumnDefinition> columnsList = [];
 
 		if (targetStorage==TargetStorageEnum.LogAnalytics)
 			columnsList.Add(new ColumnDefinition { Name = "TimeGenerated", Type = "datetime" });
@@ -34,6 +32,9 @@ public static class JsonElementExtensions
 					Name = field.Name,
 					Type = "string"
 				};
+
+				if (columnsList.Any(x => x.Name == column.Name))
+					continue;
 
 				columnsList.Add(column);
 			}
@@ -61,7 +62,8 @@ public static class JsonElementExtensions
 		{
 			foreach (var field in dataField.EnumerateObject())
 			{
-				dataFields.Add(field.Name, field.Value.ToString());
+				if (!dataFields.ContainsKey(field.Name))
+					dataFields.Add(field.Name, field.Value.ToString());
 			}
 		}
 
