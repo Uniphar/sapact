@@ -38,7 +38,7 @@ public class JsonElementExtensionTests
 		{
 			ObjectKey = "blah",
             Property1 = "prop1A",
-			data = new
+		    data = new
 			{
 				DataA = "blah",
 				DataB = "blah",

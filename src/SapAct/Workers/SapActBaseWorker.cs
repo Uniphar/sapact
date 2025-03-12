@@ -94,25 +94,19 @@ public abstract class SapActBaseWorker<T>(
 
 		JsonDocument jsonDocument = JsonDocument.Parse(Encoding.UTF8.GetString(message.Body));
 
-		if (jsonDocument.RootElement.ValueKind == JsonValueKind.Array)
-        {
-            for (int x = 0; x < jsonDocument.RootElement.GetArrayLength(); x++) //TODO: this is temporary, array not expected
-            {
-                var item = jsonDocument.RootElement[x];
-
-                await IngestMessageAsync(item, cancellationToken);
-
-                telemetryClient.TrackMetric(GetTelemetryMetric($"{message.MessageId}-{x}"));
-            }
-        }
-        else if (jsonDocument.RootElement.ValueKind == JsonValueKind.Object)
+		IEnumerable<JsonElement> items = jsonDocument.RootElement.ValueKind switch
 		{
-			await IngestMessageAsync(jsonDocument.RootElement, cancellationToken);
-			telemetryClient.TrackMetric(GetTelemetryMetric(message.MessageId));
-		}
-		else
+			JsonValueKind.Array => jsonDocument.RootElement.EnumerateArray(),
+			JsonValueKind.Object => [jsonDocument.RootElement],	
+			_ => throw new ApplicationException("Unexpected message format")
+		};
+
+        int x=0;
+
+		foreach (var item in items)
 		{
-			throw new ApplicationException("Unexpected message format");
+			await IngestMessageAsync(item, cancellationToken);
+			telemetryClient.TrackMetric(GetTelemetryMetric(items.Count()==1 ? message.MessageId: $"{message.MessageId}-{x++}"));
 		}
 
 		await serviceBusReceiver!.CompleteMessageAsync(message, cancellationToken);

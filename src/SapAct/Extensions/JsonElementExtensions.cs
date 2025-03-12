@@ -5,7 +5,7 @@ public static class JsonElementExtensions
 	private const string DataColumnName = "data";
 
 	public static List<ColumnDefinition> GenerateColumnList(this JsonElement payload, TargetStorageEnum targetStorage)
-	{
+	{		
 		List<ColumnDefinition> columnsList = [];
 
 		if (targetStorage==TargetStorageEnum.LogAnalytics)
@@ -51,20 +51,20 @@ public static class JsonElementExtensions
 	{
 		Dictionary<string, string> dataFields = [];
 
-		//translate top level fields
-		foreach (var field in payload.EnumerateObject().Where(x => x.Name != DataColumnName))
-		{
-			dataFields.Add(field.Name, field.Value.ToString());
-		}
-
+	
 		//translate data fields
 		if (payload.TryGetDataProperty(out var dataField))
 		{
 			foreach (var field in dataField.EnumerateObject())
 			{
-				if (!dataFields.ContainsKey(field.Name))
-					dataFields.Add(field.Name, field.Value.ToString());
+				dataFields.Add(field.Name, field.Value.ToString());
 			}
+		}
+
+		//translate top level fields - potentially overwrite data fields - top level wins
+		foreach (var field in payload.EnumerateObject().Where(x => x.Name != DataColumnName))
+		{
+			dataFields[field.Name] = field.Value.ToString();
 		}
 
 		return dataFields;
