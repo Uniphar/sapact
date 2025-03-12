@@ -38,6 +38,7 @@ on:
 
 jobs:
   deploy_app:
+    name: Deploy App - ${{ inputs.environment }}
     environment: ${{ inputs.environment }}
     runs-on: ubuntu-latest
     strategy:

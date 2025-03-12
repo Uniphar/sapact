@@ -6,40 +6,22 @@ public static class JsonElementExtensions
 
 	public static List<ColumnDefinition> GenerateColumnList(this JsonElement payload, TargetStorageEnum targetStorage)
 	{
-		List<ColumnDefinition> columnsList =
-			[				 
-			];
+		var propDefinitions = payload.EnumerateObject()
+			.SelectMany(p => p.Name == "data" ? p.Value.EnumerateObject().ToArray() : [p])
+			.Select(p => p.Name)
+			.Distinct()
+			.Select(name => new ColumnDefinition { Name = name, Type = "string" });
 
-		if (targetStorage==TargetStorageEnum.LogAnalytics)
-			columnsList.Add(new ColumnDefinition { Name = "TimeGenerated", Type = "datetime" });
-
-		foreach (var property in payload.EnumerateObject().Where(x=>x.Name!=DataColumnName))
+		if (targetStorage is TargetStorageEnum.LogAnalytics)
 		{
-			var column = new ColumnDefinition
-			{
-				Name = property.Name,
-				Type = "string"
-			};
-
-			columnsList.Add(column);
+			return propDefinitions
+			  .Append(new ColumnDefinition { Name = "TimeGenerated", Type = "datetime" })
+			  .ToList();
 		}
-
-		//translate data fields
-		if (payload.TryGetDataProperty(out var dataField))
+		else
 		{
-			foreach (var field in dataField.EnumerateObject())
-			{
-				var column = new ColumnDefinition
-				{
-					Name = field.Name,
-					Type = "string"
-				};
-
-				columnsList.Add(column);
-			}
-		}
-
-		return columnsList;
+			return propDefinitions.ToList();
+		}		
 	}
 
 	public static bool TryGetDataProperty(this JsonElement payload, out JsonElement dataProperty) => payload.TryGetProperty(DataColumnName, out dataProperty);
@@ -50,12 +32,7 @@ public static class JsonElementExtensions
 	{
 		Dictionary<string, string> dataFields = [];
 
-		//translate top level fields
-		foreach (var field in payload.EnumerateObject().Where(x => x.Name != DataColumnName))
-		{
-			dataFields.Add(field.Name, field.Value.ToString());
-		}
-
+	
 		//translate data fields
 		if (payload.TryGetDataProperty(out var dataField))
 		{
@@ -63,6 +40,12 @@ public static class JsonElementExtensions
 			{
 				dataFields.Add(field.Name, field.Value.ToString());
 			}
+		}
+
+		//translate top level fields - potentially overwrite data fields - top level wins
+		foreach (var field in payload.EnumerateObject().Where(x => x.Name != DataColumnName))
+		{
+			dataFields[field.Name] = field.Value.ToString();
 		}
 
 		return dataFields;
