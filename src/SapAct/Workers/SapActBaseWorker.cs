@@ -96,7 +96,7 @@ public abstract class SapActBaseWorker<T>(
 
 		IEnumerable<JsonElement> items = jsonDocument.RootElement.ValueKind switch
 		{
-			JsonValueKind.Array => jsonDocument.RootElement.EnumerateArray(),
+			JsonValueKind.Array => jsonDocument.RootElement.EnumerateArray().ToList(),
 			JsonValueKind.Object => [jsonDocument.RootElement],	
 			_ => throw new ApplicationException("Unexpected message format")
 		};
