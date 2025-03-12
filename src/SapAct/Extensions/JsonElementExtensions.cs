@@ -7,7 +7,7 @@ public static class JsonElementExtensions
 	public static List<ColumnDefinition> GenerateColumnList(this JsonElement payload, TargetStorageEnum targetStorage)
 	{
 		var propDefinitions = payload.EnumerateObject()
-			.SelectMany<JsonProperty, JsonProperty>(p => p.Name == "data" ? p.Value.EnumerateObject() : [p])
+			.SelectMany(p => p.Name == "data" ? p.Value.EnumerateObject().ToArray() : [p])
 			.Select(p => p.Name)
 			.Distinct()
 			.Select(name => new ColumnDefinition { Name = name, Type = "string" });
