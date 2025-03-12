@@ -5,42 +5,23 @@ public static class JsonElementExtensions
 	private const string DataColumnName = "data";
 
 	public static List<ColumnDefinition> GenerateColumnList(this JsonElement payload, TargetStorageEnum targetStorage)
-	{		
-		List<ColumnDefinition> columnsList = [];
+	{
+		var propDefinitions = payload.EnumerateObject()
+			.SelectMany<JsonProperty, JsonProperty>(p => p.Name == "data" ? p.Value.EnumerateObject() : [p])
+			.Select(p => p.Name)
+			.Distinct()
+			.Select(name => new ColumnDefinition { Name = name, Type = "string" });
 
-		if (targetStorage==TargetStorageEnum.LogAnalytics)
-			columnsList.Add(new ColumnDefinition { Name = "TimeGenerated", Type = "datetime" });
-
-		foreach (var property in payload.EnumerateObject().Where(x=>x.Name!=DataColumnName))
+		if (targetStorage is TargetStorageEnum.LogAnalytics)
 		{
-			var column = new ColumnDefinition
-			{
-				Name = property.Name,
-				Type = "string"
-			};
-
-			columnsList.Add(column);
+			return propDefinitions
+			  .Append(new ColumnDefinition { Name = "TimeGenerated", Type = "datetime" })
+			  .ToList();
 		}
-
-		//translate data fields
-		if (payload.TryGetDataProperty(out var dataField))
+		else
 		{
-			foreach (var field in dataField.EnumerateObject())
-			{
-				var column = new ColumnDefinition
-				{
-					Name = field.Name,
-					Type = "string"
-				};
-
-				if (columnsList.Any(x => x.Name == column.Name))
-					continue;
-
-				columnsList.Add(column);
-			}
-		}
-
-		return columnsList;
+			return propDefinitions.ToList();
+		}		
 	}
 
 	public static bool TryGetDataProperty(this JsonElement payload, out JsonElement dataProperty) => payload.TryGetProperty(DataColumnName, out dataProperty);

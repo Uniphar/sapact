@@ -39,8 +39,6 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 							(var lockState, string? leaseId) = await ObtainLockAsync(messageProperties.objectType, messageProperties.dataVersion, TargetStorageEnum.SQL);
 							if (lockState == LockState.LockObtained)
 							{
-								List<ColumnDefinition> columnsList = payload.GenerateColumnList(TargetStorageEnum.SQL);
-
 								await UpsertSQLStructuresAsync(schemaDescriptor, cancellationToken);
 									
 								UpdateObjectTypeSchema(messageProperties.objectType, messageProperties.dataVersion);
