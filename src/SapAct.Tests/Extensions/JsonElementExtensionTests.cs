@@ -37,7 +37,7 @@ public class JsonElementExtensionTests
 		var json = new
 		{
 			ObjectKey = "blah",
-            Property1 = "prop1A",
+            		Property1 = "prop1A",
 			data = new
 			{
 				DataA = "blah",
