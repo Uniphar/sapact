@@ -47,7 +47,7 @@ public abstract class SapActBaseWorker<T>(
 			}
 			catch (Exception ex)
 			{
-				logger.LogError(ex, "Error creating subscription");
+				logger.LogError(ex, "Error creating subscription {SubscriptionName} for topic {TopicName}", subscriptionName, topicName);
 				throw;
 			}
 		}
