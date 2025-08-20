@@ -53,6 +53,10 @@ jobs:
           repository: Uniphar/devops-azure
           token: ${{ steps.gh-app.outputs.token }}
 
+      - uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: '9'
+
       - name: azure login
         uses: azure/login@v2
         with:
