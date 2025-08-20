@@ -42,7 +42,8 @@ public abstract class SapActBaseWorker<T>(
 			}
 			catch (ServiceBusException ex) when (ex.Reason == ServiceBusFailureReason.MessagingEntityAlreadyExists)
 			{
-				//do nothing, subscription already exists
+				// Subscription already exists - this is expected in concurrent scenarios where multiple workers may attempt creation.
+				// It is safe to ignore this exception because the desired resource is present.
 			}
 			catch (Exception ex)
 			{
