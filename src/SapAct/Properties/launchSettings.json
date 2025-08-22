@@ -1,7 +1,10 @@
 {
   "profiles": {
     "SapAct": {
-      "commandName": "Project"
+      "commandName": "Project",
+      "environmentVariables": {
+        "SAPACT_CONFIGURATION_URL": "https://uni-devops-app-dev-kv.vault.azure.net/"
+      }
     },
     "Container (Dockerfile)": {
       "commandName": "Docker"

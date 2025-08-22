@@ -1,11 +1,13 @@
-﻿namespace SapAct.Extensions;
+﻿using SapAct.Models.Validators;
+
+namespace SapAct.Extensions;
 
 public static class IConfigurationExtensions
 {
 	public static void CheckConfiguration(this IConfiguration configuration)
-	{
-		configuration.ShouldBeValid();
-	}
+    {
+        new ConfigurationValidator().Validate(configuration);
+    }
 
 	public static IEnumerable<ServiceBusTopicConfiguration> GetServiceBusTopicConfiguration(this IConfiguration configuration)
 	{
