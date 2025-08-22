@@ -4,7 +4,7 @@ namespace SapAct.Extensions;
 
 public static class ConfigurationAssertionExtensions
 {
-    public static void ShouldBeConfigured(this IConfiguration cfg)
+    public static void ShouldBeValid(this IConfiguration cfg)
     {
         using (new AssertionScope())
         {

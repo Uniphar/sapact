@@ -4,7 +4,7 @@ public static class IConfigurationExtensions
 {
 	public static void CheckConfiguration(this IConfiguration configuration)
 	{
-		configuration.ShouldBeConfigured();
+		configuration.ShouldBeValid();
 	}
 
 	public static IEnumerable<ServiceBusTopicConfiguration> GetServiceBusTopicConfiguration(this IConfiguration configuration)
