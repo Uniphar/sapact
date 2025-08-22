@@ -25,6 +25,7 @@ global using Microsoft.Extensions.Logging;
 global using SapAct;
 global using SapAct.Extensions;
 global using SapAct.Models;
+global using SapAct.Models.Validators;
 global using SapAct.Services;
 global using SapAct.Workers;
 global using System.Collections.Concurrent;

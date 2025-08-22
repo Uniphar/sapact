@@ -1,6 +1,4 @@
-﻿using SapAct.Models.Validators;
-
-namespace SapAct.Extensions;
+﻿namespace SapAct.Extensions;
 
 public static class IConfigurationExtensions
 {
