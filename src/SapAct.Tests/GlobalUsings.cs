@@ -1,11 +1,11 @@
-﻿global using Azure;
+﻿global using AwesomeAssertions;
+global using Azure;
 global using Azure.Identity;
 global using Azure.Messaging.ServiceBus;
 global using Azure.Messaging.ServiceBus.Administration;
 global using Azure.Monitor.Query;
 global using Azure.Monitor.Query.Models;
 global using Azure.Storage.Blobs;
-global using FluentAssertions;
 global using Kusto.Data;
 global using Kusto.Data.Common;
 global using Kusto.Data.Exceptions;

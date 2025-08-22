@@ -50,7 +50,7 @@ public class IntegrationTests
 
 		_messageBusSender = sbClient.CreateSender(_messageBusConfiguration.TopicName);
 		
-		_blobServiceClient = new(new Uri(_config[Consts.LockServiceBlobConnectionStringConfigKey]), _credential);
+		_blobServiceClient = new(new Uri(_config[Consts.LockServiceBlobConnectionStringConfigKey]!), _credential);
 		_blobContainerClient = _blobServiceClient.GetBlobContainerClient(_config.GetLockServiceBlobContainerNameOrDefault());
 
 		_databaseName = _config.GetADXClusterDBNameOrDefault();
@@ -181,7 +181,7 @@ public class IntegrationTests
 
 	private async Task PurgeDLQForServiceBusSubscriptionAsync(string subscriptionName)
 	{
-		await using var client = new ServiceBusClient(_messageBusConfiguration.ConnectionString, _credential);
+		await using var client = new ServiceBusClient(_messageBusConfiguration!.ConnectionString, _credential);
 		var receiver = client.CreateReceiver(_messageBusConfiguration.TopicName, subscriptionName, new ServiceBusReceiverOptions
 		{
 			SubQueue = SubQueue.DeadLetter
