@@ -3,9 +3,9 @@
 public static class IConfigurationExtensions
 {
 	public static void CheckConfiguration(this IConfiguration configuration)
-	{
-		new ConfigurationValidator().Validate(configuration);
-	}
+    {
+        new ConfigurationValidator().Validate(configuration);
+    }
 
 	public static IEnumerable<ServiceBusTopicConfiguration> GetServiceBusTopicConfiguration(this IConfiguration configuration)
 	{
