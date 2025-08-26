@@ -1,16 +1,16 @@
 ﻿namespace SapAct.Models;
 
-public class GetLATableResponseType
+public record GetLATableResponseType
 {
 	[JsonPropertyName("properties")]
 	public required LATablePropertiesType Properties { get; set; }
 
-	public class LATablePropertiesType
+	public record LATablePropertiesType
 	{
 		[JsonPropertyName("schema")]
 		public required LATableSchemaType Schema { get; set; }
 
-		public class LATableSchemaType
+		public record LATableSchemaType
 		{
 			[JsonPropertyName("columns")]
 			public required IEnumerable<ColumnDefinition> Columns { get; set; }

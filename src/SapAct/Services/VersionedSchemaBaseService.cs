@@ -8,7 +8,6 @@ public abstract class VersionedSchemaBaseService(ILockService lockService)
 	{
 		bool found = _tableVersionMapping.TryGetValue(objectType, out string? schemaVersion);
 
-
 		SchemaCheckResultState schemaCompareResult;
 
 		if (found)

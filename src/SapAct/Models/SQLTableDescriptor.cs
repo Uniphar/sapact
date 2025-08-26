@@ -3,7 +3,7 @@
 public record SQLTableDescriptor
 {
 	public required string TableName { get; init; }
-	public string SqlTableName { get; set; } = "";
+	public string SqlTableName { get; set; } = string.Empty;
 	public required int Depth { get; set; }
 	public List<SQLColumnDescriptor> Columns { get; init; } = [];
 	public List<SQLTableDescriptor> ChildTables { get; init; } = [];
@@ -24,5 +24,5 @@ public record SQLColumnDescriptor
 {
 	public required string ColumnName { get; set; }
 	public required string SQLDataType { get; set; }
-	public bool IsSchemaColumn { get; set; }
+	public bool IsSchemaColumn { get; init; }
 }
