@@ -2,11 +2,10 @@
 
 //TODO: consider splitting schema upsert and data sink into separate services for readability
 public class SQLService(
-    IServiceProvider serviceProvider, 
-    ILockService lockService, 
+    IServiceProvider serviceProvider,
+    ILockService lockService,
     ILogger<SQLService> logger) : VersionedSchemaBaseService(lockService)
 {
-
     public async Task IngestMessageAsync(JsonElement payload, CancellationToken cancellationToken = default)
     {
         var messageProperties = ExtractMessageRootProperties(payload);
@@ -56,7 +55,8 @@ public class SQLService(
                         } while (updateNecessary);
                     }
 
-                    await SinkDataAsyncInner(sqlConnection, sqlTransaction, payload, schemaDescriptor, new KeyDescriptor { RootKey = messageProperties.objectKey, ForeignKey = string.Empty }, cancellationToken);
+                    await SinkDataAsyncInner(sqlConnection, sqlTransaction, payload, schemaDescriptor,
+                        new KeyDescriptor { RootKey = messageProperties.objectKey, ForeignKey = string.Empty }, cancellationToken);
                     await sqlTransaction.CommitAsync(cancellationToken);
                 }
                 catch (Exception ex)
@@ -73,9 +73,9 @@ public class SQLService(
     private async Task SinkDataAsyncInner(
         SqlConnection sqlConnection,
         SqlTransaction sqlTransaction,
-        JsonElement element, 
-        SQLTableDescriptor schemaDescriptor, 
-        KeyDescriptor keyDescriptor, 
+        JsonElement element,
+        SQLTableDescriptor schemaDescriptor,
+        KeyDescriptor keyDescriptor,
         CancellationToken cancellationToken = default)
     {
         if (schemaDescriptor.IsEmpty)
@@ -98,12 +98,13 @@ public class SQLService(
         }
         else if (element.ValueKind == JsonValueKind.Object)
         {
-
-            await SinkJsonObjectAsync(sqlConnection, sqlTransaction, schemaDescriptor.SqlTableName, element, schemaDescriptor, new KeyDescriptor { RootKey = primaryKey, ForeignKey = keyDescriptor.ForeignKey }, cancellationToken);
+            await SinkJsonObjectAsync(sqlConnection, sqlTransaction, schemaDescriptor.SqlTableName, element, schemaDescriptor,
+                new KeyDescriptor { RootKey = primaryKey, ForeignKey = keyDescriptor.ForeignKey }, cancellationToken);
             foreach (var nonScalar in element.GetNonScalarProperties())
             {
                 var childTable = schemaDescriptor.GetChildTableDescriptor(nonScalar.Name);
-                await SinkDataAsyncInner(sqlConnection, sqlTransaction, nonScalar.Value, childTable!, keyDescriptor with { ForeignKey = primaryKey }, cancellationToken: cancellationToken);
+                await SinkDataAsyncInner(sqlConnection, sqlTransaction, nonScalar.Value, childTable!, keyDescriptor with { ForeignKey = primaryKey },
+                    cancellationToken: cancellationToken);
             }
         }
         else
@@ -115,10 +116,10 @@ public class SQLService(
     private static async Task SinkJsonObjectAsync(
         SqlConnection sqlConnection,
         SqlTransaction sqlTransaction,
-        string tableName, 
-        JsonElement payload, 
-        SQLTableDescriptor schemaDescriptor, 
-        KeyDescriptor keyDescriptor, 
+        string tableName,
+        JsonElement payload,
+        SQLTableDescriptor schemaDescriptor,
+        KeyDescriptor keyDescriptor,
         CancellationToken cancellationToken = default)
     {
         //get fields
@@ -139,12 +140,14 @@ public class SQLService(
             columns.Add((Consts.SQLFKColumnName, keyDescriptor.ForeignKey));
         }
 
-        var sqlText = EmitTableInsertStatement(tableName, columns.Select(x => x.columnName).ToList(), schemaDescriptor.Depth > 0 ? Consts.SQLPKColumnName : Consts.MessageObjectKeyPropertyName);
+        var sqlText = EmitTableInsertStatement(tableName, columns.Select(x => x.columnName).ToList(),
+            schemaDescriptor.Depth > 0 ? Consts.SQLPKColumnName : Consts.MessageObjectKeyPropertyName);
         SqlCommand sqlCommand = new(sqlText, sqlConnection, sqlTransaction);
 
         foreach (var (columnName, value) in columns)
         {
-            var columnDescriptor = schemaDescriptor.GetIgnoreCaseColumnDescriptor(columnName) ?? throw new InvalidOperationException($"Column {columnName} not found in schema descriptor, this is unexpected");
+            var columnDescriptor = schemaDescriptor.GetIgnoreCaseColumnDescriptor(columnName) ??
+                                   throw new InvalidOperationException($"Column {columnName} not found in schema descriptor, this is unexpected");
             var translatedColumnName = columnDescriptor!.ColumnName;
 
             sqlCommand.Parameters.AddWithValue($"@{translatedColumnName}", value ?? (object)DBNull.Value);
@@ -219,11 +222,11 @@ public class SQLService(
     }
 
     private static async Task<bool> UpsertSQLTableAsync(
-        SQLTableDescriptor schemaDescriptor, 
-        SqlConnection connection, 
-        SqlTransaction transaction, 
-        SQLTableDescriptor? parent = null, 
-        int depth = 0, 
+        SQLTableDescriptor schemaDescriptor,
+        SqlConnection connection,
+        SqlTransaction transaction,
+        SQLTableDescriptor? parent = null,
+        int depth = 0,
         bool dryRun = false)
     {
         if (schemaDescriptor.IsEmpty)
@@ -281,11 +284,14 @@ public class SQLService(
         {
             ArgumentNullException.ThrowIfNull(parent);
 
-            var pkColumn = schemaDescriptor.GetIgnoreCaseColumnDescriptor(Consts.SQLPKColumnName) ?? throw new InvalidOperationException($"Column {Consts.SQLPKColumnName} not found in schema descriptor, this is unexpected");
-            var fkColumn = schemaDescriptor.GetIgnoreCaseColumnDescriptor(Consts.SQLFKColumnName) ?? throw new InvalidOperationException($"Column {Consts.SQLFKColumnName} not found in schema descriptor, this is unexpected");
+            var pkColumn = schemaDescriptor.GetIgnoreCaseColumnDescriptor(Consts.SQLPKColumnName) ??
+                           throw new InvalidOperationException($"Column {Consts.SQLPKColumnName} not found in schema descriptor, this is unexpected");
+            var fkColumn = schemaDescriptor.GetIgnoreCaseColumnDescriptor(Consts.SQLFKColumnName) ??
+                           throw new InvalidOperationException($"Column {Consts.SQLFKColumnName} not found in schema descriptor, this is unexpected");
 
             tableUpsertSqlSB.AppendLine($"{pkColumn.ColumnName} {pkColumn.SQLDataType} NOT NULL PRIMARY KEY");
-            tableUpsertSqlSB.AppendLine($",{fkColumn.ColumnName} {fkColumn.SQLDataType} FOREIGN KEY REFERENCES {parent.SqlTableName}({(depth == 1 ? Consts.MessageObjectKeyPropertyName : "PK")})");
+            tableUpsertSqlSB.AppendLine(
+                $",{fkColumn.ColumnName} {fkColumn.SQLDataType} FOREIGN KEY REFERENCES {parent.SqlTableName}({(depth == 1 ? Consts.MessageObjectKeyPropertyName : "PK")})");
 
             addComma = true;
         }
@@ -296,7 +302,8 @@ public class SQLService(
             if (addComma)
                 tableUpsertSqlSB.Append(',');
 
-            tableUpsertSqlSB.AppendLine($"{column.ColumnName} {column.SQLDataType} {(depth == 0 && Consts.MessageObjectKeyPropertyName == column.ColumnName ? "NOT NULL PRIMARY KEY" : "")}");
+            tableUpsertSqlSB.AppendLine(
+                $"{column.ColumnName} {column.SQLDataType} {(depth == 0 && Consts.MessageObjectKeyPropertyName == column.ColumnName ? "NOT NULL PRIMARY KEY" : "")}");
             addComma = true;
         }
 
@@ -383,16 +390,18 @@ public class SQLService(
         {
             await UpdateSchemaTableAsync(tableName, sqlConnection, sqlTransaction);
         }
+
         return schema;
 
         void AugmentSchema(SQLTableDescriptor schema, string parentPrefix, SQLTableDescriptor? parentSchema = null)
         {
             schema.SqlTableName = GetSQLTableName(parentPrefix);
 
-            if (parentSchema == null)//top level
+            if (parentSchema == null) //top level
             {
                 //handle designation of primary key for objectKey property of the payload - we have to use key column type rather than generic property type
-                var pkColumn = schema.GetIgnoreCaseColumnDescriptor(Consts.MessageObjectKeyPropertyName) ?? throw new InvalidOperationException($"Column {Consts.MessageObjectKeyPropertyName} not found in schema descriptor, this is unexpected");
+                var pkColumn = schema.GetIgnoreCaseColumnDescriptor(Consts.MessageObjectKeyPropertyName) ??
+                               throw new InvalidOperationException($"Column {Consts.MessageObjectKeyPropertyName} not found in schema descriptor, this is unexpected");
                 pkColumn.SQLDataType = Consts.SQLKeyColumnDefaultDataType;
             }
 
@@ -437,7 +446,9 @@ public class SQLService(
 
             foreach (var item in tableNamingCtx)
             {
-                var sqlCommand = new SqlCommand($"INSERT INTO {schemaTableName} (Path, TableIndex) SELECT '{item.Key}', {item.Value} WHERE NOT EXISTS(SELECT Path from {schemaTableName} WHERE Path='{item.Key}')", sqlConnection, sqlTransaction);
+                var sqlCommand = new SqlCommand(
+                    $"INSERT INTO {schemaTableName} (Path, TableIndex) SELECT '{item.Key}', {item.Value} WHERE NOT EXISTS(SELECT Path from {schemaTableName} WHERE Path='{item.Key}')",
+                    sqlConnection, sqlTransaction);
                 await sqlCommand.ExecuteNonQueryAsync();
             }
         }
@@ -466,8 +477,10 @@ public class SQLService(
             if (depth > 0)
             {
                 //add PK and FK as explicit columns
-                schemaDescriptor.Columns.Add(new SQLColumnDescriptor() { ColumnName = Consts.SQLPKColumnName, SQLDataType = Consts.SQLKeyColumnDefaultDataType, IsSchemaColumn = true });
-                schemaDescriptor.Columns.Add(new SQLColumnDescriptor() { ColumnName = Consts.SQLFKColumnName, SQLDataType = Consts.SQLKeyColumnDefaultDataType, IsSchemaColumn = true });
+                schemaDescriptor.Columns.Add(new SQLColumnDescriptor()
+                    { ColumnName = Consts.SQLPKColumnName, SQLDataType = Consts.SQLKeyColumnDefaultDataType, IsSchemaColumn = true });
+                schemaDescriptor.Columns.Add(new SQLColumnDescriptor()
+                    { ColumnName = Consts.SQLFKColumnName, SQLDataType = Consts.SQLKeyColumnDefaultDataType, IsSchemaColumn = true });
             }
 
             if (item.ValueKind == JsonValueKind.Array)
