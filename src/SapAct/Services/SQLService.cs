@@ -27,7 +27,7 @@ public class SQLService(
                     var schemaDescriptor = await GenerateSchemaDescriptorAsync(sqlConnection, sqlTransaction, messageProperties.objectType, payload, cancellationToken);
                     ///dry run to check if schema update is necessary as certain (sub)structures may only be populated for specific payload instances
                     ///so we can only build up a schema when these are set - data version property refers to logical schema but not it used in its entirety
-                    var dryRunSchemaCheck = !schemaCheck.IsUpdateRequired() && await UpsertSQLStructuresAsync(schemaDescriptor, cancellationToken, dryRun: true);
+                    var dryRunSchemaCheck = !schemaCheck.IsUpdateRequired() && await UpsertSQLStructuresAsync(schemaDescriptor, dryRun: true, cancellationToken);
 
                     if (schemaCheck.IsUpdateRequired() || dryRunSchemaCheck)
                     {
@@ -38,7 +38,7 @@ public class SQLService(
                             (var lockState, string? leaseId) = await ObtainLockAsync(messageProperties.objectType, messageProperties.dataVersion, TargetStorageEnum.SQL);
                             if (lockState == LockState.LockObtained)
                             {
-                                await UpsertSQLStructuresAsync(schemaDescriptor, cancellationToken);
+                                await UpsertSQLStructuresAsync(schemaDescriptor, cancellationToken: cancellationToken);
 
                                 UpdateObjectTypeSchema(messageProperties.objectType, messageProperties.dataVersion);
 
@@ -55,7 +55,7 @@ public class SQLService(
                         } while (updateNecessary);
                     }
 
-                    await SinkDataAsyncInner(sqlConnection, sqlTransaction, payload, schemaDescriptor,
+                    await SinkDataAsyncInnerAsync(sqlConnection, sqlTransaction, payload, schemaDescriptor,
                         new KeyDescriptor { RootKey = messageProperties.objectKey, ForeignKey = string.Empty }, cancellationToken);
                     await sqlTransaction.CommitAsync(cancellationToken);
                 }
@@ -70,7 +70,7 @@ public class SQLService(
         }
     }
 
-    private async Task SinkDataAsyncInner(
+    private async Task SinkDataAsyncInnerAsync(
         SqlConnection sqlConnection,
         SqlTransaction sqlTransaction,
         JsonElement element,
@@ -92,7 +92,8 @@ public class SQLService(
             int arrayIndexCurrent = 0;
             foreach (var arrayElement in element.EnumerateArray())
             {
-                await SinkDataAsyncInner(sqlConnection, sqlTransaction, arrayElement, schemaDescriptor, keyDescriptor with { ArrayIndex = arrayIndexCurrent });
+                await SinkDataAsyncInnerAsync(sqlConnection, sqlTransaction, arrayElement, schemaDescriptor, 
+                    keyDescriptor with { ArrayIndex = arrayIndexCurrent }, cancellationToken);
                 arrayIndexCurrent++;
             }
         }
@@ -103,8 +104,8 @@ public class SQLService(
             foreach (var nonScalar in element.GetNonScalarProperties())
             {
                 var childTable = schemaDescriptor.GetChildTableDescriptor(nonScalar.Name);
-                await SinkDataAsyncInner(sqlConnection, sqlTransaction, nonScalar.Value, childTable!, keyDescriptor with { ForeignKey = primaryKey },
-                    cancellationToken: cancellationToken);
+                await SinkDataAsyncInnerAsync(sqlConnection, sqlTransaction, nonScalar.Value, childTable!, 
+                    keyDescriptor with { ForeignKey = primaryKey }, cancellationToken);
             }
         }
         else
@@ -195,7 +196,7 @@ public class SQLService(
         return insertSB.ToString();
     }
 
-    private async Task<bool> UpsertSQLStructuresAsync(SQLTableDescriptor schemaDescriptor, CancellationToken cancellationToken = default, bool dryRun = false)
+    private async Task<bool> UpsertSQLStructuresAsync(SQLTableDescriptor schemaDescriptor, bool dryRun = false, CancellationToken cancellationToken = default)
     {
         await using var connection = serviceProvider.GetRequiredService<SqlConnection>();
         await connection.OpenAsync(cancellationToken);
@@ -203,7 +204,7 @@ public class SQLService(
 
         try
         {
-            var schemaChangeDetected = await UpsertSQLTableAsync(schemaDescriptor, connection, transaction, dryRun: dryRun);
+            var schemaChangeDetected = await UpsertSQLTableAsync(schemaDescriptor, connection, transaction, dryRun: dryRun, cancellationToken: cancellationToken);
 
             if (!dryRun)
             {
@@ -227,14 +228,15 @@ public class SQLService(
         SqlTransaction transaction,
         SQLTableDescriptor? parent = null,
         int depth = 0,
-        bool dryRun = false)
+        bool dryRun = false,
+        CancellationToken cancellationToken = default)
     {
         if (schemaDescriptor.IsEmpty)
             return false;
 
         string tableName = schemaDescriptor.SqlTableName;
 
-        (var exists, var columns) = await CheckTableExistsAsync(tableName, connection, transaction);
+        (var exists, var columns) = await CheckTableExistsAsync(tableName, connection, transaction, cancellationToken);
 
         string sqlCommandText;
         if (exists)
@@ -263,7 +265,7 @@ public class SQLService(
 
         foreach (var childTable in schemaDescriptor.ChildTables)
         {
-            var childSchemaResult = await UpsertSQLTableAsync(childTable, connection, transaction, schemaDescriptor, depth + 1, dryRun: dryRun);
+            var childSchemaResult = await UpsertSQLTableAsync(childTable, connection, transaction, schemaDescriptor, depth + 1, dryRun: dryRun, cancellationToken);
             childSchemaChanged = childSchemaResult || childSchemaChanged;
         }
 
@@ -349,16 +351,20 @@ public class SQLService(
         return tableUpdateSB.ToString();
     }
 
-    private static async Task<(bool exists, IEnumerable<string> columns)> CheckTableExistsAsync(string tableName, SqlConnection connection, SqlTransaction transaction)
+    private static async Task<(bool exists, IEnumerable<string> columns)> CheckTableExistsAsync(
+        string tableName,
+        SqlConnection connection,
+        SqlTransaction transaction,
+        CancellationToken cancellationToken = default)
     {
         List<string> columnList = [];
         bool exists = false;
 
         var sqlCommand = new SqlCommand($"SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '{tableName}'", connection, transaction);
-        var res = await sqlCommand.ExecuteReaderAsync();
+        var res = await sqlCommand.ExecuteReaderAsync(cancellationToken);
 
 
-        while (res.Read())
+        while (await res.ReadAsync(cancellationToken))
         {
             exists = true;
             columnList.Add(res.GetString(0));
@@ -388,7 +394,7 @@ public class SQLService(
 
         if (tableNamingCtxChanged)
         {
-            await UpdateSchemaTableAsync(tableName, sqlConnection, sqlTransaction);
+            await UpdateSchemaTableAsync(tableName, sqlConnection, sqlTransaction, cancellationToken);
         }
 
         return schema;
@@ -415,7 +421,7 @@ public class SQLService(
         async Task PrefillSchemaTableAsync(string rootCtx, SqlConnection sqlConnection, SqlTransaction sqlTransaction, CancellationToken cancellationToken = default)
         {
             string schemaTableName = $"{rootCtx}_SchemaTable";
-            (bool exists, var _) = await CheckTableExistsAsync(schemaTableName, sqlConnection, sqlTransaction);
+            (bool exists, var _) = await CheckTableExistsAsync(schemaTableName, sqlConnection, sqlTransaction, cancellationToken);
             if (exists)
             {
                 var sqlCommand = new SqlCommand($"SELECT * FROM {schemaTableName}", sqlConnection, sqlTransaction);
@@ -430,17 +436,17 @@ public class SQLService(
             }
             else
             {
-                await CreateSchemaTableAsync(schemaTableName, sqlConnection, sqlTransaction);
+                await CreateSchemaTableAsync(schemaTableName, sqlConnection, sqlTransaction, cancellationToken);
             }
         }
 
-        async Task CreateSchemaTableAsync(string tableName, SqlConnection sqlConnection, SqlTransaction sqlTransaction)
+        async Task CreateSchemaTableAsync(string tableName, SqlConnection sqlConnection, SqlTransaction sqlTransaction, CancellationToken cancellationToken = default)
         {
             var sqlCommand = new SqlCommand($"CREATE TABLE {tableName} (Path {Consts.SQLKeyColumnDefaultDataType} PRIMARY KEY, TableIndex INT)", sqlConnection, sqlTransaction);
-            await sqlCommand.ExecuteNonQueryAsync();
+            await sqlCommand.ExecuteNonQueryAsync(cancellationToken);
         }
 
-        async Task UpdateSchemaTableAsync(string rootCtx, SqlConnection sqlConnection, SqlTransaction sqlTransaction)
+        async Task UpdateSchemaTableAsync(string rootCtx, SqlConnection sqlConnection, SqlTransaction sqlTransaction, CancellationToken cancellationToken = default)
         {
             string schemaTableName = $"{rootCtx}_SchemaTable";
 
@@ -449,7 +455,7 @@ public class SQLService(
                 var sqlCommand = new SqlCommand(
                     $"INSERT INTO {schemaTableName} (Path, TableIndex) SELECT '{item.Key}', {item.Value} WHERE NOT EXISTS(SELECT Path from {schemaTableName} WHERE Path='{item.Key}')",
                     sqlConnection, sqlTransaction);
-                await sqlCommand.ExecuteNonQueryAsync();
+                await sqlCommand.ExecuteNonQueryAsync(cancellationToken);
             }
         }
 
