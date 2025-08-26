@@ -11,7 +11,7 @@ public class DeveloperTests
 	private const string ObjectType = "SapActIntTests";
 
 	[ClassInitialize]
-	public static async Task ClassInitialize(TestContext context)
+	public static Task ClassInitialize(TestContext context)
 	{
 		_cancellationToken = context.CancellationTokenSource.Token;
 
@@ -28,6 +28,7 @@ public class DeveloperTests
 		var sbClient = new ServiceBusClient(intTestTopicConfig.ConnectionString, credential);
 
 		_messageBusSender = sbClient.CreateSender(intTestTopicConfig.TopicName);
+		return Task.CompletedTask;
 	}
 
 	[TestMethod]

@@ -29,7 +29,7 @@ public class IntegrationTests
 	private bool sqlIngestCheckPassed = false;
 
 	[ClassInitialize]
-	public static async Task ClassInitialize(TestContext context)
+	public static Task ClassInitialize(TestContext context)
 	{
 		_cancellationToken = context.CancellationTokenSource.Token;
 
@@ -65,6 +65,7 @@ public class IntegrationTests
 
 		_sqlConnection = new SqlConnection(GetIntTestSqlConnectionString());
 		_sqlConnection.Open();
+		return Task.CompletedTask;
 	}
 
 	public static string GetIntTestSqlConnectionString() => $"Server=tcp:{Environment.GetEnvironmentVariable(SQL_SERVER_NAME_ENV_VAR)}.database.windows.net,1433;Initial Catalog=sapact-{Environment.GetEnvironmentVariable(ENVIRONMENT_NAME_ENV_VAR)}-db;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;Authentication=Active Directory Default;";
