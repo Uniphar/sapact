@@ -1,8 +1,12 @@
 ﻿namespace SapAct.Services;
 
 //TODO: consider splitting schema upsert and data sink into separate services for readability
-public class SQLService(IServiceProvider serviceProvider, ILockService lockService, ILogger<SQLService> logger) : VersionedSchemaBaseService(lockService)
+public class SQLService(
+    IServiceProvider serviceProvider, 
+    ILockService lockService, 
+    ILogger<SQLService> logger) : VersionedSchemaBaseService(lockService)
 {
+
     public async Task IngestMessageAsync(JsonElement payload, CancellationToken cancellationToken = default)
     {
         var messageProperties = ExtractMessageRootProperties(payload);
@@ -21,7 +25,7 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
                     //schema check
                     var schemaCheck = await CheckObjectTypeSchemaAsync(messageProperties.objectType, messageProperties.dataVersion, TargetStorageEnum.SQL);
 
-                    var schemaDescriptor = await GenerateSchemaDescriptorAsync(sqlConnection, sqlTransaction, messageProperties.objectType, payload);
+                    var schemaDescriptor = await GenerateSchemaDescriptorAsync(sqlConnection, sqlTransaction, messageProperties.objectType, payload, cancellationToken);
                     ///dry run to check if schema update is necessary as certain (sub)structures may only be populated for specific payload instances
                     ///so we can only build up a schema when these are set - data version property refers to logical schema but not it used in its entirety
                     var dryRunSchemaCheck = !schemaCheck.IsUpdateRequired() && await UpsertSQLStructuresAsync(schemaDescriptor, cancellationToken, dryRun: true);
@@ -52,8 +56,7 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
                         } while (updateNecessary);
                     }
 
-                    await SinkDataAsyncInner(sqlConnection, sqlTransaction, payload, schemaDescriptor,
-                        new KeyDescriptor { RootKey = messageProperties.objectKey, ForeignKey = string.Empty }, cancellationToken);
+                    await SinkDataAsyncInner(sqlConnection, sqlTransaction, payload, schemaDescriptor, new KeyDescriptor { RootKey = messageProperties.objectKey, ForeignKey = string.Empty }, cancellationToken);
                     await sqlTransaction.CommitAsync(cancellationToken);
                 }
                 catch (Exception ex)
@@ -67,12 +70,12 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
         }
     }
 
-    private static async Task SinkDataAsyncInner(
+    private async Task SinkDataAsyncInner(
         SqlConnection sqlConnection,
         SqlTransaction sqlTransaction,
-        JsonElement element,
-        SQLTableDescriptor schemaDescriptor,
-        KeyDescriptor keyDescriptor,
+        JsonElement element, 
+        SQLTableDescriptor schemaDescriptor, 
+        KeyDescriptor keyDescriptor, 
         CancellationToken cancellationToken = default)
     {
         if (schemaDescriptor.IsEmpty)
@@ -89,20 +92,18 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
             int arrayIndexCurrent = 0;
             foreach (var arrayElement in element.EnumerateArray())
             {
-                await SinkDataAsyncInner(sqlConnection, sqlTransaction, arrayElement, schemaDescriptor,
-                    keyDescriptor with { ArrayIndex = arrayIndexCurrent }, cancellationToken);
+                await SinkDataAsyncInner(sqlConnection, sqlTransaction, arrayElement, schemaDescriptor, keyDescriptor with { ArrayIndex = arrayIndexCurrent });
                 arrayIndexCurrent++;
             }
         }
         else if (element.ValueKind == JsonValueKind.Object)
         {
-            await SinkJsonObjectAsync(sqlConnection, sqlTransaction, schemaDescriptor.SqlTableName, element, schemaDescriptor,
-                new KeyDescriptor { RootKey = primaryKey, ForeignKey = keyDescriptor.ForeignKey }, cancellationToken);
+
+            await SinkJsonObjectAsync(sqlConnection, sqlTransaction, schemaDescriptor.SqlTableName, element, schemaDescriptor, new KeyDescriptor { RootKey = primaryKey, ForeignKey = keyDescriptor.ForeignKey }, cancellationToken);
             foreach (var nonScalar in element.GetNonScalarProperties())
             {
                 var childTable = schemaDescriptor.GetChildTableDescriptor(nonScalar.Name);
-                await SinkDataAsyncInner(sqlConnection, sqlTransaction, nonScalar.Value, childTable!, keyDescriptor with { ForeignKey = primaryKey },
-                    cancellationToken: cancellationToken);
+                await SinkDataAsyncInner(sqlConnection, sqlTransaction, nonScalar.Value, childTable!, keyDescriptor with { ForeignKey = primaryKey }, cancellationToken: cancellationToken);
             }
         }
         else
@@ -114,10 +115,10 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
     private static async Task SinkJsonObjectAsync(
         SqlConnection sqlConnection,
         SqlTransaction sqlTransaction,
-        string tableName,
-        JsonElement payload,
-        SQLTableDescriptor schemaDescriptor,
-        KeyDescriptor keyDescriptor,
+        string tableName, 
+        JsonElement payload, 
+        SQLTableDescriptor schemaDescriptor, 
+        KeyDescriptor keyDescriptor, 
         CancellationToken cancellationToken = default)
     {
         //get fields
@@ -138,14 +139,12 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
             columns.Add((Consts.SQLFKColumnName, keyDescriptor.ForeignKey));
         }
 
-        var sqlText = EmitTableInsertStatement(tableName, columns.Select(x => x.columnName).ToList(),
-            schemaDescriptor.Depth > 0 ? Consts.SQLPKColumnName : Consts.MessageObjectKeyPropertyName);
+        var sqlText = EmitTableInsertStatement(tableName, columns.Select(x => x.columnName).ToList(), schemaDescriptor.Depth > 0 ? Consts.SQLPKColumnName : Consts.MessageObjectKeyPropertyName);
         SqlCommand sqlCommand = new(sqlText, sqlConnection, sqlTransaction);
 
         foreach (var (columnName, value) in columns)
         {
-            var columnDescriptor = schemaDescriptor.GetIgnoreCaseColumnDescriptor(columnName) ??
-                                   throw new InvalidOperationException($"Column {columnName} not found in schema descriptor, this is unexpected");
+            var columnDescriptor = schemaDescriptor.GetIgnoreCaseColumnDescriptor(columnName) ?? throw new InvalidOperationException($"Column {columnName} not found in schema descriptor, this is unexpected");
             var translatedColumnName = columnDescriptor!.ColumnName;
 
             sqlCommand.Parameters.AddWithValue($"@{translatedColumnName}", value ?? (object)DBNull.Value);
@@ -201,7 +200,7 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 
         try
         {
-            var schemaChangeDetected = await UpsertSqlTableAsync(schemaDescriptor, connection, transaction, dryRun: dryRun);
+            var schemaChangeDetected = await UpsertSQLTableAsync(schemaDescriptor, connection, transaction, dryRun: dryRun);
 
             if (!dryRun)
             {
@@ -219,9 +218,13 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
         }
     }
 
-    private static async Task<bool> UpsertSqlTableAsync(SQLTableDescriptor schemaDescriptor, SqlConnection connection, SqlTransaction transaction,
-        SQLTableDescriptor? parent = null,
-        int depth = 0, bool dryRun = false)
+    private static async Task<bool> UpsertSQLTableAsync(
+        SQLTableDescriptor schemaDescriptor, 
+        SqlConnection connection, 
+        SqlTransaction transaction, 
+        SQLTableDescriptor? parent = null, 
+        int depth = 0, 
+        bool dryRun = false)
     {
         if (schemaDescriptor.IsEmpty)
             return false;
@@ -257,7 +260,7 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 
         foreach (var childTable in schemaDescriptor.ChildTables)
         {
-            var childSchemaResult = await UpsertSqlTableAsync(childTable, connection, transaction, schemaDescriptor, depth + 1, dryRun: dryRun);
+            var childSchemaResult = await UpsertSQLTableAsync(childTable, connection, transaction, schemaDescriptor, depth + 1, dryRun: dryRun);
             childSchemaChanged = childSchemaResult || childSchemaChanged;
         }
 
@@ -278,14 +281,11 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
         {
             ArgumentNullException.ThrowIfNull(parent);
 
-            var pkColumn = schemaDescriptor.GetIgnoreCaseColumnDescriptor(Consts.SQLPKColumnName) ??
-                           throw new InvalidOperationException($"Column {Consts.SQLPKColumnName} not found in schema descriptor, this is unexpected");
-            var fkColumn = schemaDescriptor.GetIgnoreCaseColumnDescriptor(Consts.SQLFKColumnName) ??
-                           throw new InvalidOperationException($"Column {Consts.SQLFKColumnName} not found in schema descriptor, this is unexpected");
+            var pkColumn = schemaDescriptor.GetIgnoreCaseColumnDescriptor(Consts.SQLPKColumnName) ?? throw new InvalidOperationException($"Column {Consts.SQLPKColumnName} not found in schema descriptor, this is unexpected");
+            var fkColumn = schemaDescriptor.GetIgnoreCaseColumnDescriptor(Consts.SQLFKColumnName) ?? throw new InvalidOperationException($"Column {Consts.SQLFKColumnName} not found in schema descriptor, this is unexpected");
 
             tableUpsertSqlSB.AppendLine($"{pkColumn.ColumnName} {pkColumn.SQLDataType} NOT NULL PRIMARY KEY");
-            tableUpsertSqlSB.AppendLine(
-                $",{fkColumn.ColumnName} {fkColumn.SQLDataType} FOREIGN KEY REFERENCES {parent.SqlTableName}({(depth == 1 ? Consts.MessageObjectKeyPropertyName : "PK")})");
+            tableUpsertSqlSB.AppendLine($",{fkColumn.ColumnName} {fkColumn.SQLDataType} FOREIGN KEY REFERENCES {parent.SqlTableName}({(depth == 1 ? Consts.MessageObjectKeyPropertyName : "PK")})");
 
             addComma = true;
         }
@@ -296,8 +296,7 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
             if (addComma)
                 tableUpsertSqlSB.Append(',');
 
-            tableUpsertSqlSB.AppendLine(
-                $"{column.ColumnName} {column.SQLDataType} {(depth == 0 && Consts.MessageObjectKeyPropertyName == column.ColumnName ? "NOT NULL PRIMARY KEY" : "")}");
+            tableUpsertSqlSB.AppendLine($"{column.ColumnName} {column.SQLDataType} {(depth == 0 && Consts.MessageObjectKeyPropertyName == column.ColumnName ? "NOT NULL PRIMARY KEY" : "")}");
             addComma = true;
         }
 
@@ -328,6 +327,7 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 
         if (!addedColumns.Any())
             return string.Empty;
+
 
         tableUpdateSB.AppendLine($"ALTER TABLE {tableName} ADD");
 
@@ -365,13 +365,15 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
     private static async Task<SQLTableDescriptor> GenerateSchemaDescriptorAsync(
         SqlConnection sqlConnection,
         SqlTransaction sqlTransaction,
-        string tableName, JsonElement item)
+        string tableName,
+        JsonElement item,
+        CancellationToken cancellationToken = default)
     {
         var rootTable = tableName;
         Dictionary<string, int> tableNamingCtx = [];
         bool tableNamingCtxChanged = false;
 
-        await PrefillSchemaTableAsync(rootTable, sqlConnection, sqlTransaction); //TODO: consider caching based on schema version check
+        await PrefillSchemaTableAsync(rootTable, sqlConnection, sqlTransaction, cancellationToken); //TODO: consider caching based on schema version check
 
         var schema = GenerateSchemaDescriptorInner(tableName, item);
 
@@ -379,20 +381,18 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 
         if (tableNamingCtxChanged)
         {
-            await UpdateSchemaTableAsync(tableName, sqlConnection!, sqlTransaction);
+            await UpdateSchemaTableAsync(tableName, sqlConnection, sqlTransaction);
         }
-
         return schema;
 
         void AugmentSchema(SQLTableDescriptor schema, string parentPrefix, SQLTableDescriptor? parentSchema = null)
         {
             schema.SqlTableName = GetSQLTableName(parentPrefix);
 
-            if (parentSchema == null) //top level
+            if (parentSchema == null)//top level
             {
                 //handle designation of primary key for objectKey property of the payload - we have to use key column type rather than generic property type
-                var pkColumn = schema.GetIgnoreCaseColumnDescriptor(Consts.MessageObjectKeyPropertyName) ??
-                               throw new InvalidOperationException($"Column {Consts.MessageObjectKeyPropertyName} not found in schema descriptor, this is unexpected");
+                var pkColumn = schema.GetIgnoreCaseColumnDescriptor(Consts.MessageObjectKeyPropertyName) ?? throw new InvalidOperationException($"Column {Consts.MessageObjectKeyPropertyName} not found in schema descriptor, this is unexpected");
                 pkColumn.SQLDataType = Consts.SQLKeyColumnDefaultDataType;
             }
 
@@ -403,14 +403,14 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
             }
         }
 
-        async Task PrefillSchemaTableAsync(string rootCtx, SqlConnection sqlConnection, SqlTransaction sqlTransaction)
+        async Task PrefillSchemaTableAsync(string rootCtx, SqlConnection sqlConnection, SqlTransaction sqlTransaction, CancellationToken cancellationToken = default)
         {
             string schemaTableName = $"{rootCtx}_SchemaTable";
             (bool exists, var _) = await CheckTableExistsAsync(schemaTableName, sqlConnection, sqlTransaction);
             if (exists)
             {
                 var sqlCommand = new SqlCommand($"SELECT * FROM {schemaTableName}", sqlConnection, sqlTransaction);
-                var res = await sqlCommand.ExecuteReaderAsync();
+                var res = await sqlCommand.ExecuteReaderAsync(cancellationToken);
 
                 while (res.Read())
                 {
@@ -437,9 +437,7 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
 
             foreach (var item in tableNamingCtx)
             {
-                var sqlCommand = new SqlCommand(
-                    $"INSERT INTO {schemaTableName} (Path, TableIndex) SELECT '{item.Key}', {item.Value} WHERE NOT EXISTS(SELECT Path from {schemaTableName} WHERE Path='{item.Key}')",
-                    sqlConnection, sqlTransaction);
+                var sqlCommand = new SqlCommand($"INSERT INTO {schemaTableName} (Path, TableIndex) SELECT '{item.Key}', {item.Value} WHERE NOT EXISTS(SELECT Path from {schemaTableName} WHERE Path='{item.Key}')", sqlConnection, sqlTransaction);
                 await sqlCommand.ExecuteNonQueryAsync();
             }
         }
@@ -468,10 +466,8 @@ public class SQLService(IServiceProvider serviceProvider, ILockService lockServi
             if (depth > 0)
             {
                 //add PK and FK as explicit columns
-                schemaDescriptor.Columns.Add(new SQLColumnDescriptor()
-                    { ColumnName = Consts.SQLPKColumnName, SQLDataType = Consts.SQLKeyColumnDefaultDataType, IsSchemaColumn = true });
-                schemaDescriptor.Columns.Add(new SQLColumnDescriptor()
-                    { ColumnName = Consts.SQLFKColumnName, SQLDataType = Consts.SQLKeyColumnDefaultDataType, IsSchemaColumn = true });
+                schemaDescriptor.Columns.Add(new SQLColumnDescriptor() { ColumnName = Consts.SQLPKColumnName, SQLDataType = Consts.SQLKeyColumnDefaultDataType, IsSchemaColumn = true });
+                schemaDescriptor.Columns.Add(new SQLColumnDescriptor() { ColumnName = Consts.SQLFKColumnName, SQLDataType = Consts.SQLKeyColumnDefaultDataType, IsSchemaColumn = true });
             }
 
             if (item.ValueKind == JsonValueKind.Array)
