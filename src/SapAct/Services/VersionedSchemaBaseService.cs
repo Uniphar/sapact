@@ -50,13 +50,13 @@ public abstract class VersionedSchemaBaseService(ILockService lockService)
 		var objectKey = payload.GetProperty(Consts.MessageObjectKeyPropertyName).GetString();
 		var objectType = payload.GetProperty(Consts.MessageObjectTypePropertyName).GetString();
 		var dataVersion = payload.GetProperty(Consts.MessageDataVersionPropertyName).GetString();
-		
-		var eventTypePropertyExists = payload.TryGetProperty(Consts.MessageEventTypePropertyName, out var eventTypeProperty);
-		var eventType = eventTypePropertyExists ? eventTypeProperty.GetString() : null;
 
-		ArgumentException.ThrowIfNullOrWhiteSpace(objectKey);
-		ArgumentException.ThrowIfNullOrWhiteSpace(objectType);
-		ArgumentException.ThrowIfNullOrWhiteSpace(dataVersion);
+        ArgumentException.ThrowIfNullOrWhiteSpace(objectKey);
+        ArgumentException.ThrowIfNullOrWhiteSpace(objectType);
+        ArgumentException.ThrowIfNullOrWhiteSpace(dataVersion);
+
+        var eventTypePropertyExists = payload.TryGetProperty(Consts.MessageEventTypePropertyName, out var eventTypeProperty);
+		var eventType = eventTypePropertyExists ? eventTypeProperty.GetString() : null;
 
 		return new MessageRootProperties
 		{
