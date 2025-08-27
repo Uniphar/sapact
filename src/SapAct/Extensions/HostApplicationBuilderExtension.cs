@@ -38,7 +38,6 @@ public static class HostApplicationBuilderExtension
 
 			if (!serviceBusTopic.LASinkDisabled)
 			{
-
 				builder.Services.AddSingleton<IHostedService, LogAnalyticsWorker>((sp) =>
 				{
 					return new LogAnalyticsWorker(name, serviceBusTopic, sp.GetRequiredService<IAzureClientFactory<ServiceBusClient>>(), sp.GetRequiredService<IAzureClientFactory<ServiceBusAdministrationClient>>(), sp.GetRequiredService<LogAnalyticsService>(), sp.GetRequiredService<ILogger<LogAnalyticsWorker>>(), sp.GetRequiredService<TelemetryClient>(), builder.Configuration);
@@ -47,7 +46,6 @@ public static class HostApplicationBuilderExtension
 
 			if (!serviceBusTopic.SQLSinkDisabled)
 			{
-
 				builder.Services.AddSingleton<IHostedService, SQLWorker>((sp) =>
 				{
 					return new SQLWorker(name, serviceBusTopic, sp.GetRequiredService<IAzureClientFactory<ServiceBusClient>>(), sp.GetRequiredService<IAzureClientFactory<ServiceBusAdministrationClient>>(), sp.GetRequiredService<SQLService>(), sp.GetRequiredService<ILogger<SQLWorker>>(), sp.GetRequiredService<TelemetryClient>(), builder.Configuration);

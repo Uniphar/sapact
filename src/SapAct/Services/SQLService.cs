@@ -427,7 +427,7 @@ public class SQLService(
                 var sqlCommand = new SqlCommand($"SELECT * FROM {schemaTableName}", sqlConnection, sqlTransaction);
                 var res = await sqlCommand.ExecuteReaderAsync(cancellationToken);
 
-                while (res.Read())
+                while (await res.ReadAsync(cancellationToken))
                 {
                     tableNamingCtx.Add(res.GetString(0), res.GetInt32(1));
                 }
