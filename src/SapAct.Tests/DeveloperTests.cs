@@ -28,6 +28,7 @@ public class DeveloperTests
 		var sbClient = new ServiceBusClient(intTestTopicConfig.ConnectionString, credential);
 
 		_messageBusSender = sbClient.CreateSender(intTestTopicConfig.TopicName);
+
 		return Task.CompletedTask;
 	}
 
