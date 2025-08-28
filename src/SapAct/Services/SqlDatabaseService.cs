@@ -2,30 +2,6 @@
 
 public class SqlDatabaseService : ISqlDatabaseService
 {
-    public async Task<(bool exists, IEnumerable<string> columns)> CheckTableExistsAsync(
-        string tableName,
-        SqlConnection connection,
-        SqlTransaction transaction,
-        CancellationToken cancellationToken = default)
-    {
-        List<string> columnList = [];
-        bool exists = false;
-
-        var sqlCommand = new SqlCommand($"SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '{tableName}'", connection, transaction);
-        var res = await sqlCommand.ExecuteReaderAsync(cancellationToken);
-
-
-        while (await res.ReadAsync(cancellationToken))
-        {
-            exists = true;
-            columnList.Add(res.GetString(0));
-        }
-
-        await res.CloseAsync();
-
-        return (exists, columnList);
-    }
-
     public async Task<Dictionary<string, int>> PrefillSchemaTableAsync(string rootCtx, SqlConnection sqlConnection, SqlTransaction sqlTransaction, CancellationToken cancellationToken = default)
     {
         string schemaTableName = $"{rootCtx}_SchemaTable";
@@ -65,9 +41,9 @@ public class SqlDatabaseService : ISqlDatabaseService
     }
 
     public async Task SinkJsonObjectAsync(
+        string tableName,
         SqlConnection sqlConnection,
         SqlTransaction sqlTransaction,
-        string tableName,
         JsonElement payload,
         SQLTableDescriptor schemaDescriptor,
         KeyDescriptor keyDescriptor,
@@ -155,6 +131,30 @@ public class SqlDatabaseService : ISqlDatabaseService
         }
 
         return schemaChanged || childSchemaChanged;
+    }
+    
+    private static async Task<(bool exists, IEnumerable<string> columns)> CheckTableExistsAsync(
+        string tableName,
+        SqlConnection connection,
+        SqlTransaction transaction,
+        CancellationToken cancellationToken = default)
+    {
+        List<string> columnList = [];
+        bool exists = false;
+
+        var sqlCommand = new SqlCommand($"SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '{tableName}'", connection, transaction);
+        var res = await sqlCommand.ExecuteReaderAsync(cancellationToken);
+
+
+        while (await res.ReadAsync(cancellationToken))
+        {
+            exists = true;
+            columnList.Add(res.GetString(0));
+        }
+
+        await res.CloseAsync();
+
+        return (exists, columnList);
     }
 
     private static string EmitTableCreateCommand(string tableName, SQLTableDescriptor schemaDescriptor, SQLTableDescriptor? parent)

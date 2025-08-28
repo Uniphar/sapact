@@ -3,7 +3,6 @@
 //TODO: consider splitting schema upsert and data sink into separate services for readability
 public class SQLService(
     IServiceProvider serviceProvider,
-    ISqlTableService sqlTableService,
     ISqlDatabaseService sqlDatabaseService,
     ILockService lockService,
     ILogger<SQLService> logger) : VersionedSchemaBaseService(lockService)
@@ -101,7 +100,7 @@ public class SQLService(
         }
         else if (element.ValueKind == JsonValueKind.Object)
         {
-            await sqlDatabaseService.SinkJsonObjectAsync(sqlConnection, sqlTransaction, schemaDescriptor.SqlTableName, element, schemaDescriptor,
+            await sqlDatabaseService.SinkJsonObjectAsync( schemaDescriptor.SqlTableName, sqlConnection, sqlTransaction, element, schemaDescriptor,
                 new KeyDescriptor { RootKey = primaryKey, ForeignKey = keyDescriptor.ForeignKey }, cancellationToken);
             foreach (var nonScalar in element.GetNonScalarProperties())
             {
@@ -153,7 +152,7 @@ public class SQLService(
         bool tableNamingCtxChanged = false;
         var tableNamingCtx = await sqlDatabaseService.PrefillSchemaTableAsync(rootTable, sqlConnection, sqlTransaction, cancellationToken); //TODO: consider caching based on schema version check
 
-        var schema = sqlTableService.GenerateSchemaDescriptorInner(tableName, item);
+        var schema = SQLTableDescriptor.GenerateSchemaDescriptorInner(tableName, item);
 
         AugmentSchema(schema, "$");
 
