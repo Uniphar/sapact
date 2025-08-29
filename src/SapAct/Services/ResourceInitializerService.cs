@@ -7,7 +7,7 @@ public class ResourceInitializerService(BlobServiceClient blobServiceClient, ICo
         var containerName = configuration.GetLockServiceBlobContainerNameOrDefault();
         var blobContainerClient = blobServiceClient.GetBlobContainerClient(containerName);
 
-        if (!blobContainerClient.ExistsAsync())
+        if (!await blobContainerClient.ExistsAsync())
         {
             await blobContainerClient.CreateAsync();
         }
