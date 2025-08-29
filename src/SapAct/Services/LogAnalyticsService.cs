@@ -29,7 +29,6 @@ public class LogAnalyticsService(
 		//update schema state		
 
 		return dcrId;
-
 	}
 
 	private async Task<HttpClient> GetHttpClient()
@@ -99,7 +98,7 @@ public class LogAnalyticsService(
         return JsonSerializer.Deserialize<JsonElement>(responseContent).ExportDCRImmutableId();
     }
 
-	public async Task SinkToLogAnalytics(string tableName, string dcrImmutableId, JsonElement fullJson)
+	private async Task SinkToLogAnalytics(string tableName, string dcrImmutableId, JsonElement fullJson)
     {
         var data = fullJson.GenerateBinaryData();
 
@@ -159,10 +158,8 @@ public class LogAnalyticsService(
 
 		string dcrUrl = GetDCRUrl(tableName);
 
-		HttpResponseMessage response;
-
-		// Update the DCR
-		response = await httpClient.GetAsync(dcrUrl, cancellationToken);
+			// Update the DCR
+		var response = await httpClient.GetAsync(dcrUrl, cancellationToken);
 
 		var responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
 		response.EnsureSuccessStatusCode();
@@ -175,15 +172,6 @@ public class LogAnalyticsService(
 		UpdateObjectTypeSchema(tableName, version);
 
 		_dcrMapping.AddOrUpdate(tableName, dcrId, (key, oldValue) => dcrId);
-	}
-    
-    internal async Task DeleteTableAsync(string tableName, CancellationToken cancellationToken)
-	{
-		var endpoint = GetTableUrl(tableName);
-
-		using HttpClient httpClient = await GetHttpClient();
-
-		await httpClient.DeleteAsync(endpoint, cancellationToken);
 	}
 
 	private async Task SyncTableAsync(string tableName, List<ColumnDefinition> columnsList, SchemaCheckResultState tableStatus, HttpClient httpClient, CancellationToken cancellationToken)

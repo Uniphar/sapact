@@ -2,23 +2,12 @@
 
 public class LockService : ILockService
 {
-	public BlobServiceClient BlobServiceClient { get; init; }
-	private BlobContainerClient _containerClient;
-	private readonly IConfiguration configuration;
+	private readonly BlobContainerClient _containerClient;
 
 	public LockService(BlobServiceClient blobServiceClient, IConfiguration configuration)
     {
-		BlobServiceClient = blobServiceClient;
-		this.configuration = configuration;
-		_containerClient = GetContainerClient();
-	}
-
-	private BlobContainerClient GetContainerClient()
-	{
-		_containerClient ??= BlobServiceClient.GetBlobContainerClient(configuration.GetLockServiceBlobContainerNameOrDefault());
-
-		return _containerClient;
-	}
+		_containerClient = blobServiceClient.GetBlobContainerClient(configuration.GetLockServiceBlobContainerNameOrDefault());
+    }
 
 	public async Task<(string? leaseId, LockState lockState)> ObtainLockAsync(string tableName, string version, TargetStorageEnum targetStorageEnum)
 	{
@@ -39,21 +28,11 @@ public class LockService : ILockService
 			catch (RequestFailedException ex) when (ex.Status == 404)
 			{
 				var path = Path.Combine(Path.GetTempPath(), GetBlobName(tableName, targetStorageEnum));
-				using var stream = File.Create(path);
+				await using var stream = File.Create(path);
 				stream.Close();
 				await blobClient.UploadAsync(path);
 			}
 		} while (true);
-	}
-
-	private async Task<bool> CheckSchemaLockPresence(string tableName, TargetStorageEnum targetStorage)
-	{
-		var props = await GetBlobPropertiesAsync(tableName, targetStorage);
-
-		if (props == null)
-			return false;
-
-		return props.LeaseState == LeaseState.Leased || props.LeaseState == LeaseState.Breaking;
 	}
 
 	public async Task<BlobProperties?> GetBlobPropertiesAsync(string tableName, TargetStorageEnum targetStorage)
@@ -89,7 +68,7 @@ public class LockService : ILockService
 			props = await GetBlobPropertiesAsync(tableName, targetStorage);
 		} while (props == null || props.LeaseStatus == LeaseStatus.Locked);
 
-		return props==null ? LockState.Available : TranslateLockState(props!.LeaseState);
+		return props == null ? LockState.Available : TranslateLockState(props!.LeaseState);
 	}
 
 	private static LockState TranslateLockState(LeaseState leaseState)
@@ -108,5 +87,5 @@ public class LockService : ILockService
 	public static string GetBlobName(string tableName, TargetStorageEnum targetStorage) => $"{tableName}-{targetStorage}";
 	
 	private BlobClient GetBlobClient(string tableName, TargetStorageEnum targetStorage) 
-		=> GetContainerClient().GetBlobClient(GetBlobName(tableName, targetStorage));
+		=> _containerClient.GetBlobClient(GetBlobName(tableName, targetStorage));
 }
