@@ -1,4 +1,5 @@
 ﻿namespace SapAct.Tests;
+using Timer = System.Timers.Timer;
 
 [TestClass, TestCategory("Integration")]
 public class IntegrationTests
@@ -50,7 +51,7 @@ public class IntegrationTests
 
 		_messageBusSender = sbClient.CreateSender(_messageBusConfiguration.TopicName);
 		
-		_blobServiceClient = new(new Uri(_config[Consts.LockServiceBlobConnectionStringConfigKey]!), _credential);
+		_blobServiceClient = new(new Uri(_config[Consts.LockServiceBlobConnectionStringConfigKey]), _credential);
 		_blobContainerClient = _blobServiceClient.GetBlobContainerClient(_config.GetLockServiceBlobContainerNameOrDefault());
 
 		_databaseName = _config.GetADXClusterDBNameOrDefault();
@@ -64,7 +65,7 @@ public class IntegrationTests
 		_logsQueryClient = new LogsQueryClient(_credential);
 
 		_sqlConnection = new SqlConnection(GetIntTestSqlConnectionString());
-		_sqlConnection.Open();
+		await _sqlConnection.OpenAsync(_cancellationToken);
 	}
 
 	public static string GetIntTestSqlConnectionString() => $"Server=tcp:{Environment.GetEnvironmentVariable(SQL_SERVER_NAME_ENV_VAR)}.database.windows.net,1433;Initial Catalog=sapact-{Environment.GetEnvironmentVariable(ENVIRONMENT_NAME_ENV_VAR)}-db;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;Authentication=Active Directory Default;";
@@ -84,13 +85,17 @@ public class IntegrationTests
 		var objectKey = Guid.NewGuid().ToString();
 		var extendedObjectKey = Guid.NewGuid().ToString();
 
-		await _messageBusSender!.SendMessageAsync(new ServiceBusMessage(Encoding.UTF8.GetBytes(PayloadHelper.GetPayload(ObjectType, objectKey, version))));
-		await _messageBusSender!.SendMessageAsync(new ServiceBusMessage(Encoding.UTF8.GetBytes(PayloadHelper.GetPayload(ObjectType, extendedObjectKey, extendedVersion, extendedSchema: true))));
+		await _messageBusSender!.SendMessageAsync(
+			new ServiceBusMessage(Encoding.UTF8.GetBytes(PayloadHelper.GetPayload(ObjectType, objectKey, version))),
+			_cancellationToken);
+		await _messageBusSender!.SendMessageAsync(
+			new ServiceBusMessage(Encoding.UTF8.GetBytes(PayloadHelper.GetPayload(ObjectType, extendedObjectKey, extendedVersion, extendedSchema: true))),
+			_cancellationToken);
 
 		//act
 
 		bool timerFired = false;
-		System.Timers.Timer timer = new(TimeSpan.FromMinutes(20))
+		Timer timer = new(TimeSpan.FromMinutes(20))
 		{
 			AutoReset = false
 		};
@@ -133,13 +138,17 @@ public class IntegrationTests
 		await PurgeDLQForServiceBusSubscriptionAsync(_config!.GetTopicSubscriptionNameOrDefault<ADXWorker>());
 		await PurgeDLQForServiceBusSubscriptionAsync(_config!.GetTopicSubscriptionNameOrDefault<LogAnalyticsWorker>());
 
-		await _messageBusSender!.SendMessageAsync(new ServiceBusMessage(Encoding.UTF8.GetBytes(PayloadHelper.GetPayload(ObjectType, objectKey, version))));
-		await _messageBusSender!.SendMessageAsync(new ServiceBusMessage(Encoding.UTF8.GetBytes(PayloadHelper.GetPayload(ObjectType, deltaEventKey, version, deltaChangePayload: true))));
+		await _messageBusSender!.SendMessageAsync(
+			new ServiceBusMessage(Encoding.UTF8.GetBytes(PayloadHelper.GetPayload(ObjectType, objectKey, version))),
+			_cancellationToken);
+		await _messageBusSender!.SendMessageAsync(
+			new ServiceBusMessage(Encoding.UTF8.GetBytes(PayloadHelper.GetPayload(ObjectType, deltaEventKey, version, deltaChangePayload: true))),
+			_cancellationToken);
 
 		//act
 
 		bool timerFired = false;
-		System.Timers.Timer timer = new(TimeSpan.FromMinutes(20))
+		Timer timer = new(TimeSpan.FromMinutes(20))
 		{
 			AutoReset = false
 		};
@@ -189,7 +198,7 @@ public class IntegrationTests
 
 		while (true)
 		{
-			var message = await receiver.ReceiveMessageAsync(TimeSpan.FromSeconds(1));
+			var message = await receiver.ReceiveMessageAsync(TimeSpan.FromSeconds(1), _cancellationToken);
 			if (message == null)
 			{
 				break;
@@ -301,7 +310,7 @@ public class IntegrationTests
 
 			if (!string.IsNullOrEmpty(extendedObjectKey))
 			{
-				var extendedResult = await GetADXRecordAsync(extendedObjectKey);
+				var extendedResult = await GetADXRecordAsync(extendedObjectKey, cancellationToken);
 
 				if (!extendedResult.Read())
 					return false;
@@ -340,7 +349,10 @@ public class IntegrationTests
 	{
 		var tableName = LogAnalyticsService.GetTableName(ObjectType);
 
-		Response<LogsQueryResult> result = await _logsQueryClient!.QueryWorkspaceAsync(_config!.GetLogAnalyticsWorkspaceId(), $"{tableName} | where objectKey in ('{objectKey}')", QueryTimeRange.All, cancellationToken: cancellationToken);
+		Response<LogsQueryResult> result = await _logsQueryClient!.QueryWorkspaceAsync(
+			_config!.GetLogAnalyticsWorkspaceId(), $"{tableName} | where objectKey in ('{objectKey}')",
+			QueryTimeRange.All,
+			cancellationToken: cancellationToken);
 
 		return result.Value.Table.Rows.Count==1 && (!checkExtendedColumn || result.Value.Table.Columns.Any((c) => c.Name == PayloadHelper.ExtendedSchemaColumnName));
 	}

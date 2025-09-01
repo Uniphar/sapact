@@ -79,7 +79,7 @@ public class AzureDataExplorerClient(
 	{
 		TableSchema tableSchema = new() { Name = tableName };
 
-		var currentSchema = await GetCurrentColumnListAsync(tableName);
+		var currentSchema = await GetCurrentColumnListAsync(tableName, cancellationToken);
 
 		foreach (var column in currentSchema)
 		{

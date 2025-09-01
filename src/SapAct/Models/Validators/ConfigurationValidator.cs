@@ -66,6 +66,5 @@ public class ConfigurationValidator : AbstractValidator<IConfiguration>
             .NotNull()
             .NotEmpty()
             .WithMessage("SQL Connection String is missing in configuration");
-
     }
 }

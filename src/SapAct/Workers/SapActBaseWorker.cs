@@ -79,6 +79,9 @@ public abstract class SapActBaseWorker<T>(
                 try
                 {
                     message = await serviceBusReceiver.ReceiveMessageAsync(cancellationToken: cancellationToken);
+
+                    if (message == null) continue;
+
                     await ProcessMessageAsync(message, cancellationToken);
                 }
                 catch (Exception ex)

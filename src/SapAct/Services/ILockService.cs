@@ -6,5 +6,4 @@ public interface ILockService
 	Task ReleaseLockAsync(string tableName, string version, TargetStorageEnum targetStorage, string leaseId);
 	Task<LockState> WaitForLockDissolvedAsync(string tableName, string version, TargetStorageEnum targetStorage);
 	Task<BlobProperties?> GetBlobPropertiesAsync(string tableName, TargetStorageEnum targetStorage);
-
 }
