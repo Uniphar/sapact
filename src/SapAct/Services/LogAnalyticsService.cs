@@ -158,7 +158,7 @@ public class LogAnalyticsService(
 
 		string dcrUrl = GetDCRUrl(tableName);
 
-			// Update the DCR
+		// Update the DCR
 		var response = await httpClient.GetAsync(dcrUrl, cancellationToken);
 
 		var responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
