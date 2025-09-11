@@ -59,7 +59,7 @@ resource SB0ConnectionStringSecret 'Microsoft.KeyVault/vaults/secrets@2024-04-01
   name: 'SapAct--ServiceBus--Topic--0--ConnectionString'
   parent: DevopsAppKeyVault
   properties: {
-    value: '${environment == 'prod' ? dawnSB.Alias : dawnSB.Name}.servicebus.windows.net'
+    value: '${dawnSB.Alias}.servicebus.windows.net'
   }
 }
 
