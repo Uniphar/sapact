@@ -47,6 +47,10 @@ Initializes SapAct in the dev environment.
 
     $dawnSBResource = Get-AzResource -Name $sbName -ResourceGroupName $dawnDomainRgName
 
+    if ($Environment -eq 'prod') {
+        $dawnSBResourceSecondary = Get-AzResource -Name "$dawnServiceBusName-secondary" -ResourceGroupName $dawnDomainRgName
+    }
+
     
     $logAnalyticsDef = @{
         Name = $logAnalyticsWorkspace.Name
@@ -59,6 +63,7 @@ Initializes SapAct in the dev environment.
         Id = $dawnSBResource.Id
         Name = $dawnSBResource.Name
         Alias = $dawnServiceBusName
+        SecondaryId = $dawnSBResourceSecondary.Id
     }
 
     $adxDatabase = @{

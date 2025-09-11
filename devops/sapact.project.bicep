@@ -170,6 +170,17 @@ module alerts 'sapact.alerts.module.bicep' = {
   }
 }
 
+module alertsSecondary 'sapact.alerts.module.bicep' = if(environment == 'prod') { 
+  name: 'alertsSecondary'
+  params: {
+    logAnalytics: logAnalytics
+    actionGroupDevOpsLowId: actionGroupDevOpsLowId
+    environment: environment
+    sbNamespaceId: dawnSB.SecondaryId
+    sbTopicNames:['sap-events'] 
+  }
+}
+
 module sqlDataBaseResource 'sapact.db.module.bicep' = {
   name: 'db'
   scope: resourceGroup(sqlDatabase.resourceGroup.name)
