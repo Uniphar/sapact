@@ -43,7 +43,10 @@ Initializes SapAct in the dev environment.
     $logAnalyticsWorkspace = Resolve-UniMainLogAnalytics $Environment
     $actionGroupDevOpsLowId = Resolve-UniResourceId 'devops-low'
     
-    $dawnSBResource  = Get-AzResource -Name $dawnServiceBusName -ResourceGroupName $dawnDomainRgName
+    $sbName = $Environment -eq "prod" ? "$dawnServiceBusName-primary" : $dawnServiceBusName
+
+    $dawnSBResource = Get-AzResource -Name $sbName -ResourceGroupName $dawnDomainRgName
+
     
     $logAnalyticsDef = @{
         Name = $logAnalyticsWorkspace.Name
@@ -55,6 +58,7 @@ Initializes SapAct in the dev environment.
     $dawnSB = @{
         Id = $dawnSBResource.Id
         Name = $dawnSBResource.Name
+        Alias = $dawnServiceBusName
     }
 
     $adxDatabase = @{
