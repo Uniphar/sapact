@@ -170,7 +170,7 @@ module alerts 'sapact.alerts.module.bicep' = {
   }
 }
 
-module alertsSecondary 'sapact.alerts.module.bicep' = if(environment == 'prod') { 
+module alertsSecondary 'sapact.alerts.module.bicep' = if (environment == 'prod') { 
   name: 'alertsSecondary'
   params: {
     logAnalytics: logAnalytics
