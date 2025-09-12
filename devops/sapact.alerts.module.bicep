@@ -6,11 +6,13 @@ param sbNamespaceId string
 
 param location string = resourceGroup().location
 
+var sbNamespaceName = last(split(sbNamespaceId, '/'))
+
 module ExceptionAlert 'alerts.scheduledqueryrules.bicep' = {
-  name: 'SapAct-ExceptionDetectedAlert'
+  name: 'SapAct-ExceptionDetectedAlert-${sbNamespaceName}'
   params: {
     location: location
-    alertName: 'SapAct-ExceptionDetectedAlert'
+    alertName: 'SapAct-ExceptionDetectedAlert-${sbNamespaceName}'
     environment: environment
     logAnalyticsWorkspaceId: logAnalytics.AzureId
     query: '''AppExceptions 
@@ -21,11 +23,11 @@ module ExceptionAlert 'alerts.scheduledqueryrules.bicep' = {
   }
 }
 
-resource DLQAlert 'microsoft.insights/metricAlerts@2018-03-01' =  [for sbTopicName in sbTopicNames :{
-  name: 'SapAct DLQ message - ${sbTopicName}'
+resource DLQAlert 'microsoft.insights/metricAlerts@2018-03-01' = [for sbTopicName in sbTopicNames: {
+  name: 'SapAct DLQ message - ${sbTopicName}-${sbNamespaceName}'
   location: 'global'
   properties: {
-    enabled:  environment == 'prod'
+    enabled: environment == 'prod'
     description: 'Alert triggered when the DLQ messages count is greater than 1'
     severity: 3
     scopes: [
@@ -45,9 +47,9 @@ resource DLQAlert 'microsoft.insights/metricAlerts@2018-03-01' =  [for sbTopicNa
           threshold: 1
           dimensions: [
             {
-                name: 'EntityName'
-                operator: 'Include'
-                values: [sbTopicName]
+              name: 'EntityName'
+              operator: 'Include'
+              values: [sbTopicName]
             }
           ]
         }
