@@ -3,7 +3,7 @@ param alertName string
 param environment string
 param logAnalyticsWorkspaceId string
 param query string
-param actionGroupId string
+param actionGroupIds string[]
 
 resource alert 'Microsoft.Insights/scheduledQueryRules@2021-08-01' = {
   name: '${alertName}-${environment}'
@@ -32,9 +32,7 @@ resource alert 'Microsoft.Insights/scheduledQueryRules@2021-08-01' = {
     }
     autoMitigate: false
     actions: {
-      actionGroups: [
-        actionGroupId
-      ]
+      actionGroups: actionGroupIds
       customProperties: {
       }
     }

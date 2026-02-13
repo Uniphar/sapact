@@ -1,8 +1,8 @@
 param logAnalytics object
-param actionGroupDevOpsLowId string
 param environment string
 param sbTopicNames array
 param sbNamespaceId string
+param lowActionGroupIds string[]
 
 param location string = resourceGroup().location
 
@@ -19,7 +19,7 @@ module ExceptionAlert 'alerts.scheduledqueryrules.bicep' = {
               | where AppRoleInstance startswith "sapact" 
                 and ExceptionType != "System.Threading.Tasks.TaskCanceledException"
            '''
-    actionGroupId: actionGroupDevOpsLowId
+    actionGroupIds: lowActionGroupIds
   }
 }
 
@@ -57,8 +57,8 @@ resource DLQAlert 'microsoft.insights/metricAlerts@2018-03-01' = [for sbTopicNam
       'odata.type': 'Microsoft.Azure.Monitor.SingleResourceMultipleMetricCriteria'
     }
     actions: [
-      {
-        actionGroupId: actionGroupDevOpsLowId
+      for actionGroupId in lowActionGroupIds: {
+        actionGroupId: actionGroupId
         webHookProperties: {}
       }
     ]
