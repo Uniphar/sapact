@@ -7,15 +7,23 @@ param dceName string
 param logAnalytics object
 param storageAccountName string
 param environment string
-param actionGroupDevOpsLowId string
 param sqlDatabase object
 param workloadIdentityClientId string
 
 param location string = resourceGroup().location
 
+resource actionGroupInfrastructureLow 'microsoft.insights/actionGroups@2024-10-01-preview' existing = {
+  name: 'platform-engineering-infrastructure-low'
+  scope: resourceGroup('observability')
+}
+
+resource actionGroupApplicationsLow 'microsoft.insights/actionGroups@2024-10-01-preview' existing = {
+  name: 'platform-engineering-applications-low'
+  scope: resourceGroup('observability')
+}
+
 resource adxCluster 'Microsoft.Kusto/clusters@2023-08-15' existing = {
   name: adxClusterName
-
 }
 
 resource storageAccount 'Microsoft.Storage/storageAccounts@2021-04-01' existing = {
@@ -32,14 +40,16 @@ resource adxDatabaseResource 'Microsoft.Kusto/clusters/databases@2023-08-15' = {
     hotCachePeriod: adxDatabase.hotCachePeriod
   }
 
-  resource permissions 'principalAssignments@2023-08-15' = [for permission in adxDatabase.permissions : {
-    name: guid(adxClusterName, adxDatabase.name, permission.principalId)
-    properties: {
-      principalId: permission.principalId
-      principalType: permission.principalType
-      role: permission.role
+  resource permissions 'principalAssignments@2023-08-15' = [
+    for permission in adxDatabase.permissions: {
+      name: guid(adxClusterName, adxDatabase.name, permission.principalId)
+      properties: {
+        principalId: permission.principalId
+        principalType: permission.principalType
+        role: permission.role
+      }
     }
-  }]
+  ]
 }
 
 module dce 'sapact.dce.module.bicep' = {
@@ -51,7 +61,7 @@ module dce 'sapact.dce.module.bicep' = {
   }
 }
 
-resource DevopsAppKeyVault 'Microsoft.KeyVault/vaults@2022-07-01'  existing = {
+resource DevopsAppKeyVault 'Microsoft.KeyVault/vaults@2022-07-01' existing = {
   name: appKeyVaultName
 }
 
@@ -163,21 +173,27 @@ module alerts 'sapact.alerts.module.bicep' = {
   name: 'alerts'
   params: {
     logAnalytics: logAnalytics
-    actionGroupDevOpsLowId: actionGroupDevOpsLowId
+    lowActionGroupIds: [
+      actionGroupInfrastructureLow.id
+      actionGroupApplicationsLow.id
+    ]
     environment: environment
     sbNamespaceId: dawnSB.Id
-    sbTopicNames:['sap-events'] 
+    sbTopicNames: ['sap-events']
   }
 }
 
-module alertsSecondary 'sapact.alerts.module.bicep' = if (environment == 'prod') { 
+module alertsSecondary 'sapact.alerts.module.bicep' = if (environment == 'prod') {
   name: 'alertsSecondary'
   params: {
     logAnalytics: logAnalytics
-    actionGroupDevOpsLowId: actionGroupDevOpsLowId
+    lowActionGroupIds: [
+      actionGroupInfrastructureLow.id
+      actionGroupApplicationsLow.id
+    ]
     environment: environment
     sbNamespaceId: dawnSB.SecondaryId
-    sbTopicNames:['sap-events'] 
+    sbTopicNames: ['sap-events']
   }
 }
 
@@ -197,5 +213,3 @@ resource sqlConnectionStringSecret 'Microsoft.KeyVault/vaults/secrets@2024-04-01
     value: sqlDataBaseResource.outputs.connectionString
   }
 }
-
-

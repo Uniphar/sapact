@@ -41,7 +41,6 @@ Initializes SapAct in the dev environment.
     $dceEndpointName = Resolve-UniResourceName 'monitor-dce' $p_sapactProjectName -Environment $Environment
     $devopsStorageAccountName = Resolve-UniResourceName 'storage' $p_devopsDomain -Dev:$Dev -Environment $Environment
     $logAnalyticsWorkspace = Resolve-UniMainLogAnalytics $Environment
-    $actionGroupDevOpsLowId = Resolve-UniResourceId 'devops-low'
     
     $sbName = $Environment -eq "prod" ? "$dawnServiceBusName-primary" : $dawnServiceBusName
 
@@ -117,7 +116,6 @@ Initializes SapAct in the dev environment.
                                       -logAnalytics $logAnalyticsDef `
                                       -storageAccountName $devopsStorageAccountName `
                                       -environment $Environment `
-                                      -actionGroupDevOpsLowId $actionGroupDevOpsLowId.Id `
                                       -sqlDatabase $sqlDatabase `
                                       -workloadIdentityClientId $clusterIdentityClientId `
                                       -Verbose:($PSCmdlet.MyInvocation.BoundParameters["Verbose"].IsPresent -eq $true)
@@ -149,7 +147,6 @@ Initializes SapAct in the dev environment.
                                                      -logAnalytics $logAnalyticsDef `
                                                      -storageAccountName $devopsStorageAccountName `
                                                      -environment $Environment `
-                                                     -actionGroupDevOpsLowId $actionGroupDevOpsLowId.Id `
                                                      -sqlDatabase $sqlDatabase `
                                                      -workloadIdentityClientId $clusterIdentityClientId `
                                                      -Verbose:($PSCmdlet.MyInvocation.BoundParameters["Verbose"].IsPresent -eq $true)
