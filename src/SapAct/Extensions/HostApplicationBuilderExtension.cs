@@ -1,4 +1,7 @@
-﻿namespace SapAct.Extensions;
+﻿using Microsoft.Extensions.DependencyInjection;
+using Uniphar.Platform.Telemetry;
+
+namespace SapAct.Extensions;
 
 public static class HostApplicationBuilderExtension
 {
@@ -32,7 +35,7 @@ public static class HostApplicationBuilderExtension
 			{
 				builder.Services.AddSingleton<IHostedService, ADXWorker>((sp) =>
 				{
-					return new ADXWorker(name, serviceBusTopic, sp.GetRequiredService<IAzureClientFactory<ServiceBusClient>>(), sp.GetRequiredService<IAzureClientFactory<ServiceBusAdministrationClient>>(), sp.GetRequiredService<ADXService>(), sp.GetRequiredService<ILogger<ADXWorker>>(), sp.GetRequiredService<TelemetryClient>(), builder.Configuration);
+					return new ADXWorker(name, serviceBusTopic, sp.GetRequiredService<IAzureClientFactory<ServiceBusClient>>(), sp.GetRequiredService<IAzureClientFactory<ServiceBusAdministrationClient>>(), sp.GetRequiredService<ADXService>(), sp.GetRequiredService<ILogger<ADXWorker>>(), sp.GetRequiredService<ICustomEventTelemetryClient>(), builder.Configuration);
 				});
 			}
 
@@ -40,7 +43,7 @@ public static class HostApplicationBuilderExtension
 			{
 				builder.Services.AddSingleton<IHostedService, LogAnalyticsWorker>((sp) =>
 				{
-					return new LogAnalyticsWorker(name, serviceBusTopic, sp.GetRequiredService<IAzureClientFactory<ServiceBusClient>>(), sp.GetRequiredService<IAzureClientFactory<ServiceBusAdministrationClient>>(), sp.GetRequiredService<LogAnalyticsService>(), sp.GetRequiredService<ILogger<LogAnalyticsWorker>>(), sp.GetRequiredService<TelemetryClient>(), builder.Configuration);
+					return new LogAnalyticsWorker(name, serviceBusTopic, sp.GetRequiredService<IAzureClientFactory<ServiceBusClient>>(), sp.GetRequiredService<IAzureClientFactory<ServiceBusAdministrationClient>>(), sp.GetRequiredService<LogAnalyticsService>(), sp.GetRequiredService<ILogger<LogAnalyticsWorker>>(), sp.GetRequiredService<ICustomEventTelemetryClient>(), builder.Configuration);
 				});
 			}
 
@@ -48,7 +51,7 @@ public static class HostApplicationBuilderExtension
 			{
 				builder.Services.AddSingleton<IHostedService, SQLWorker>((sp) =>
 				{
-					return new SQLWorker(name, serviceBusTopic, sp.GetRequiredService<IAzureClientFactory<ServiceBusClient>>(), sp.GetRequiredService<IAzureClientFactory<ServiceBusAdministrationClient>>(), sp.GetRequiredService<SQLService>(), sp.GetRequiredService<ILogger<SQLWorker>>(), sp.GetRequiredService<TelemetryClient>(), builder.Configuration);
+					return new SQLWorker(name, serviceBusTopic, sp.GetRequiredService<IAzureClientFactory<ServiceBusClient>>(), sp.GetRequiredService<IAzureClientFactory<ServiceBusAdministrationClient>>(), sp.GetRequiredService<SQLService>(), sp.GetRequiredService<ILogger<SQLWorker>>(), sp.GetRequiredService<ICustomEventTelemetryClient>(), builder.Configuration);
 				});
 			}
 		}

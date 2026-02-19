@@ -1,11 +1,13 @@
-﻿namespace SapAct.Workers;
+﻿using Uniphar.Platform.Telemetry;
+
+namespace SapAct.Workers;
 
 public abstract class SapActBaseWorker<T>(
     string workerName, 
     ServiceBusTopicConfiguration serviceBusTopicConfiguration, 
     IAzureClientFactory<ServiceBusClient> sbClientFactory, 
-    IAzureClientFactory<ServiceBusAdministrationClient> sbAdminClientFactory, 
-    TelemetryClient telemetryClient,
+    IAzureClientFactory<ServiceBusAdministrationClient> sbAdminClientFactory,
+    ICustomEventTelemetryClient telemetryClient,
     IConfiguration configuration, 
     ILogger<T> logger) 
         : BackgroundService
@@ -71,8 +73,7 @@ public abstract class SapActBaseWorker<T>(
 #endif
         });
 
-        try
-        {
+        
             do
             {
                 ServiceBusReceivedMessage? message = null;
@@ -96,11 +97,8 @@ public abstract class SapActBaseWorker<T>(
 
             }
             while (cancellationToken.IsCancellationRequested == false);
-        }
-        finally
-        {
-            telemetryClient.Flush();
-		}
+        
+
     }
 
     private async Task ProcessMessageAsync(ServiceBusReceivedMessage message, CancellationToken cancellationToken)

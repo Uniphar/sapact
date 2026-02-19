@@ -1,4 +1,6 @@
-﻿namespace SapAct.Workers;
+﻿using Uniphar.Platform.Telemetry;
+
+namespace SapAct.Workers;
 
 public class LogAnalyticsWorker(
     string workerName, 
@@ -7,7 +9,7 @@ public class LogAnalyticsWorker(
     IAzureClientFactory<ServiceBusAdministrationClient> sbAdminClientFactory, 
     LogAnalyticsService logAnalyticsService,
     ILogger<LogAnalyticsWorker> logger,
-	TelemetryClient telemetryClient,
+    ICustomEventTelemetryClient telemetryClient,
 	IConfiguration configuration) 
         : SapActBaseWorker<LogAnalyticsWorker>(workerName, serviceBusTopicConfiguration, sbClientFactory, sbAdminClientFactory, telemetryClient, configuration, logger)
 {

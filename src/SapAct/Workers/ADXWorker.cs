@@ -1,4 +1,6 @@
-﻿namespace SapAct.Workers;
+﻿using Uniphar.Platform.Telemetry;
+
+namespace SapAct.Workers;
 
 public class ADXWorker(
     string workerName, 
@@ -7,7 +9,7 @@ public class ADXWorker(
     IAzureClientFactory<ServiceBusAdministrationClient> sbAdminClientFactory, 
     ADXService adxService, 
     ILogger<ADXWorker> logger, 
-    TelemetryClient telemetryClient,
+    ICustomEventTelemetryClient telemetryClient,
     IConfiguration configuration) 
         : SapActBaseWorker<ADXWorker>(workerName, serviceBusTopicConfiguration, sbClientFactory, sbAdminClientFactory, telemetryClient, configuration, logger)
 {

@@ -1,4 +1,6 @@
-﻿namespace SapAct.Workers;
+﻿using Uniphar.Platform.Telemetry;
+
+namespace SapAct.Workers;
 
 public class SQLWorker(
 	 string workerName,
@@ -7,7 +9,7 @@ public class SQLWorker(
 	IAzureClientFactory<ServiceBusAdministrationClient> sbAdminClientFactory,
 	SQLService sqlService,
 	ILogger<SQLWorker> logger,
-	TelemetryClient telemetryClient,
+    ICustomEventTelemetryClient telemetryClient,
 	IConfiguration configuration)
 		: SapActBaseWorker<SQLWorker>(workerName, serviceBusTopicConfiguration, sbClientFactory, sbAdminClientFactory, telemetryClient, configuration, logger)
 {

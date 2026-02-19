@@ -1,11 +1,12 @@
-﻿var configKVUrl = Environment.GetEnvironmentVariable(Consts.KEYVAULT_CONFIG_URL) ?? throw new NoNullAllowedException(Consts.KEYVAULT_CONFIG_URL);
+﻿using Uniphar.Platform.Telemetry;
+
+var configKVUrl = Environment.GetEnvironmentVariable(Consts.KEYVAULT_CONFIG_URL) ?? throw new NoNullAllowedException(Consts.KEYVAULT_CONFIG_URL);
 
 HostApplicationBuilder builder = Host.CreateApplicationBuilder(args);
 
 var credential = new DefaultAzureCredential(); //TODO: customize chain of auth (ie remove unused)
 builder.Services.AddSingleton(credential);
 
-builder.Services.AddApplicationInsightsTelemetryWorkerService(options => options.EnableAdaptiveSampling = false);
 
 builder.Services.AddSingleton<ILockService, LockService>();
 builder.Services.AddSingleton<LogAnalyticsService>();
@@ -49,7 +50,7 @@ builder.Services.AddSingleton(new LogAnalyticsServiceConfiguration {
 	WorkspaceName = builder.Configuration.GetLogAnalyticsWorkspaceName()!,
 	EndpointName = builder.Configuration.GetLogAnalyticsEndpointName()!	
 });
-
+builder.RegisterOpenTelemetry("sapact").Build();
 IHost host = builder.Build();
 
 await host.InitializeResourcesAsync();
