@@ -1,6 +1,4 @@
-﻿using Uniphar.Platform.Telemetry;
-
-namespace SapAct.Workers;
+﻿namespace SapAct.Workers;
 
 public class ADXWorker(
     string workerName, 
@@ -10,8 +8,9 @@ public class ADXWorker(
     ADXService adxService, 
     ILogger<ADXWorker> logger, 
     ICustomEventTelemetryClient telemetryClient,
+    SapActMetrics metrics,
     IConfiguration configuration) 
-        : SapActBaseWorker<ADXWorker>(workerName, serviceBusTopicConfiguration, sbClientFactory, sbAdminClientFactory, telemetryClient, configuration, logger)
+        : SapActBaseWorker<ADXWorker>(workerName, serviceBusTopicConfiguration, sbClientFactory, sbAdminClientFactory, telemetryClient, metrics, configuration, logger)
 {
     public override async Task IngestMessageAsync(JsonElement item, CancellationToken cancellationToken)
     {

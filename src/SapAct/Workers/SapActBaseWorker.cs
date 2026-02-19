@@ -1,6 +1,4 @@
-﻿using Uniphar.Platform.Telemetry;
-
-namespace SapAct.Workers;
+﻿namespace SapAct.Workers;
 
 public abstract class SapActBaseWorker<T>(
     string workerName, 
@@ -8,6 +6,7 @@ public abstract class SapActBaseWorker<T>(
     IAzureClientFactory<ServiceBusClient> sbClientFactory, 
     IAzureClientFactory<ServiceBusAdministrationClient> sbAdminClientFactory,
     ICustomEventTelemetryClient telemetryClient,
+    SapActMetrics metrics,
     IConfiguration configuration, 
     ILogger<T> logger) 
         : BackgroundService
@@ -120,22 +119,13 @@ public abstract class SapActBaseWorker<T>(
 		foreach (var item in items)
 		{
 			await IngestMessageAsync(item, cancellationToken);
-			telemetryClient.TrackMetric(GetTelemetryMetric(items.Count()==1 ? message.MessageId: $"{message.MessageId}-{x++}"));
-		}
+
+            metrics.TrackMetricIngestion(typeof(T).Name, items.Count()==1 ? message.MessageId: $"{message.MessageId}-{x++}", workerName);
+        }
 
 		await serviceBusReceiver!.CompleteMessageAsync(message, cancellationToken);
 	}
 
-    private MetricTelemetry GetTelemetryMetric(string messageId)
-    { 
-        var message = new MetricTelemetry() { Name = "SapActMessageIngestion", Sum = 1 };
-        
-        message.Properties.Add(Consts.TelemetrySinkTypeDimensionName, typeof(T).Name);
-		message.Properties.Add(Consts.TelemetryMessageIdDimensionName, messageId);
-		message.Properties.Add(Consts.TelemetryWorkerNameDimensionName, workerName);
-
-		return message;
-	}
 
 	public abstract Task IngestMessageAsync(JsonElement item, CancellationToken cancellationToken);
 }

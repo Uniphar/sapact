@@ -1,6 +1,4 @@
-﻿using Uniphar.Platform.Telemetry;
-
-var configKVUrl = Environment.GetEnvironmentVariable(Consts.KEYVAULT_CONFIG_URL) ?? throw new NoNullAllowedException(Consts.KEYVAULT_CONFIG_URL);
+﻿var configKVUrl = Environment.GetEnvironmentVariable(Consts.KEYVAULT_CONFIG_URL) ?? throw new NoNullAllowedException(Consts.KEYVAULT_CONFIG_URL);
 
 HostApplicationBuilder builder = Host.CreateApplicationBuilder(args);
 
