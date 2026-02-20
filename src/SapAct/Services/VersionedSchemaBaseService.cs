@@ -66,7 +66,7 @@ public abstract class VersionedSchemaBaseService(ILockService lockService)
         await lockService.ReleaseLockAsync(objectType, version, targetStorage, leaseId);
     }
 
-    protected async Task<(LockState lockState, string? leaseId)> ObtainLockAsync(string objectType, string version, TargetStorageEnum targetStorage)
+    protected async Task<(LockState lockState, string? leaseId)> ObtainLockAsync(string objectType, TargetStorageEnum targetStorage)
     {
         do
         {
