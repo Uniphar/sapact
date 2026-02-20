@@ -39,9 +39,9 @@ public abstract class VersionedSchemaBaseService(ILockService lockService)
 
     protected static MessageRootProperties? ExtractMessageRootProperties(JsonElement payload)
     {
-        var objectKey = payload.GetProperty(Consts.MessageObjectKeyPropertyName).GetString();
-        var objectType = payload.GetProperty(Consts.MessageObjectTypePropertyName).GetString();
-        var dataVersion = payload.GetProperty(Consts.MessageDataVersionPropertyName).GetString();
+        var objectKey = payload.TryGetProperty(Consts.MessageObjectKeyPropertyName, out var objectKeyProperty) ? objectKeyProperty.GetString() : null;
+        var objectType = payload.TryGetProperty(Consts.MessageObjectTypePropertyName, out var objectTypeProperty) ? objectTypeProperty.GetString() : null;
+        var dataVersion = payload.TryGetProperty(Consts.MessageDataVersionPropertyName, out var dataVersionProperty) ? dataVersionProperty.GetString() : null;
         if (string.IsNullOrWhiteSpace(objectKey) || string.IsNullOrWhiteSpace(objectType) || string.IsNullOrWhiteSpace(dataVersion)) return null;
 
         var eventTypePropertyExists = payload.TryGetProperty(Consts.MessageEventTypePropertyName, out var eventTypeProperty);
