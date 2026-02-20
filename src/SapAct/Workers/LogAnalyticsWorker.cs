@@ -1,16 +1,16 @@
 ﻿namespace SapAct.Workers;
 
 public class LogAnalyticsWorker(
-    string workerName, 
-    ServiceBusTopicConfiguration serviceBusTopicConfiguration, 
-    IAzureClientFactory<ServiceBusClient> sbClientFactory, 
-    IAzureClientFactory<ServiceBusAdministrationClient> sbAdminClientFactory, 
+    string workerName,
+    ServiceBusTopicConfiguration serviceBusTopicConfiguration,
+    IAzureClientFactory<ServiceBusClient> sbClientFactory,
+    IAzureClientFactory<ServiceBusAdministrationClient> sbAdminClientFactory,
     LogAnalyticsService logAnalyticsService,
     ILogger<LogAnalyticsWorker> logger,
-    ICustomEventTelemetryClient telemetryClient,
     SapActMetrics metrics,
-    IConfiguration configuration) 
-        : SapActBaseWorker<LogAnalyticsWorker>(workerName, serviceBusTopicConfiguration, sbClientFactory, sbAdminClientFactory, metrics, configuration, logger)
+    IConfiguration configuration
+)
+    : SapActBaseWorker<LogAnalyticsWorker>(workerName, serviceBusTopicConfiguration, sbClientFactory, sbAdminClientFactory, metrics, configuration, logger)
 {
     public override async Task IngestMessageAsync(JsonElement item, CancellationToken cancellationToken)
     {

@@ -2,8 +2,5 @@
 
 public static class EnumExtensions
 {
-	public static bool IsUpdateRequired(this SchemaCheckResultState schemaCheckResultState)
-	{
-		return schemaCheckResultState == SchemaCheckResultState.Older || schemaCheckResultState == SchemaCheckResultState.Unknown;
-	}
+    public static bool IsUpdateRequired(this SchemaCheckResultState schemaCheckResultState) => schemaCheckResultState == SchemaCheckResultState.Older || schemaCheckResultState == SchemaCheckResultState.Unknown;
 }

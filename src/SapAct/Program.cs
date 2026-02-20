@@ -2,7 +2,7 @@
 
 var builder = Host.CreateApplicationBuilder(args);
 
-var credential = new DefaultAzureCredential(); //TODO: customize chain of auth (ie remove unused)
+var credential = new DefaultAzureCredential();
 builder.Services.AddSingleton(credential);
 
 
