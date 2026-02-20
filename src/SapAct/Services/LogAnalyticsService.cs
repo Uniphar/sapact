@@ -7,7 +7,8 @@ public class LogAnalyticsService(
     DefaultAzureCredential defaultAzureCredential,
     IHttpClientFactory httpClientFactory,
     LogsIngestionClient logsIngestionClient,
-    ILockService lockService, ICustomEventTelemetryClient telemetryClient
+    ILockService lockService,
+    ICustomEventTelemetryClient telemetryClient
 )
     : VersionedSchemaBaseService(lockService)
 {
@@ -125,7 +126,7 @@ public class LogAnalyticsService(
         var schemaCheckResult = await CheckObjectTypeSchemaAsync(objectType, dataVersion, TargetStorageEnum.LogAnalytics);
 
 
-        if (schemaCheckResult == SchemaCheckResultState.Unknown || schemaCheckResult == SchemaCheckResultState.Older)
+        if (schemaCheckResult is SchemaCheckResultState.Unknown or SchemaCheckResultState.Older)
         {
             var updateNecessary = true;
             do
