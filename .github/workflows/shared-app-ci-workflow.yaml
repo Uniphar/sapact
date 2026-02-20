@@ -5,31 +5,31 @@ on:
     secrets:
       AZURE_TENANT_ID:
         required: true
-        description: 'Azure Tenant ID'
+        description: "Azure Tenant ID"
       AZURE_CLIENT_ID:
         required: true
-        description: 'Azure Client ID'
+        description: "Azure Client ID"
       AZURE_SUBSCRIPTION_ID:
         required: true
-        description: 'Azure Subscription ID'
+        description: "Azure Subscription ID"
       ACTIONS_AUTH_APP_ID:
         required: true
-        description: 'GitHub App ID'
+        description: "GitHub App ID"
       ACTIONS_AUTH_APP_PRIVATE_KEY:
         required: true
-        description: 'GitHub App Private Key'
+        description: "GitHub App Private Key"
     inputs:
       applicationFolder:
         type: string
         required: true
         description: Application Folder
-      
+
 jobs:
   app_ci:
     runs-on: ubuntu-latest
     steps:
-      - name: checkout repo
-        uses: actions/checkout@v3
+      - name: Checkout repo
+        uses: actions/checkout@v6
 
       - name: gh-app-install token
         id: gh-app
@@ -37,22 +37,23 @@ jobs:
         with:
           app_id: ${{ secrets.ACTIONS_AUTH_APP_ID }}
           private_key: ${{ secrets.ACTIONS_AUTH_APP_PRIVATE_KEY }}
-          
+
       - name: checkout devops-azure repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v6
         with:
           path: devops-azure
           repository: Uniphar/devops-azure
           token: ${{ steps.gh-app.outputs.token }}
 
-      - uses: actions/setup-dotnet@v3
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
         with:
-          dotnet-version: '9'
+          dotnet-version: 10.x
 
       - name: expose app name into env
         run: |
           echo "APPLICATION_FOLDER=${{ inputs.applicationFolder }}" >> $GITHUB_ENV
-        
+
       - name: azure login
         uses: azure/login@v2
         with:
@@ -65,14 +66,14 @@ jobs:
         uses: azure/powershell@v2
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} #required for gh cli to determine "current PR"
-        with: 
+        with:
           inlineScript: |
             Import-Module .\devops-azure\src\Uniphar.DevOps.psd1 -ErrorAction Stop -Force
             . ./devops/Initialize-SapAct.ps1
 
             Initialize-SapAct dev -WhatIf
           azPSVersion: "latest"
-          errorActionPreference: 'stop'
+          errorActionPreference: "stop"
           failOnStandardError: true
 
       - name: run unit tests
@@ -84,15 +85,15 @@ jobs:
         working-directory: ./src/
         run: |
           docker build . -f ./$APPLICATION_FOLDER/Dockerfile
-      
+
       - name: check for NuGet vulnerabilites
         working-directory: ./src/
         shell: pwsh
         run: |
-            dotnet restore
-            dotnet list package --vulnerable --include-transitive 2>&1 | tee build.log
-            echo "Analyze dotnet list package command log output..."
-            exit (Select-String -Path "build.log" -Pattern "has the following vulnerable packages" -AllMatches).Matches.Count -gt 0 ? 1 : 0
+          dotnet restore
+          dotnet list package --vulnerable --include-transitive 2>&1 | tee build.log
+          echo "Analyze dotnet list package command log output..."
+          exit (Select-String -Path "build.log" -Pattern "has the following vulnerable packages" -AllMatches).Matches.Count -gt 0 ? 1 : 0
 
   notify:
     needs: app_ci
@@ -108,9 +109,9 @@ jobs:
 
       - uses: benc-uk/workflow-dispatch@v1
         with:
-          workflow: 'shared-failed-build-notification-workflow.yaml'
+          workflow: "shared-failed-build-notification-workflow.yaml"
           inputs: '{
-              "workflowId":"${{ github.run_id }}", 
-              "repository":"${{ github.repository }}"
+            "workflowId":"${{ github.run_id }}",
+            "repository":"${{ github.repository }}"
             }'
           token: ${{ steps.gh-app.outputs.token }}
