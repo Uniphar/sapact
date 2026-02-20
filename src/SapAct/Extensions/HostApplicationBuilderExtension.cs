@@ -1,4 +1,6 @@
-﻿namespace SapAct.Extensions;
+﻿using SapAct.Metrics;
+
+namespace SapAct.Extensions;
 
 public static class HostApplicationBuilderExtension
 {

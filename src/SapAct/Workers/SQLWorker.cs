@@ -1,4 +1,6 @@
-﻿namespace SapAct.Workers;
+﻿using SapAct.Metrics;
+
+namespace SapAct.Workers;
 
 public class SQLWorker(
 	 string workerName,
