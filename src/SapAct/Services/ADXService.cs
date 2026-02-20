@@ -6,44 +6,39 @@ public class ADXService (IAzureDataExplorerClient adxClient, ILockService lockSe
     {
         //get key properties
         var messageProperties = ExtractMessageRootProperties(payload);
-        // if it is not a sap event, we will use the topic to sync
-        if (messageProperties == null)
-        {
-            //simple sync
-            var columnsList = payload.GenerateColumnList(TargetStorageEnum.ADX);
-            await adxClient.CreateOrUpdateTableAsync(topic, columnsList, cancellationToken);
-            return;
-        }
+        var objectType = messageProperties?.objectType ?? topic;
+        var dataVersion = messageProperties?.dataVersion ?? "1";
 
-        if (Consts.DeltaEventType == messageProperties.eventType) return;
+
+        if (Consts.DeltaEventType == messageProperties?.eventType) return;
 
         //schema check
-        var schemaCheck = await CheckObjectTypeSchemaAsync(messageProperties.objectType, messageProperties.dataVersion, TargetStorageEnum.ADX);
-        if (schemaCheck == SchemaCheckResultState.Older || schemaCheck == SchemaCheckResultState.Unknown)
+        var schemaCheck = await CheckObjectTypeSchemaAsync(objectType, dataVersion, TargetStorageEnum.ADX);
+        if (schemaCheck is SchemaCheckResultState.Older or SchemaCheckResultState.Unknown)
         {
             var updateNecessary = true;
             do
             {
-                var (lockState, leaseId) = await ObtainLockAsync(messageProperties.objectType, messageProperties.dataVersion, TargetStorageEnum.ADX);
+                var (lockState, leaseId) = await ObtainLockAsync(objectType, TargetStorageEnum.ADX);
                 if (lockState == LockState.LockObtained)
                 {
                     var columnsList = payload.GenerateColumnList(TargetStorageEnum.ADX);
 
-                    await adxClient.CreateOrUpdateTableAsync(messageProperties.objectType, columnsList, cancellationToken);
-                    UpdateObjectTypeSchema(messageProperties.objectType, messageProperties.dataVersion);
-                    await ReleaseLockAsync(messageProperties.objectType, messageProperties.dataVersion, TargetStorageEnum.ADX, leaseId!);
+                    await adxClient.CreateOrUpdateTableAsync(objectType, columnsList, cancellationToken);
+                    UpdateObjectTypeSchema(objectType, dataVersion);
+                    await ReleaseLockAsync(objectType, dataVersion, TargetStorageEnum.ADX, leaseId!);
 
                     updateNecessary = false;
                 }
                 else if (lockState == LockState.Available)
                 {
                     //schema was updated by another instance but let's check against persistent storage
-                    var status = await CheckObjectTypeSchemaAsync(messageProperties.objectType, messageProperties.dataVersion, TargetStorageEnum.ADX);
+                    var status = await CheckObjectTypeSchemaAsync(objectType, dataVersion, TargetStorageEnum.ADX);
                     updateNecessary = status != SchemaCheckResultState.Current;
                 }
             } while (updateNecessary);
         }
 
-        await adxClient.IngestDataAsync(messageProperties.objectType, payload, cancellationToken);
+        await adxClient.IngestDataAsync(objectType, payload, cancellationToken);
     }
 }

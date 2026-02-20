@@ -14,6 +14,6 @@ public class ADXWorker(
 {
     public override async Task IngestMessageAsync(string topic, JsonElement item, CancellationToken cancellationToken)
     {
-        await adxService.IngestMessage(item, cancellationToken);
+        await adxService.IngestMessage(topic, item, cancellationToken);
     }
 }

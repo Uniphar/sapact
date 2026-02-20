@@ -116,19 +116,11 @@ public class LogAnalyticsService(
         var dcrId = "";
         //get key properties
         var messageProperties = ExtractMessageRootProperties(payload);
-        // if it is not an sapevent, we will use the topic to sync
-        if (messageProperties == null)
-        {
-            
-            dcrId = await SyncTableSchema(topic, payload, cancellationToken);
-            //send to log analytics
-            await SinkToLogAnalytics(topic, dcrId!, payload);
-            return;
-        }
+        var objectType = messageProperties?.objectType ?? topic;
+        var dataVersion = messageProperties?.dataVersion ?? "1";
+        if (Consts.DeltaEventType == messageProperties?.eventType) return;
 
-        if (Consts.DeltaEventType == messageProperties.eventType) return;
-
-        var schemaCheckResult = await CheckObjectTypeSchemaAsync(messageProperties.objectType, messageProperties.dataVersion, TargetStorageEnum.LogAnalytics);
+        var schemaCheckResult = await CheckObjectTypeSchemaAsync(objectType, dataVersion, TargetStorageEnum.LogAnalytics);
 
 
         if (schemaCheckResult == SchemaCheckResultState.Unknown || schemaCheckResult == SchemaCheckResultState.Older)
@@ -136,33 +128,33 @@ public class LogAnalyticsService(
             var updateNecessary = true;
             do
             {
-                var (lockState, leaseId) = await ObtainLockAsync(messageProperties.objectType, messageProperties.dataVersion, TargetStorageEnum.LogAnalytics);
+                var (lockState, leaseId) = await ObtainLockAsync(objectType, TargetStorageEnum.LogAnalytics);
                 if (lockState == LockState.LockObtained)
                 {
-                    dcrId = await SyncTableSchema(messageProperties.objectType, payload, cancellationToken);
-                    UpdateSchema(messageProperties.objectType, messageProperties.dataVersion, dcrId);
-                    await ReleaseLockAsync(messageProperties.objectType, messageProperties.dataVersion, TargetStorageEnum.LogAnalytics, leaseId!);
+                    dcrId = await SyncTableSchema(objectType, payload, cancellationToken);
+                    UpdateSchema(objectType, dataVersion, dcrId);
+                    await ReleaseLockAsync(objectType, dataVersion, TargetStorageEnum.LogAnalytics, leaseId!);
 
                     updateNecessary = false;
                 }
                 else if (lockState == LockState.Available)
                 {
                     //schema was updated by another instance but let's check against persistent storage
-                    var status = await CheckObjectTypeSchemaAsync(messageProperties.objectType, messageProperties.dataVersion, TargetStorageEnum.LogAnalytics);
+                    var status = await CheckObjectTypeSchemaAsync(objectType, dataVersion, TargetStorageEnum.LogAnalytics);
                     updateNecessary = status != SchemaCheckResultState.Current;
                     if (!updateNecessary)
                     {
-                        dcrId = await RefreshDCRIdAsync(messageProperties.objectType, cancellationToken);
-                        UpdateSchema(messageProperties.objectType, messageProperties.dataVersion, dcrId);
+                        dcrId = await RefreshDCRIdAsync(objectType, cancellationToken);
+                        UpdateSchema(objectType, dataVersion, dcrId);
                     }
                 }
             } while (updateNecessary);
         }
         else
-            dcrId = await RefreshDCRIdAsync(messageProperties.objectType, cancellationToken); //TODO: maybe store as another metadata piece in the blob
+            dcrId = await RefreshDCRIdAsync(objectType, cancellationToken); //TODO: maybe store as another metadata piece in the blob
 
         //send to log analytics
-        await SinkToLogAnalytics(messageProperties.objectType, dcrId!, payload);
+        await SinkToLogAnalytics(objectType, dcrId!, payload);
     }
 
     private async Task<string> RefreshDCRIdAsync(string tableName, CancellationToken cancellationToken)
