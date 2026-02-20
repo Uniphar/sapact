@@ -116,14 +116,13 @@ public class LogAnalyticsService(
         var dcrId = "";
         //get key properties
         var messageProperties = ExtractMessageRootProperties(payload);
+        // if it is not an sapevent, we will use the topic to sync
         if (messageProperties == null)
         {
-            //simple sync
-            var columnsList = payload.GenerateColumnList(TargetStorageEnum.ADX);
+            
             dcrId = await SyncTableSchema(topic, payload, cancellationToken);
             //send to log analytics
             await SinkToLogAnalytics(topic, dcrId!, payload);
-            //await adxClient.CreateOrUpdateTableAsync("", columnsList, cancellationToken);
             return;
         }
 

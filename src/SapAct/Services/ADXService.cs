@@ -6,11 +6,11 @@ public class ADXService (IAzureDataExplorerClient adxClient, ILockService lockSe
     {
         //get key properties
         var messageProperties = ExtractMessageRootProperties(payload);
+        // if it is not a sap event, we will use the topic to sync
         if (messageProperties == null)
         {
             //simple sync
             var columnsList = payload.GenerateColumnList(TargetStorageEnum.ADX);
-
             await adxClient.CreateOrUpdateTableAsync(topic, columnsList, cancellationToken);
             return;
         }
