@@ -29,7 +29,7 @@ Initializes SapAct in the dev environment.
 
     $devopsDomainRgName = Resolve-UniResourceName 'resource-group' $p_devopsDomain -Environment $Environment
     $dawnDomainRgName = Resolve-UniResourceName 'resource-group' $p_dawnDomain -Environment $Environment
-    $devopsClusterIdentityName = Resolve-UniComputeDomainSAName $Environment $p_devopsDomain
+    $devopsClusterIdentityName = Resolve-UniKubeWorkloadSAName $Environment $p_devopsDomain
     $cluserIdentity = Get-AzADServicePrincipal -DisplayName $devopsClusterIdentityName
     $clusterIdentityObjectId = $cluserIdentity| Select-Object -ExpandProperty Id
     $clusterIdentityClientId = $cluserIdentity| Select-Object -ExpandProperty AppId
