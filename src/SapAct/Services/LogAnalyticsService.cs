@@ -235,6 +235,12 @@ public class LogAnalyticsService(
         try
         {
             var response = await httpClient.GetAsync(endpoint);
+            if (!response.IsSuccessStatusCode)
+            {
+                var responseContent = await response.Content.ReadAsStringAsync();
+                telemetryClient.TrackEvent("ErrorResponse", new() { { "ResponseContent", responseContent } });
+            }
+
             response.EnsureSuccessStatusCode();
 
             var responseJson = await response.Content.ReadAsStringAsync();
