@@ -12,7 +12,7 @@ public class SQLWorker(
 )
     : SapActBaseWorker<SQLWorker>(workerName, serviceBusTopicConfiguration, sbClientFactory, sbAdminClientFactory, metrics, configuration, logger)
 {
-    public override async Task IngestMessageAsync(JsonElement item, CancellationToken cancellationToken)
+    public override async Task IngestMessageAsync(string topic, JsonElement item, CancellationToken cancellationToken)
     {
         await sqlService.IngestMessageAsync(item, cancellationToken);
     }

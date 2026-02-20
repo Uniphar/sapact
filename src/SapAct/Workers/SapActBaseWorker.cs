@@ -84,7 +84,7 @@ public abstract class SapActBaseWorker<T>(
 
                 if (message == null) continue;
 
-                await ProcessMessageAsync(message, cancellationToken);
+                await ProcessMessageAsync(topicName, message, cancellationToken);
             }
             catch (Exception ex)
             {
@@ -117,13 +117,14 @@ public abstract class SapActBaseWorker<T>(
                 _ => null
             };
         }
+
         return null;
     }
 
-    private async Task ProcessMessageAsync(ServiceBusReceivedMessage message, CancellationToken cancellationToken)
+    private async Task ProcessMessageAsync(string topic, ServiceBusReceivedMessage message, CancellationToken cancellationToken)
     {
         var bodyString = GetBodyString(message);
-        if (bodyString==null) return;
+        if (bodyString == null) return;
 
         using var jsonDocument = JsonDocument.Parse(bodyString);
 
@@ -138,7 +139,7 @@ public abstract class SapActBaseWorker<T>(
         var count = items.Count();
         foreach (var item in items)
         {
-            await IngestMessageAsync(item, cancellationToken);
+            await IngestMessageAsync(topic, item, cancellationToken);
 
             metrics.TrackMetricIngestion(typeof(T).Name, count == 1 ? message.MessageId : $"{message.MessageId}-{x++}", workerName);
         }
@@ -147,5 +148,5 @@ public abstract class SapActBaseWorker<T>(
     }
 
 
-    public abstract Task IngestMessageAsync(JsonElement item, CancellationToken cancellationToken);
+    public abstract Task IngestMessageAsync(string topic, JsonElement item, CancellationToken cancellationToken);
 }

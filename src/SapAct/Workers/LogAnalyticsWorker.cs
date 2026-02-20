@@ -12,8 +12,8 @@ public class LogAnalyticsWorker(
 )
     : SapActBaseWorker<LogAnalyticsWorker>(workerName, serviceBusTopicConfiguration, sbClientFactory, sbAdminClientFactory, metrics, configuration, logger)
 {
-    public override async Task IngestMessageAsync(JsonElement item, CancellationToken cancellationToken)
+    public override async Task IngestMessageAsync(string topic, JsonElement item, CancellationToken cancellationToken)
     {
-        await logAnalyticsService.IngestMessage(item, cancellationToken);
+        await logAnalyticsService.IngestMessage(topic, item, cancellationToken);
     }
 }

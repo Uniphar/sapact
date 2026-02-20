@@ -12,7 +12,7 @@ public class ADXWorker(
 )
     : SapActBaseWorker<ADXWorker>(workerName, serviceBusTopicConfiguration, sbClientFactory, sbAdminClientFactory, metrics, configuration, logger)
 {
-    public override async Task IngestMessageAsync(JsonElement item, CancellationToken cancellationToken)
+    public override async Task IngestMessageAsync(string topic, JsonElement item, CancellationToken cancellationToken)
     {
         await adxService.IngestMessage(item, cancellationToken);
     }

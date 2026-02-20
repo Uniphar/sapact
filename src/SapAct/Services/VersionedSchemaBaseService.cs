@@ -45,27 +45,24 @@ public abstract class VersionedSchemaBaseService(ILockService lockService)
 		return schemaCompareResult;
 	}
 
-	protected static MessageRootProperties ExtractMessageRootProperties(JsonElement payload)
-	{
-		var objectKey = payload.GetProperty(Consts.MessageObjectKeyPropertyName).GetString();
-		var objectType = payload.GetProperty(Consts.MessageObjectTypePropertyName).GetString();
-		var dataVersion = payload.GetProperty(Consts.MessageDataVersionPropertyName).GetString();
-
-        ArgumentException.ThrowIfNullOrWhiteSpace(objectKey);
-        ArgumentException.ThrowIfNullOrWhiteSpace(objectType);
-        ArgumentException.ThrowIfNullOrWhiteSpace(dataVersion);
+    protected static MessageRootProperties? ExtractMessageRootProperties(JsonElement payload)
+    {
+        var objectKey = payload.GetProperty(Consts.MessageObjectKeyPropertyName).GetString();
+        var objectType = payload.GetProperty(Consts.MessageObjectTypePropertyName).GetString();
+        var dataVersion = payload.GetProperty(Consts.MessageDataVersionPropertyName).GetString();
+        if (string.IsNullOrWhiteSpace(objectKey) || string.IsNullOrWhiteSpace(objectType) || string.IsNullOrWhiteSpace(dataVersion)) return null;
 
         var eventTypePropertyExists = payload.TryGetProperty(Consts.MessageEventTypePropertyName, out var eventTypeProperty);
-		var eventType = eventTypePropertyExists ? eventTypeProperty.GetString() : null;
+        var eventType = eventTypePropertyExists ? eventTypeProperty.GetString() : null;
 
-		return new MessageRootProperties
-		{
-			objectKey = objectKey,
-			objectType = objectType,
-			dataVersion = dataVersion,
-			eventType = eventType
-		};	
-	}
+        return new()
+        {
+            objectKey = objectKey,
+            objectType = objectType,
+            dataVersion = dataVersion,
+            eventType = eventType
+        };
+    }
 
 	protected void UpdateObjectTypeSchema(string objectType, string version)
 	{
