@@ -97,9 +97,9 @@ public abstract class SapActBaseWorker<T>(
 
     private async Task ProcessMessageAsync(ServiceBusReceivedMessage message, CancellationToken cancellationToken)
     {
-        if (message == null || message.Body == null) return;
+        if (message?.Body == null) return;
 
-        var jsonDocument = JsonDocument.Parse(Encoding.UTF8.GetString(message.Body));
+        using var jsonDocument = JsonDocument.Parse(Encoding.UTF8.GetString(message.Body));
 
         IEnumerable<JsonElement> items = jsonDocument.RootElement.ValueKind switch
         {
@@ -109,12 +109,12 @@ public abstract class SapActBaseWorker<T>(
         };
 
         var x = 0;
-
+        var count = items.Count();
         foreach (var item in items)
         {
             await IngestMessageAsync(item, cancellationToken);
 
-            metrics.TrackMetricIngestion(typeof(T).Name, items.Count() == 1 ? message.MessageId : $"{message.MessageId}-{x++}", workerName);
+            metrics.TrackMetricIngestion(typeof(T).Name, count == 1 ? message.MessageId : $"{message.MessageId}-{x++}", workerName);
         }
 
         await serviceBusReceiver!.CompleteMessageAsync(message, cancellationToken);
