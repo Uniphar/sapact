@@ -32,7 +32,7 @@ builder.Services.AddAzureClients(clientBuilder =>
 
 var KustoConnectionStringBuilder = new KustoConnectionStringBuilder(builder.Configuration.GetADXClusterHostUrl(), builder.Configuration.GetADXClusterDBNameOrDefault())
     .WithAadTokenProviderAuthentication(async () => (await credential.GetTokenAsync(new([Consts.KustoTokenScope]))).Token);
-
+builder.Services.AddSingleton<SapActMetrics>();
 builder.Services.AddSingleton(KustoClientFactory.CreateCslQueryProvider(KustoConnectionStringBuilder));
 builder.Services.AddSingleton(KustoClientFactory.CreateCslAdminProvider(KustoConnectionStringBuilder));
 builder.Services.AddSingleton(KustoIngestFactory.CreateDirectIngestClient(KustoConnectionStringBuilder));
