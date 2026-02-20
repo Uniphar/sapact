@@ -18,7 +18,7 @@ public class LogAnalyticsService(
     private string WorkspaceResourceId => $"/subscriptions/{configuration.SubscriptionId}/resourceGroups/{configuration.ResourceGroupName}/providers/Microsoft.OperationalInsights/workspaces/{configuration.WorkspaceName}";
 
     private string GetDCRUrl(string tableName) => $"https://management.azure.com/subscriptions/{configuration.SubscriptionId}/resourceGroups/{configuration.ResourceGroupName}/providers/Microsoft.Insights/dataCollectionRules/{tableName}DCR?api-version=2024-03-11";
-    private string GetTableUrl(string tableName) => !Regex.IsMatch(tableName, "^[A-Za-z0-9-_]+$") ? throw new ArgumentException("Invalid table name.", nameof(tableName)) : $"https://management.azure.com/subscriptions/{configuration.SubscriptionId}/resourceGroups/{configuration.ResourceGroupName}/providers/Microsoft.OperationalInsights/workspaces/{configuration.WorkspaceName}/tables/{tableName}_CL?api-version@2025-07-01";
+    private string GetTableUrl(string tableName) => !Regex.IsMatch(tableName, "^[A-Za-z0-9-_]+$") ? throw new ArgumentException("Invalid table name.", nameof(tableName)) : $"https://management.azure.com/subscriptions/{configuration.SubscriptionId}/resourceGroups/{configuration.ResourceGroupName}/providers/Microsoft.OperationalInsights/workspaces/{configuration.WorkspaceName}/tables/{tableName}_CL?api-version=2025-07-01";
 
     private async Task<string> SyncTableSchema(string tableName, JsonElement payload, CancellationToken cancellationToken)
     {
