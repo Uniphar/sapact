@@ -95,11 +95,37 @@ public abstract class SapActBaseWorker<T>(
         } while (!cancellationToken.IsCancellationRequested);
     }
 
+    private static string? GetBodyString(ServiceBusReceivedMessage message)
+    {
+        try
+        {
+            var body = message.Body;
+            if (body != null) return Encoding.UTF8.GetString(body);
+        }
+        catch (NotSupportedException)
+        {
+            // ignore, we need to use the raw version
+        }
+
+        var amqpMessage = message.GetRawAmqpMessage();
+        if (amqpMessage.Body.TryGetValue(out var value))
+        {
+            return value switch
+            {
+                string messageString => messageString,
+                byte[] byteArray => Encoding.UTF8.GetString(byteArray),
+                _ => null
+            };
+        }
+        return null;
+    }
+
     private async Task ProcessMessageAsync(ServiceBusReceivedMessage message, CancellationToken cancellationToken)
     {
-        if (message?.Body == null) return;
+        var bodyString = GetBodyString(message);
+        if (bodyString==null) return;
 
-        using var jsonDocument = JsonDocument.Parse(Encoding.UTF8.GetString(message.Body));
+        using var jsonDocument = JsonDocument.Parse(bodyString);
 
         IEnumerable<JsonElement> items = jsonDocument.RootElement.ValueKind switch
         {
