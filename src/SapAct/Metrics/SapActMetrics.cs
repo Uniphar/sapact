@@ -1,6 +1,4 @@
-﻿using System.Diagnostics.Metrics;
-
-namespace SapAct.Metrics;
+﻿namespace SapAct.Metrics;
 
 public class SapActMetrics : IDisposable
 {

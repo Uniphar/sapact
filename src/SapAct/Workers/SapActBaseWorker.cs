@@ -1,13 +1,10 @@
-﻿using SapAct.Metrics;
-
-namespace SapAct.Workers;
+﻿namespace SapAct.Workers;
 
 public abstract class SapActBaseWorker<T>(
     string workerName, 
     ServiceBusTopicConfiguration serviceBusTopicConfiguration, 
     IAzureClientFactory<ServiceBusClient> sbClientFactory, 
     IAzureClientFactory<ServiceBusAdministrationClient> sbAdminClientFactory,
-    ICustomEventTelemetryClient telemetryClient,
     SapActMetrics metrics,
     IConfiguration configuration, 
     ILogger<T> logger) 

@@ -1,6 +1,4 @@
-﻿using SapAct.Metrics;
-
-namespace SapAct.Workers;
+﻿namespace SapAct.Workers;
 
 public class ADXWorker(
     string workerName, 
@@ -12,7 +10,7 @@ public class ADXWorker(
     ICustomEventTelemetryClient telemetryClient,
     SapActMetrics metrics,
     IConfiguration configuration) 
-        : SapActBaseWorker<ADXWorker>(workerName, serviceBusTopicConfiguration, sbClientFactory, sbAdminClientFactory, telemetryClient, metrics, configuration, logger)
+        : SapActBaseWorker<ADXWorker>(workerName, serviceBusTopicConfiguration, sbClientFactory, sbAdminClientFactory, metrics, configuration, logger)
 {
     public override async Task IngestMessageAsync(JsonElement item, CancellationToken cancellationToken)
     {
