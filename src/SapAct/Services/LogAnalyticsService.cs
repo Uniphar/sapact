@@ -7,7 +7,7 @@ public class LogAnalyticsService(
     DefaultAzureCredential defaultAzureCredential,
     IHttpClientFactory httpClientFactory,
     LogsIngestionClient logsIngestionClient,
-    ILockService lockService
+    ILockService lockService, ICustomEventTelemetryClient telemetryClient
 )
     : VersionedSchemaBaseService(lockService)
 {
@@ -218,9 +218,12 @@ public class LogAnalyticsService(
 
         // Create/update the table
         var response = await httpClient.PutAsync(endpoint, content, cancellationToken);
-#if DEBUG
-        var responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
-#endif
+        if (!response.IsSuccessStatusCode)
+        {
+            var responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
+            telemetryClient.TrackEvent("ErrorResponse", new() { { "ResponseContent", responseContent } });
+        }
+
         response.EnsureSuccessStatusCode();
     }
 
