@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
 
@@ -10,7 +10,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-	<PackageReference Include="AwesomeAssertions" Version="*" />
+    <PackageReference Include="AwesomeAssertions" Version="*" />
     <PackageReference Include="Azure.Monitor.Query" Version="*" />
     <PackageReference Include="coverlet.collector" Version="*" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="*" />
@@ -18,7 +18,7 @@
     <PackageReference Include="MSTest.TestAdapter" Version="*" />
     <PackageReference Include="MSTest.TestFramework" Version="*" />
     <PackageReference Include="Azure.Messaging.ServiceBus" Version="*" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="9.*" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="*" />
 
   </ItemGroup>
 

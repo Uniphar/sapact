@@ -96,6 +96,50 @@ resource SB1TopicNameSecret 'Microsoft.KeyVault/vaults/secrets@2024-04-01-previe
     value: 'sapactinttests'
   }
 }
+resource SB2ConnectionStringSecret 'Microsoft.KeyVault/vaults/secrets@2024-04-01-preview' = {
+  name: 'SapAct--ServiceBus--Topic--2--ConnectionString'
+  parent: DevopsAppKeyVault
+  properties: {
+    value: '${dawnSB.Alias}.servicebus.windows.net'
+  }
+}
+
+resource SB2TopicNameSecret 'Microsoft.KeyVault/vaults/secrets@2024-04-01-preview' = {
+  name: 'SapAct--ServiceBus--Topic--2--Name'
+  parent: DevopsAppKeyVault
+  properties: {
+    value: 'integration-suite-error'
+  }
+}
+resource SB2TopicSinkDisable 'Microsoft.KeyVault/vaults/secrets@2024-04-01-preview' = {
+  name: 'SapAct--ServiceBus--Topic--2--SQLSinkDisabled'
+  parent: DevopsAppKeyVault
+  properties: {
+    value: 'true'
+  }
+}
+resource SB3ConnectionStringSecret 'Microsoft.KeyVault/vaults/secrets@2024-04-01-preview' = {
+  name: 'SapAct--ServiceBus--Topic--3--ConnectionString'
+  parent: DevopsAppKeyVault
+  properties: {
+    value: '${dawnSB.Alias}.servicebus.windows.net'
+  }
+}
+
+resource SB3TopicNameSecret 'Microsoft.KeyVault/vaults/secrets@2024-04-01-preview' = {
+  name: 'SapAct--ServiceBus--Topic--3--Name'
+  parent: DevopsAppKeyVault
+  properties: {
+    value: 'integration-suite-log'
+  }
+}
+resource SB3TopicSinkDisable 'Microsoft.KeyVault/vaults/secrets@2024-04-01-preview' = {
+  name: 'SapAct--ServiceBus--Topic--3--SQLSinkDisabled'
+  parent: DevopsAppKeyVault
+  properties: {
+    value: 'true'
+  }
+}
 
 resource StorageAccountConnectionStringSecret 'Microsoft.KeyVault/vaults/secrets@2024-04-01-preview' = {
   name: 'SapAct--LockService--BlobConnectionString'

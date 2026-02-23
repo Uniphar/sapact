@@ -1,18 +1,19 @@
 ﻿namespace SapAct.Workers;
 
 public class ADXWorker(
-    string workerName, 
-    ServiceBusTopicConfiguration serviceBusTopicConfiguration, 
-    IAzureClientFactory<ServiceBusClient> sbClientFactory, 
-    IAzureClientFactory<ServiceBusAdministrationClient> sbAdminClientFactory, 
-    ADXService adxService, 
-    ILogger<ADXWorker> logger, 
-    TelemetryClient telemetryClient,
-    IConfiguration configuration) 
-        : SapActBaseWorker<ADXWorker>(workerName, serviceBusTopicConfiguration, sbClientFactory, sbAdminClientFactory, telemetryClient, configuration, logger)
+    string workerName,
+    ServiceBusTopicConfiguration serviceBusTopicConfiguration,
+    IAzureClientFactory<ServiceBusClient> sbClientFactory,
+    IAzureClientFactory<ServiceBusAdministrationClient> sbAdminClientFactory,
+    ADXService adxService,
+    ILogger<ADXWorker> logger,
+    SapActMetrics metrics,
+    IConfiguration configuration
+)
+    : SapActBaseWorker<ADXWorker>(workerName, serviceBusTopicConfiguration, sbClientFactory, sbAdminClientFactory, metrics, configuration, logger)
 {
-    public override async Task IngestMessageAsync(JsonElement item, CancellationToken cancellationToken)
+    public override async Task IngestMessageAsync(string topic, JsonElement item, CancellationToken cancellationToken)
     {
-        await adxService.IngestMessage(item, cancellationToken);
-	}
+        await adxService.IngestMessage(topic, item, cancellationToken);
+    }
 }

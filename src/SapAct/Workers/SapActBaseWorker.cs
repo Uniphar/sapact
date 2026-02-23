@@ -1,56 +1,57 @@
 ﻿namespace SapAct.Workers;
 
 public abstract class SapActBaseWorker<T>(
-    string workerName, 
-    ServiceBusTopicConfiguration serviceBusTopicConfiguration, 
-    IAzureClientFactory<ServiceBusClient> sbClientFactory, 
-    IAzureClientFactory<ServiceBusAdministrationClient> sbAdminClientFactory, 
-    TelemetryClient telemetryClient,
-    IConfiguration configuration, 
-    ILogger<T> logger) 
-        : BackgroundService
+    string workerName,
+    ServiceBusTopicConfiguration serviceBusTopicConfiguration,
+    IAzureClientFactory<ServiceBusClient> sbClientFactory,
+    IAzureClientFactory<ServiceBusAdministrationClient> sbAdminClientFactory,
+    SapActMetrics metrics,
+    IConfiguration configuration,
+    ILogger<T> logger
+)
+    : BackgroundService
 {
     private ServiceBusReceiver? serviceBusReceiver;
 
     internal async Task EnsureServiceBusResourcesAsync(string topicName, string subscriptionName, CancellationToken cancellationToken = default)
     {
-		var managementClient = sbAdminClientFactory.CreateClient(workerName);
+        var managementClient = sbAdminClientFactory.CreateClient(workerName);
 
         if (!await managementClient.TopicExistsAsync(topicName, cancellationToken))
-		{
+        {
             try
             {
                 await managementClient.CreateTopicAsync(topicName, cancellationToken);
             }
             catch (ServiceBusException ex) when (ex.Reason == ServiceBusFailureReason.MessagingEntityAlreadyExists)
-			{
+            {
                 //this may happen as topic is shared by worker subscriptions so race condition is possible
-				//do nothing, topic already exists
-			}
-			catch (Exception ex)
-			{
-				logger.LogError(ex, "Error creating topic");
-				throw;
-			}
-		}
+                //do nothing, topic already exists
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Error creating topic");
+                throw;
+            }
+        }
 
-		if (!await managementClient.SubscriptionExistsAsync(topicName, subscriptionName, cancellationToken))
+        if (!await managementClient.SubscriptionExistsAsync(topicName, subscriptionName, cancellationToken))
         {
-			try
-			{
-				await managementClient.CreateSubscriptionAsync(topicName, subscriptionName, cancellationToken);
-			}
-			catch (ServiceBusException ex) when (ex.Reason == ServiceBusFailureReason.MessagingEntityAlreadyExists)
-			{
-				// Subscription already exists - this is expected in concurrent scenarios where multiple workers may attempt creation.
-				// It is safe to ignore this exception because the desired resource is present.
-			}
-			catch (Exception ex)
-			{
-				logger.LogError(ex, "Error creating subscription {SubscriptionName} for topic {TopicName}", subscriptionName, topicName);
-				throw;
-			}
-		}
+            try
+            {
+                await managementClient.CreateSubscriptionAsync(topicName, subscriptionName, cancellationToken);
+            }
+            catch (ServiceBusException ex) when (ex.Reason == ServiceBusFailureReason.MessagingEntityAlreadyExists)
+            {
+                // Subscription already exists - this is expected in concurrent scenarios where multiple workers may attempt creation.
+                // It is safe to ignore this exception because the desired resource is present.
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Error creating subscription {SubscriptionName} for topic {TopicName}", subscriptionName, topicName);
+                throw;
+            }
+        }
     }
 
     protected override async Task ExecuteAsync(CancellationToken cancellationToken)
@@ -62,82 +63,90 @@ public abstract class SapActBaseWorker<T>(
 
         var sbClient = sbClientFactory.CreateClient(workerName);
 
-		serviceBusReceiver = sbClient.CreateReceiver(topicName, subscriptionName, new ServiceBusReceiverOptions()
-        {
-            ReceiveMode = ServiceBusReceiveMode.PeekLock
-#if (DEBUG)
-            ,
-            PrefetchCount = 1
-#endif
-        });
-
-        try
-        {
-            do
+        serviceBusReceiver = sbClient.CreateReceiver(topicName,
+            subscriptionName,
+            new()
             {
-                ServiceBusReceivedMessage? message = null;
-                try
-                {
-                    message = await serviceBusReceiver.ReceiveMessageAsync(cancellationToken: cancellationToken);
+                ReceiveMode = ServiceBusReceiveMode.PeekLock
+#if DEBUG
+                ,
+                PrefetchCount = 1
+#endif
+            });
 
-                    if (message == null) continue;
 
-                    await ProcessMessageAsync(message, cancellationToken);
-                }
-                catch (Exception ex)
-                {
-                    if (message != null)
-                    {
-                        await serviceBusReceiver.AbandonMessageAsync(message, cancellationToken: cancellationToken);
-                    }
-
-                    logger.LogError(ex, $"Error processing message - {message?.MessageId}");
-                }
-
-            }
-            while (cancellationToken.IsCancellationRequested == false);
-        }
-        finally
+        do
         {
-            telemetryClient.Flush();
-		}
+            ServiceBusReceivedMessage? message = null;
+            try
+            {
+                message = await serviceBusReceiver.ReceiveMessageAsync(cancellationToken: cancellationToken);
+
+                if (message == null) continue;
+
+                await ProcessMessageAsync(topicName, message, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                if (message != null) await serviceBusReceiver.AbandonMessageAsync(message, cancellationToken: cancellationToken);
+
+                logger.LogError(ex, $"Error processing message - {message?.MessageId}");
+            }
+        } while (!cancellationToken.IsCancellationRequested);
     }
 
-    private async Task ProcessMessageAsync(ServiceBusReceivedMessage message, CancellationToken cancellationToken)
+    private static string? GetBodyString(ServiceBusReceivedMessage message)
     {
-        if (message == null || message.Body == null)
-            return;
+        try
+        {
+            var body = message.Body;
+            if (body != null) return Encoding.UTF8.GetString(body);
+        }
+        catch (NotSupportedException)
+        {
+            // ignore, we need to use the raw version
+        }
 
-		JsonDocument jsonDocument = JsonDocument.Parse(Encoding.UTF8.GetString(message.Body));
+        var amqpMessage = message.GetRawAmqpMessage();
+        if (amqpMessage.Body.TryGetValue(out var value))
+        {
+            return value switch
+            {
+                string messageString => messageString,
+                byte[] byteArray => Encoding.UTF8.GetString(byteArray),
+                _ => null
+            };
+        }
 
-		IEnumerable<JsonElement> items = jsonDocument.RootElement.ValueKind switch
-		{
-			JsonValueKind.Array => jsonDocument.RootElement.EnumerateArray().ToList(),
-			JsonValueKind.Object => [jsonDocument.RootElement],	
-			_ => throw new ApplicationException("Unexpected message format")
-		};
+        return null;
+    }
 
-        int x=0;
+    private async Task ProcessMessageAsync(string topic, ServiceBusReceivedMessage message, CancellationToken cancellationToken)
+    {
+        var bodyString = GetBodyString(message);
+        if (bodyString == null) return;
 
-		foreach (var item in items)
-		{
-			await IngestMessageAsync(item, cancellationToken);
-			telemetryClient.TrackMetric(GetTelemetryMetric(items.Count()==1 ? message.MessageId: $"{message.MessageId}-{x++}"));
-		}
+        using var jsonDocument = JsonDocument.Parse(bodyString);
 
-		await serviceBusReceiver!.CompleteMessageAsync(message, cancellationToken);
-	}
+        IEnumerable<JsonElement> items = jsonDocument.RootElement.ValueKind switch
+        {
+            JsonValueKind.Array => jsonDocument.RootElement.EnumerateArray().ToList(),
+            JsonValueKind.Object => [jsonDocument.RootElement],
+            _ => throw new ApplicationException("Unexpected message format")
+        };
 
-    private MetricTelemetry GetTelemetryMetric(string messageId)
-    { 
-        var message = new MetricTelemetry() { Name = "SapActMessageIngestion", Sum = 1 };
-        
-        message.Properties.Add(Consts.TelemetrySinkTypeDimensionName, typeof(T).Name);
-		message.Properties.Add(Consts.TelemetryMessageIdDimensionName, messageId);
-		message.Properties.Add(Consts.TelemetryWorkerNameDimensionName, workerName);
+        var x = 0;
+        var count = items.Count();
+        foreach (var item in items)
+        {
+            await IngestMessageAsync(topic, item, cancellationToken);
 
-		return message;
-	}
+            metrics.TrackMetricIngestion(typeof(T).Name, count == 1 ? message.MessageId : $"{message.MessageId}-{x++}", workerName);
+        }
 
-	public abstract Task IngestMessageAsync(JsonElement item, CancellationToken cancellationToken);
+        await serviceBusReceiver!.CompleteMessageAsync(message, cancellationToken);
+    }
+
+
+    public abstract Task IngestMessageAsync(string topic, JsonElement item, CancellationToken cancellationToken);
 }

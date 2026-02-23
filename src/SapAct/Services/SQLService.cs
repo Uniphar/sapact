@@ -36,7 +36,7 @@ public class SQLService(
 
                         do
                         {
-                            (var lockState, string? leaseId) = await ObtainLockAsync(messageProperties.objectType, messageProperties.dataVersion, TargetStorageEnum.SQL);
+                            (var lockState, string? leaseId) = await ObtainLockAsync(messageProperties.objectType, TargetStorageEnum.SQL);
                             if (lockState == LockState.LockObtained)
                             {
                                 await UpsertSQLStructuresAsync(schemaDescriptor, cancellationToken: cancellationToken);

@@ -1,1 +1,4 @@
 replicaCount: 1
+AKSClusterSAName: TBD
+ACRName: TBD
+configKeyVault: TBD

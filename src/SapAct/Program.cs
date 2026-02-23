@@ -1,11 +1,10 @@
 ﻿var configKVUrl = Environment.GetEnvironmentVariable(Consts.KEYVAULT_CONFIG_URL) ?? throw new NoNullAllowedException(Consts.KEYVAULT_CONFIG_URL);
 
-HostApplicationBuilder builder = Host.CreateApplicationBuilder(args);
+var builder = Host.CreateApplicationBuilder(args);
 
-var credential = new DefaultAzureCredential(); //TODO: customize chain of auth (ie remove unused)
+var credential = new DefaultAzureCredential();
 builder.Services.AddSingleton(credential);
 
-builder.Services.AddApplicationInsightsTelemetryWorkerService(options => options.EnableAdaptiveSampling = false);
 
 builder.Services.AddSingleton<ILockService, LockService>();
 builder.Services.AddSingleton<LogAnalyticsService>();
@@ -24,33 +23,34 @@ builder.Configuration.CheckConfiguration();
 
 builder.SetupWorkers();
 
-builder.Services.AddAzureClients((clientBuilder) => 
+builder.Services.AddAzureClients(clientBuilder =>
 {
-	clientBuilder.AddLogsIngestionClient(new Uri(builder.Configuration.GetLogAnalyticsIngestionUrl()!));
-	clientBuilder.AddBlobServiceClient(new Uri(builder.Configuration.GetLockServiceBlobConnectionString()!));
-	clientBuilder.UseCredential(credential);
+    clientBuilder.AddLogsIngestionClient(new(builder.Configuration.GetLogAnalyticsIngestionUrl()!));
+    clientBuilder.AddBlobServiceClient(new Uri(builder.Configuration.GetLockServiceBlobConnectionString()!));
+    clientBuilder.UseCredential(credential);
 });
 
 var KustoConnectionStringBuilder = new KustoConnectionStringBuilder(builder.Configuration.GetADXClusterHostUrl(), builder.Configuration.GetADXClusterDBNameOrDefault())
-		   .WithAadTokenProviderAuthentication(async () => (await credential.GetTokenAsync(new([Consts.KustoTokenScope]))).Token);
-
+    .WithAadTokenProviderAuthentication(async () => (await credential.GetTokenAsync(new([Consts.KustoTokenScope]))).Token);
+builder.Services.AddSingleton<SapActMetrics>();
 builder.Services.AddSingleton(KustoClientFactory.CreateCslQueryProvider(KustoConnectionStringBuilder));
 builder.Services.AddSingleton(KustoClientFactory.CreateCslAdminProvider(KustoConnectionStringBuilder));
 builder.Services.AddSingleton(KustoIngestFactory.CreateDirectIngestClient(KustoConnectionStringBuilder));
 builder.Services.AddSingleton(KustoIngestFactory.CreateQueuedIngestClient(KustoConnectionStringBuilder));
 builder.Services.AddSingleton<IAzureDataExplorerClient, AzureDataExplorerClient>();
-builder.Services.AddTransient((sp)=> new SqlConnection(builder.Configuration.GetSQLConnectionString()));
+builder.Services.AddTransient(sp => new SqlConnection(builder.Configuration.GetSQLConnectionString()));
 builder.Services.AddTransient<SQLService>(); //per topic as it is stateless - (connection, transaction)
 builder.Services.AddTransient<ISqlDatabaseService, SqlDatabaseService>();
 
-builder.Services.AddSingleton(new LogAnalyticsServiceConfiguration {
-	SubscriptionId = builder.Configuration.GetLogAnalyticsSubscriptionId()!,
-	ResourceGroupName = builder.Configuration.GetLogAnalyticsResourceGroupName()!,
-	WorkspaceName = builder.Configuration.GetLogAnalyticsWorkspaceName()!,
-	EndpointName = builder.Configuration.GetLogAnalyticsEndpointName()!	
+builder.Services.AddSingleton(new LogAnalyticsServiceConfiguration
+{
+    SubscriptionId = builder.Configuration.GetLogAnalyticsSubscriptionId()!,
+    ResourceGroupName = builder.Configuration.GetLogAnalyticsResourceGroupName()!,
+    WorkspaceName = builder.Configuration.GetLogAnalyticsWorkspaceName()!,
+    EndpointName = builder.Configuration.GetLogAnalyticsEndpointName()!
 });
-
-IHost host = builder.Build();
+builder.RegisterOpenTelemetry("sapact").Build();
+var host = builder.Build();
 
 await host.InitializeResourcesAsync();
 
