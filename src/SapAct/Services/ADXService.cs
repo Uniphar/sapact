@@ -6,7 +6,7 @@ public class ADXService (IAzureDataExplorerClient adxClient, ILockService lockSe
     {
         //get key properties
         var messageProperties = ExtractMessageRootProperties(payload);
-        var objectType = messageProperties?.objectType ?? topic;
+        var objectType = (messageProperties?.objectType ?? topic).MakeTableFriendly();
         var dataVersion = messageProperties?.dataVersion ?? "1";
 
 
