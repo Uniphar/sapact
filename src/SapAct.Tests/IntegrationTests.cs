@@ -51,7 +51,7 @@ public class IntegrationTests
 
 		_messageBusSender = sbClient.CreateSender(_messageBusConfiguration.TopicName);
 		
-		_blobServiceClient = new(new Uri(_config[Consts.LockServiceBlobConnectionStringConfigKey]), _credential);
+		_blobServiceClient = new(new Uri(_config[Consts.LockServiceBlobConnectionStringConfigKey] ?? throw new ArgumentException()), _credential);
 		_blobContainerClient = _blobServiceClient.GetBlobContainerClient(_config.GetLockServiceBlobContainerNameOrDefault());
 
 		_databaseName = _config.GetADXClusterDBNameOrDefault();
@@ -351,7 +351,7 @@ public class IntegrationTests
 
 		Response<LogsQueryResult> result = await _logsQueryClient!.QueryWorkspaceAsync(
 			_config!.GetLogAnalyticsWorkspaceId(), $"{tableName} | where objectKey in ('{objectKey}')",
-			QueryTimeRange.All,
+			 LogsQueryTimeRange.All,
 			cancellationToken: cancellationToken);
 
 		return result.Value.Table.Rows.Count==1 && (!checkExtendedColumn || result.Value.Table.Columns.Any((c) => c.Name == PayloadHelper.ExtendedSchemaColumnName));

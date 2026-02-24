@@ -11,7 +11,7 @@
 
   <ItemGroup>
     <PackageReference Include="AwesomeAssertions" Version="*" />
-    <PackageReference Include="Azure.Monitor.Query" Version="*" />
+    <PackageReference Include="Azure.Monitor.Query.Logs" Version="*" />
     <PackageReference Include="coverlet.collector" Version="*" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="*" />
     <PackageReference Include="Moq" Version="*" />

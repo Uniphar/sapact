@@ -16,24 +16,28 @@ public static class StringExtensions
         if (string.IsNullOrWhiteSpace(input))
             throw new ArgumentException("Input cannot be null or empty.", nameof(input));
 
-        var result = string.Concat(
-            // some common chars that can be used to split
-            input.Split(['-', '_', '.', '@'], StringSplitOptions.RemoveEmptyEntries)
-                .Select(segment =>
-                {
-                    var cleaned = new string(segment.Where(char.IsLetterOrDigit).ToArray());
-                    if (cleaned.Length == 0) return "";
-                    return char.ToUpperInvariant(cleaned[0]) + cleaned[1..];
-                })
+        // Replace hyphens and other special characters (except underscores) with underscores
+        var normalized = new string(
+            input
+                .Select(c => (char.IsLetterOrDigit(c) || c == '_') ? c : '_')
+                .ToArray()
         );
 
-        if (result.Length == 0 || !char.IsLetter(result[0]))
-            throw new ArgumentException("Table name must start with a letter after sanitization.", nameof(input));
+        // Remove double underscores until there are none left
+        while (normalized.Contains("__"))
+            normalized = normalized.Replace("__", "_");
 
-        if (result.Length > 45)
+        // Strip leading and trailing underscores
+        normalized = normalized.Trim('_');
+
+        if (normalized.Length == 0 || !char.IsLetter(normalized[0]))
+            throw new ArgumentException("Table name must start with a letter", nameof(input));
+
+        if (normalized.Length > 45)
             throw new ArgumentException("Table name must not exceed 45 characters (excluding _CL suffix).", nameof(input));
 
-        return result;
+        // Capitalize first letter if it's lowercase
+        return normalized;
     }
 
     public static string TranslateToKustoType(this string type) =>

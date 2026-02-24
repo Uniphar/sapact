@@ -4,7 +4,7 @@ param location string
 resource monitorDCE 'Microsoft.Insights/dataCollectionEndpoints@2023-03-11' = {
   location: location
   name: dceName
-  properties:{
+  properties: {
     description: 'Data Collection Endpoint for SAP ACT'
     networkAcls: {
       publicNetworkAccess: 'Enabled'
