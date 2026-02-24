@@ -158,6 +158,7 @@ public abstract class SapActBaseWorker<T>(
                     ["JsonException"] = ex.Message,
                     ["OriginalMessage"] = bodyString
                 });
+            throw;
         }
     }
 
