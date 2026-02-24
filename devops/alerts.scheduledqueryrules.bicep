@@ -33,8 +33,7 @@ resource alert 'Microsoft.Insights/scheduledQueryRules@2021-08-01' = {
     autoMitigate: false
     actions: {
       actionGroups: actionGroupIds
-      customProperties: {
-      }
+      customProperties: {}
     }
   }
 }
