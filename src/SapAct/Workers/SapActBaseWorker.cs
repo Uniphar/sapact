@@ -158,7 +158,7 @@ public abstract class SapActBaseWorker<T>(
                     ["JsonException"] = ex.Message,
                     ["OriginalMessage"] = bodyString
                 });
-            throw;
+            await serviceBusReceiver!.DeadLetterMessageAsync(message, cancellationToken: cancellationToken);
         }
     }
 
