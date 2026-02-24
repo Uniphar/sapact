@@ -7,10 +7,11 @@ public class ADXWorker(
     IAzureClientFactory<ServiceBusAdministrationClient> sbAdminClientFactory,
     ADXService adxService,
     ILogger<ADXWorker> logger,
+    ICustomEventTelemetryClient telemetry,
     SapActMetrics metrics,
     IConfiguration configuration
 )
-    : SapActBaseWorker<ADXWorker>(workerName, serviceBusTopicConfiguration, sbClientFactory, sbAdminClientFactory, metrics, configuration, logger)
+    : SapActBaseWorker<ADXWorker>(workerName, serviceBusTopicConfiguration, sbClientFactory, sbAdminClientFactory, metrics, telemetry, configuration, logger)
 {
     public override async Task IngestMessageAsync(string topic, JsonElement item, CancellationToken cancellationToken)
     {

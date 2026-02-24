@@ -7,10 +7,11 @@ public class LogAnalyticsWorker(
     IAzureClientFactory<ServiceBusAdministrationClient> sbAdminClientFactory,
     LogAnalyticsService logAnalyticsService,
     ILogger<LogAnalyticsWorker> logger,
+    ICustomEventTelemetryClient telemetry,
     SapActMetrics metrics,
     IConfiguration configuration
 )
-    : SapActBaseWorker<LogAnalyticsWorker>(workerName, serviceBusTopicConfiguration, sbClientFactory, sbAdminClientFactory, metrics, configuration, logger)
+    : SapActBaseWorker<LogAnalyticsWorker>(workerName, serviceBusTopicConfiguration, sbClientFactory, sbAdminClientFactory, metrics, telemetry, configuration, logger)
 {
     public override async Task IngestMessageAsync(string topic, JsonElement item, CancellationToken cancellationToken)
     {

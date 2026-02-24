@@ -7,10 +7,11 @@ public class SQLWorker(
     IAzureClientFactory<ServiceBusAdministrationClient> sbAdminClientFactory,
     SQLService sqlService,
     ILogger<SQLWorker> logger,
+    ICustomEventTelemetryClient telemetry,
     SapActMetrics metrics,
     IConfiguration configuration
 )
-    : SapActBaseWorker<SQLWorker>(workerName, serviceBusTopicConfiguration, sbClientFactory, sbAdminClientFactory, metrics, configuration, logger)
+    : SapActBaseWorker<SQLWorker>(workerName, serviceBusTopicConfiguration, sbClientFactory, sbAdminClientFactory, metrics, telemetry, configuration, logger)
 {
     public override async Task IngestMessageAsync(string topic, JsonElement item, CancellationToken cancellationToken)
     {
