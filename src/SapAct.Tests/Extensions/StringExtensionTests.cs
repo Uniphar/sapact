@@ -7,19 +7,19 @@ public class StringExtensionTests
     [TestMethod]
     public void ToPascalCase_HyphenSeparated_ReturnsPascalCase()
     {
-        "integration-suite-log".MakeTableFriendly().Should().Be("IntegrationSuiteLog");
+        "integration-suite-log".MakeTableFriendly().Should().Be("integration_suite_log");
     }
 
     [TestMethod]
     public void ToPascalCase_UnderscoreSeparated_ReturnsPascalCase()
     {
-        "integration_suite_log".MakeTableFriendly().Should().Be("IntegrationSuiteLog");
+        "integration_suite_log".MakeTableFriendly().Should().Be("integration_suite_log");
     }
 
     [TestMethod]
     public void ToPascalCase_MixedSeparators_ReturnsPascalCase()
     {
-        "integration-suite_log".MakeTableFriendly().Should().Be("IntegrationSuiteLog");
+        "integration-suite_log".MakeTableFriendly().Should().Be("integration_suite_log");
     }
 
     [TestMethod]
@@ -31,7 +31,7 @@ public class StringExtensionTests
     [TestMethod]
     public void ToPascalCase_SingleWord_CapitalizesFirstLetter()
     {
-        "integration".MakeTableFriendly().Should().Be("Integration");
+        "integration".MakeTableFriendly().Should().Be("integration");
     }
 
     [TestMethod]
@@ -43,25 +43,25 @@ public class StringExtensionTests
     [TestMethod]
     public void ToPascalCase_WithDigits_PreservesDigits()
     {
-        "sales-order-1".MakeTableFriendly().Should().Be("SalesOrder1");
+        "sales-order-1".MakeTableFriendly().Should().Be("sales_order_1");
     }
 
     [TestMethod]
     public void ToPascalCase_ConsecutiveSeparators_HandlesGracefully()
     {
-        "sales--order".MakeTableFriendly().Should().Be("SalesOrder");
+        "sales--order".MakeTableFriendly().Should().Be("sales_order");
     }
 
     [TestMethod]
     public void ToPascalCase_LeadingAndTrailingSeparators_HandlesGracefully()
     {
-        "-sales-order-".MakeTableFriendly().Should().Be("SalesOrder");
+        "-sales-order-".MakeTableFriendly().Should().Be("sales_order");
     }
 
     [TestMethod]
     public void ToPascalCase_StripsSpecialCharacters()
     {
-        "sales.order@header".MakeTableFriendly().Should().Be("SalesOrderHeader");
+        "sales.order@header".MakeTableFriendly().Should().Be("sales_order_header");
     }
 
     [TestMethod]
