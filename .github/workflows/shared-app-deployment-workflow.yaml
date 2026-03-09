@@ -47,17 +47,17 @@ jobs:
         regionShortCode: ['ne']
     steps:
       - name: checkout repo
-        uses: actions/checkout@v1
+        uses: actions/checkout@v6
 
       - name: gh-app-install token
         id: gh-app
-        uses: getsentry/action-github-app-token@v2
+        uses: getsentry/action-github-app-token@v3
         with:
           app_id: ${{ secrets.ACTIONS_AUTH_APP_ID }}
           private_key: ${{ secrets.ACTIONS_AUTH_APP_PRIVATE_KEY }}
 
       - name: checkout devops-azure repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v6
         with:
           path: devops-azure
           repository: Uniphar/devops-azure
@@ -124,7 +124,7 @@ jobs:
           kubelogin-version: 'latest'
 
       - name: Gets K8s context
-        uses: azure/aks-set-context@v3
+        uses: azure/aks-set-context@v4
         with:
           resource-group: ${{ env.AKS_CLUSTER_RESOURCE_GROUP }}
           cluster-name: ${{ env.AKS_CLUSTER_NAME }}
@@ -132,7 +132,7 @@ jobs:
         id: k8context
 
       - name: setup helm
-        uses: azure/setup-helm@v3
+        uses: azure/setup-helm@v4
 
       - name: ACR login
         id: acrLogin
@@ -166,7 +166,7 @@ jobs:
     steps:
       - name: gh-app-install token
         id: gh-app
-        uses: getsentry/action-github-app-token@v2
+        uses: getsentry/action-github-app-token@v3
         with:
           app_id: ${{ secrets.ACTIONS_AUTH_APP_ID }}
           private_key: ${{ secrets.ACTIONS_AUTH_APP_PRIVATE_KEY }}
