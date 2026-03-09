@@ -37,17 +37,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: checkout repo
-        uses: actions/checkout@v1
+        uses: actions/checkout@v6
 
       - name: gh-app-install token
         id: gh-app
-        uses: getsentry/action-github-app-token@v2
+        uses: getsentry/action-github-app-token@v3
         with:
           app_id: ${{ secrets.ACTIONS_AUTH_APP_ID }}
           private_key: ${{ secrets.ACTIONS_AUTH_APP_PRIVATE_KEY }}
 
       - name: checkout devops-azure repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v6
         with:
           path: devops-azure
           repository: Uniphar/devops-azure
@@ -91,7 +91,7 @@ jobs:
           docker push -a $IMAGE_REPOSITORY
       
       - name: setup helm
-        uses: azure/setup-helm@v3
+        uses: azure/setup-helm@v4
 
       - name: helm update dependencies
         working-directory: ./charts/${{ env.APPLICATION_FOLDER }}
@@ -117,7 +117,7 @@ jobs:
     steps:
       - name: gh-app-install token
         id: gh-app
-        uses: getsentry/action-github-app-token@v2
+        uses: getsentry/action-github-app-token@v3
         with:
           app_id: ${{ secrets.ACTIONS_AUTH_APP_ID }}
           private_key: ${{ secrets.ACTIONS_AUTH_APP_PRIVATE_KEY }}
