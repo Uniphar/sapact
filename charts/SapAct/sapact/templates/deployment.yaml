@@ -7,6 +7,7 @@ metadata:
     service: sapact-service
 spec:
   replicas: {{ .Values.replicaCount }}
+  revisionHistoryLimit: {{ .Values.revisionHistoryLimit }}
   selector:
     matchLabels:
       service: sapact-service
