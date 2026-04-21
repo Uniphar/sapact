@@ -1,27 +1,31 @@
+{{- $name := include "sapact.name" . -}}
+{{- $regionalisedname := include "sapact.regionalisedname" . -}}
 kind: Deployment
 apiVersion: apps/v1
 metadata:
-  name: sapact
+  name: {{ $regionalisedname }}
   labels:
-    app: sapact-app
-    service: sapact-service
+    app: {{ $name }}
+    app.kubernetes.io/name: {{ $name }}
+
 spec:
   replicas: {{ .Values.replicaCount }}
   revisionHistoryLimit: {{ .Values.revisionHistoryLimit }}
   selector:
     matchLabels:
-      service: sapact-service
+      app: {{ $name }}
+      app.kubernetes.io/name: {{ $name }}
   template:
     metadata:
       labels:
-        app: sapact-app
-        service: sapact-service
+        app: {{ $name }}
+        app.kubernetes.io/name: {{ $name }}
         azure.workload.identity/use: "true"
     spec:
       serviceAccountName: {{ .Values.AKSClusterSAName }}
       containers:
-        - name: sapact
-          image: "{{ .Values.ACRName }}.azurecr.io/{{ .Chart.Name }}:{{ .Chart.AppVersion }}"
+        - name: {{ $name }}
+          image: computeaksacr.azurecr.io/{{ $name }}:{{ .Chart.AppVersion }}
           imagePullPolicy: IfNotPresent
           ports:
             - name: sapact-port

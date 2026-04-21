@@ -151,7 +151,6 @@ jobs:
           ${{ env.APPLICATION_NAME }}-$APPLICATION_VERSION.tgz 
           -i 
           --set reason="Upgrade to $APPLICATION_VERSION" 
-          --set-string ACRName="$ACR_NAME" 
           --set-string regioncode="${{ matrix.regionShortCode }}"
           --set-string environment="${{ inputs.environment }}"
           --set-string AKSClusterSAName="$AKS_CLUSTER_SERVICE_ACCOUNT_NAME" 
