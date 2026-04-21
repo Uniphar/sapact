@@ -57,10 +57,10 @@ public class ConfigurationValidator : AbstractValidator<IConfiguration>
             .NotEmpty()
             .WithMessage("Lock Service Blob Connection String is missing in configuration");
 
-        RuleFor(configuration => configuration.GetLockServiceCosmosConnectionString())
+        RuleFor(configuration => configuration.GetLockServiceCosmosMasterKey())
             .NotNull()
             .NotEmpty()
-            .WithMessage("Lock Service Cosmos Connection String is missing in configuration");
+            .WithMessage("Lock Service Cosmos Master Key is missing in configuration");
 
         RuleFor(configuration => configuration.GetLockServiceCosmosDatabase())
             .NotNull()

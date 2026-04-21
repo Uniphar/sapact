@@ -3,3 +3,5 @@ revisionHistoryLimit: 2
 AKSClusterSAName: TBD
 ACRName: TBD
 configKeyVault: TBD
+environment: TBD
+regioncode: TBA

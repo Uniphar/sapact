@@ -28,6 +28,14 @@ spec:
               containerPort: 8080
               protocol: TCP
           env:
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: "ASPNETCORE_ENVIRONMENT"
+            value: {{ .Values.environment | quote }}
+          - name: "REGION_CODE"
+            value: {{ .Values.regioncode | quote }}
           - name: "SAPACT_CONFIGURATION_URL"
             value: {{ .Values.configKeyVault | quote }}
           
