@@ -64,9 +64,6 @@ builder.Services.AddSingleton<CosmosClient>(serviceProvider =>
 });
 
 var cosmosDatabase = builder.Configuration["Cosmos:Database"] ?? throw new NoNullAllowedException("Cosmos:Database configuration has to be set.");
-var cosmosContainer = builder.Configuration["Cosmos:Container"] ?? throw new NoNullAllowedException("Cosmos:Container configuration has to be set.");
-
-builder.Services.AddSingleton(serviceProvider => serviceProvider.GetRequiredService<CosmosClient>().GetContainer(cosmosDatabase, cosmosContainer));
 builder.Services.AddCosmosLockService(cosmosConnectionString);
 builder.Services.AddSingleton<LogAnalyticsService>();
 builder.Services.AddSingleton<ADXService>();
@@ -108,12 +105,6 @@ builder.Services.AddSingleton(new LogAnalyticsServiceConfiguration
 });
 builder.RegisterOpenTelemetry("sapact").Build();
 var host = builder.Build();
-await host.Services.GetRequiredService<CosmosClient>()
-    .GetDatabase(cosmosDatabase)
-    .CreateContainerIfNotExistsAsync(new ContainerProperties(cosmosContainer, "/id")
-    {
-        DefaultTimeToLive = -1 //enable with no default TTL
-    });
 
 var regionName = builder.Configuration["REGION_CODE"] ?? throw new InvalidOperationException("REGION_CODE configuration is required.");
 var cosmosLockContainer = builder.Configuration["Cosmos:LockContainer"] ?? throw new NoNullAllowedException("Cosmos:LockContainer configuration has to be set.");
