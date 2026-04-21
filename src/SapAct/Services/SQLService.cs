@@ -11,7 +11,7 @@ public class SQLService(
     public async Task IngestMessageAsync(JsonElement payload, CancellationToken cancellationToken = default)
     {
         var messageProperties = ExtractMessageRootProperties(payload);
-        if (Consts.DeltaEventType == messageProperties.eventType)
+        if (Consts.DeltaEventType == messageProperties?.eventType)
             return;
 
         var sqlConnection = serviceProvider.GetRequiredService<SqlConnection>();
@@ -33,7 +33,7 @@ public class SQLService(
 
                     if (schemaCheck.IsUpdateRequired() || dryRunSchemaCheck)
                     {
-                        bool lockAcquired = await AcquireSchemaLockAsync(messageProperties.objectType, TargetStorageEnum.SQL);
+                        var lockAcquired = await AcquireSchemaLockAsync(messageProperties.objectType, TargetStorageEnum.SQL);
                         if (lockAcquired)
                         {
                             await UpsertSQLStructuresAsync(schemaDescriptor, cancellationToken: cancellationToken);
@@ -42,7 +42,7 @@ public class SQLService(
                     }
 
                     await SinkDataAsyncInnerAsync(sqlConnection, sqlTransaction, payload, schemaDescriptor,
-                        new KeyDescriptor { RootKey = messageProperties.objectKey, ForeignKey = string.Empty }, cancellationToken);
+                        new() { RootKey = messageProperties.objectKey, ForeignKey = string.Empty }, cancellationToken);
                     await sqlTransaction.CommitAsync(cancellationToken);
                 }
                 catch (Exception ex)
