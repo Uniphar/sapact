@@ -5,36 +5,36 @@ on:
     secrets:
       AZURE_TENANT_ID:
         required: true
-        description: 'Azure Tenant ID'
+        description: "Azure Tenant ID"
       AZURE_CLIENT_ID:
         required: true
-        description: 'Azure Client ID'
+        description: "Azure Client ID"
       AZURE_SUBSCRIPTION_ID:
         required: true
-        description: 'Azure Subscription ID'
+        description: "Azure Subscription ID"
       ACTIONS_AUTH_APP_ID:
         required: true
-        description: 'GitHub App ID'
+        description: "GitHub App ID"
       ACTIONS_AUTH_APP_PRIVATE_KEY:
         required: true
-        description: 'GitHub App Private Key'
+        description: "GitHub App Private Key"
     inputs:
       environment:
         type: string
         required: true
-        description: 'Environment'
+        description: "Environment"
       applicationFolder:
         type: string
         required: true
-        description: 'Application Folder'
+        description: "Application Folder"
       applicationName:
         type: string
         required: true
-        description: 'Application Name'
+        description: "Application Name"
       applicationVersion:
         type: string
         required: true
-        description: 'Application Version'
+        description: "Application Version"
 
 jobs:
   deploy_app:
@@ -44,7 +44,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        regionShortCode: ['ne']
+        regionShortCode: [ "ne", "we" ]
     steps:
       - name: checkout repo
         uses: actions/checkout@v1
@@ -75,7 +75,7 @@ jobs:
         uses: azure/powershell@v2
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} #required for gh cli to determine "current PR"
-        with: 
+        with:
           inlineScript: |
             Import-Module .\devops-azure\src\Uniphar.DevOps.psd1 -ErrorAction Stop -Force
 
@@ -85,7 +85,7 @@ jobs:
             $AKSClusterSAName = Resolve-UniKubeWorkloadSAName '${{ inputs.environment }}' $p_devopsDomain
             $AKSClusterSAID = Get-AzADServicePrincipal -DisplayName $AKSClusterSAName | Select-Object -ExpandProperty Id
             $AzureKeyVaultName = Resolve-UniResourceName 'keyvault' "$p_devopsDomain-app" -Environment '${{ inputs.environment }}'
-            
+
             echo "ACR_NAME=$ACRName" >> $env:GITHUB_ENV
             echo "AKS_CLUSTER_RESOURCE_GROUP=$AKSClusterResourceGroup" >> $env:GITHUB_ENV
             echo "AKS_CLUSTER_NAME=$AKSClusterName" >> $env:GITHUB_ENV
@@ -95,25 +95,25 @@ jobs:
             echo "APPLICATION_NAME=${{ inputs.applicationName }}" >> $env:GITHUB_ENV
             echo "APPLICATION_VERSION=${{ inputs.applicationVersion }}" >> $env:GITHUB_ENV
           azPSVersion: "latest"
-          errorActionPreference: 'stop'
-          failOnStandardError: true  
+          errorActionPreference: "stop"
+          failOnStandardError: true
 
       - name: deploy project
         uses: azure/powershell@v2
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} #required for gh cli to determine "current PR"
-        with: 
+        with:
           inlineScript: |
-           Import-Module .\devops-azure\src\Uniphar.DevOps.psd1 -ErrorAction Stop -Force
+            Import-Module .\devops-azure\src\Uniphar.DevOps.psd1 -ErrorAction Stop -Force
 
-           Install-Module -Name SqlServer -Force
-           Import-Module SqlServer
+            Install-Module -Name SqlServer -Force
+            Import-Module SqlServer
 
-           . ./devops/Initialize-SapAct.ps1
+            . ./devops/Initialize-SapAct.ps1
 
-            Initialize-SapAct ${{inputs.environment}}
+             Initialize-SapAct ${{inputs.environment}}
           azPSVersion: "latest"
-          errorActionPreference: 'stop'
+          errorActionPreference: "stop"
           failOnStandardError: true
 
       - name: setup kubectl
@@ -121,14 +121,14 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          kubelogin-version: 'latest'
+          kubelogin-version: "latest"
 
       - name: Gets K8s context
         uses: azure/aks-set-context@v3
         with:
           resource-group: ${{ env.AKS_CLUSTER_RESOURCE_GROUP }}
           cluster-name: ${{ env.AKS_CLUSTER_NAME }}
-          use-kubelogin: 'true'
+          use-kubelogin: "true"
         id: k8context
 
       - name: setup helm
@@ -143,21 +143,18 @@ jobs:
 
       - name: get helm chart
         working-directory: ./charts/${{ env.APPLICATION_FOLDER }}
-        run: helm pull oci://$ACR_NAME.azurecr.io/helm/${{ env.APPLICATION_NAME }} --version $APPLICATION_VERSION
+        run: helm pull oci://$ACR_NAME.azurecr.io/helm/${{ env.APPLICATION_NAME }}
+          --version $APPLICATION_VERSION
 
       - name: deploy app
         working-directory: ./charts/${{ env.APPLICATION_FOLDER }}
         run: >
-          helm upgrade
-          ${{ env.APPLICATION_NAME }}
-          ${{ env.APPLICATION_NAME }}-$APPLICATION_VERSION.tgz
-          -i
-          --set reason="Upgrade to $APPLICATION_VERSION"
-          --set-string ACRName="$ACR_NAME"
-          --set-string AKSClusterSAName="$AKS_CLUSTER_SERVICE_ACCOUNT_NAME"
-          --set-string configKeyVault="https://$AZURE_KEY_VAULT_NAME.vault.azure.net"
-          -n devops
-          --atomic
+          helm upgrade ${{ env.APPLICATION_NAME }} ${{ env.APPLICATION_NAME
+          }}-$APPLICATION_VERSION.tgz -i --set reason="Upgrade to
+          $APPLICATION_VERSION" --set-string ACRName="$ACR_NAME" --set-string
+          AKSClusterSAName="$AKS_CLUSTER_SERVICE_ACCOUNT_NAME" --set-string
+          configKeyVault="https://$AZURE_KEY_VAULT_NAME.vault.azure.net" -n
+          devops --atomic
 
   notify:
     needs: deploy_app
@@ -173,9 +170,7 @@ jobs:
 
       - uses: benc-uk/workflow-dispatch@v1
         with:
-          workflow: 'shared-failed-build-notification-workflow.yaml'
-          inputs: '{
-              "workflowId":"${{ github.run_id }}", 
-              "repository":"${{ github.repository }}"
-            }'
+          workflow: "shared-failed-build-notification-workflow.yaml"
+          inputs: "{ \"workflowId\":\"${{ github.run_id }}\", \"repository\":\"${{
+            github.repository }}\" }"
           token: ${{ steps.gh-app.outputs.token }}
