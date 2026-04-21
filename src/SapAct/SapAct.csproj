@@ -21,6 +21,7 @@
     <PackageReference Include="Microsoft.Extensions.Http" Version="*" />
     <PackageReference Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets" Version="*" />
     <PackageReference Include="Microsoft.Data.SqlClient" Version="*" />
+    <PackageReference Include="Microsoft.Data.SqlClient.Extensions.Azure" Version="*" />
     <PackageReference Include="Uniphar.Platform.Common" Version="*" />
     <PackageReference Include="Uniphar.Platform.Telemetry" Version="*" />
   </ItemGroup>
