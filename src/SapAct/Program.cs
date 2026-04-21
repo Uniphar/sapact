@@ -1,4 +1,7 @@
-﻿var configKVUrl = Environment.GetEnvironmentVariable(Consts.KEYVAULT_CONFIG_URL) ?? throw new NoNullAllowedException(Consts.KEYVAULT_CONFIG_URL);
+﻿using System.Text.Encodings.Web;
+using Microsoft.Azure.Cosmos;
+
+var configKVUrl = Environment.GetEnvironmentVariable(Consts.KEYVAULT_CONFIG_URL) ?? throw new NoNullAllowedException(Consts.KEYVAULT_CONFIG_URL);
 
 var builder = Host.CreateApplicationBuilder(args);
 
@@ -11,12 +14,59 @@ builder.Configuration.AddEnvironmentVariables(); //potentially overwrite KV (eve
 
 var environment = builder.Environment.EnvironmentName.ToLower();
 var envPrefix = environment == "local" ? "dev" : environment;
-var cosmosAccountEndpoint = $"https://uni-devops-{envPrefix}-cosmos.documents.azure.com:443/";
+builder.Services.AddSingleton<ISchemaVersionStore, BlobSchemaVersionStore>();
+
+// https://learn.microsoft.com/en-us/azure/cosmos-db/nosql/best-practice-dotnet#best-practices-for-http-connections
+builder.Services.AddSingleton(new SocketsHttpHandler { PooledConnectionLifetime = TimeSpan.FromMinutes(5) });
 
 var cosmosMasterKey = builder.Configuration["Cosmos:MasterKey"] ?? throw new NoNullAllowedException("Cosmos:MasterKey configuration has to be set.");
+var jsonSerializerOptions = new JsonSerializerOptions
+{
+    AllowOutOfOrderMetadataProperties = true,
+    ReadCommentHandling = JsonCommentHandling.Skip,
+    UnmappedMemberHandling = JsonUnmappedMemberHandling.Skip,
+    Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+    IgnoreReadOnlyProperties = true,
+    RespectNullableAnnotations = true,
+    WriteIndented = true,
+    IndentCharacter = '\t',
+    IndentSize = 1,
+    NewLine = "\n"
+};
+builder.Services.AddSingleton(jsonSerializerOptions);
+
+var cosmosAccountEndpoint = $"https://uni-devops-{environment}-cosmos.documents.azure.com:443/";
+
+#if LOCAL || DEBUG
+cosmosAccountEndpoint = "https://localhost:8081/";
+#endif
+
 var cosmosConnectionString = $"AccountEndpoint={cosmosAccountEndpoint};AccountKey={cosmosMasterKey}";
 
-builder.Services.AddSingleton<ISchemaVersionStore, BlobSchemaVersionStore>();
+builder.Services.AddSingleton<CosmosClient>(serviceProvider =>
+{
+
+    return new CosmosClient(
+       cosmosConnectionString,
+        new CosmosClientOptions
+        {
+#if DEBUG || LOCAL
+            HttpClientFactory = () => new HttpClient(new HttpClientHandler()
+            {
+                ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
+            }),
+            ConnectionMode = ConnectionMode.Gateway,
+#else
+            HttpClientFactory = () => new HttpClient(serviceProvider.GetRequiredService<SocketsHttpHandler>(), false),
+#endif
+            UseSystemTextJsonSerializerWithOptions = serviceProvider.GetRequiredService<JsonSerializerOptions>()
+        });
+});
+
+var cosmosDatabase = builder.Configuration["Cosmos:Database"] ?? throw new NoNullAllowedException("Cosmos:Database configuration has to be set.");
+var cosmosContainer = builder.Configuration["Cosmos:Container"] ?? throw new NoNullAllowedException("Cosmos:Container configuration has to be set.");
+
+builder.Services.AddSingleton(serviceProvider => serviceProvider.GetRequiredService<CosmosClient>().GetContainer(cosmosDatabase, cosmosContainer));
 builder.Services.AddCosmosLockService(cosmosConnectionString);
 builder.Services.AddSingleton<LogAnalyticsService>();
 builder.Services.AddSingleton<ADXService>();
@@ -58,11 +108,16 @@ builder.Services.AddSingleton(new LogAnalyticsServiceConfiguration
 });
 builder.RegisterOpenTelemetry("sapact").Build();
 var host = builder.Build();
+await host.Services.GetRequiredService<CosmosClient>()
+    .GetDatabase(cosmosDatabase)
+    .CreateContainerIfNotExistsAsync(new ContainerProperties(cosmosContainer, "/id")
+    {
+        DefaultTimeToLive = -1 //enable with no default TTL
+    });
 
-var regionCode = builder.Configuration.GetRegionCode() ?? throw new InvalidOperationException("REGION_CODE configuration is required.");
-var cosmosDatabase = builder.Configuration.GetLockServiceCosmosDatabase() ?? throw new InvalidOperationException("SapAct:LockService:CosmosDatabase configuration is required.");
-var cosmosContainer = builder.Configuration.GetLockServiceCosmosContainer() ?? throw new InvalidOperationException("SapAct:LockService:CosmosLockContainer configuration is required.");
-await host.Services.InitializeDistributedLockAsync(regionCode, cosmosDatabase, cosmosContainer);
+var regionName = builder.Configuration["REGION_CODE"] ?? throw new InvalidOperationException("REGION_CODE configuration is required.");
+var cosmosLockContainer = builder.Configuration["Cosmos:LockContainer"] ?? throw new NoNullAllowedException("Cosmos:LockContainer configuration has to be set.");
+await host.Services.InitializeDistributedLockAsync(regionName, cosmosDatabase, cosmosLockContainer);
 
 await host.InitializeResourcesAsync();
 

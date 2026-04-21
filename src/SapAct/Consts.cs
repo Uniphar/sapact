@@ -19,18 +19,13 @@ public static class Consts
 	public const string LogAnalyticsWorkspaceIdConfigKey = "SapAct:LogAnalytics:WorkspaceId";
 	public const string LogAnalyticsEndpointNameConfigKey = "SapAct:LogAnalytics:EndpointName";
 	public const string LogAnalyticsIngestionUrlConfigKey = "SapAct:LogAnalytics:EndpointIngestionUrl";
+    public const string LockServiceBlobConnectionStringConfigKey = "SapAct:LockService:BlobConnectionString";
+    public const string LockServiceBlobContainerNameConfigKey = "SapAct:LockService:BlobContainerName";
 
-	public const string ADXClusterHostUrlConfigKey = "SapAct:Adx:HostUrl";
+public const string ADXClusterHostUrlConfigKey = "SapAct:Adx:HostUrl";
 	public const string ADXClusterDBConfigKey = "SapAct:Adx:Database";
 
 	public const string SQLConnectionStringConfigKey = "SapAct:SQL:ConnectionString";
-
-	public const string LockServiceBlobConnectionStringConfigKey = "SapAct:LockService:BlobConnectionString";
-	public const string LockServiceBlobContainerNameConfigKey = "SapAct:LockService:BlobContainerName";
-
-	public const string LockServiceCosmosDatabaseConfigKey = "SapAct:LockService:CosmosDatabase";
-	public const string LockServiceCosmosContainerConfigKey = "SapAct:LockService:CosmosLockContainer";
-	public const string RegionCodeConfigKey = "REGION_CODE";
 
 	public const string KustoTokenScope = "https://kusto.kusto.windows.net/.default";
 

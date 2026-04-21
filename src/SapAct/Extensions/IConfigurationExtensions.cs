@@ -24,7 +24,8 @@ public static class IConfigurationExtensions
 
         return topics;
     }
-
+    public static string? GetLockServiceBlobConnectionString(this IConfiguration configuration) => configuration[Consts.LockServiceBlobConnectionStringConfigKey];
+    public static string GetLockServiceBlobContainerNameOrDefault(this IConfiguration configuration) => configuration[Consts.LockServiceBlobContainerNameConfigKey] ?? "sapact";
     public static string? GetLogAnalyticsEndpointName(this IConfiguration configuration) => configuration[Consts.LogAnalyticsEndpointNameConfigKey];
 
     public static string GetTopicSubscriptionNameOrDefault<T>(this IConfiguration configuration) => configuration[$"{Consts.ServiceBusTopicSubscriptionNamePrefixConfigKey}{typeof(T).Name}"] ?? $"SapAct{typeof(T).Name}";
@@ -42,16 +43,6 @@ public static class IConfigurationExtensions
     public static string? GetADXClusterHostUrl(this IConfiguration configuration) => configuration[Consts.ADXClusterHostUrlConfigKey];
 
     public static string GetADXClusterDBNameOrDefault(this IConfiguration configuration) => configuration[Consts.ADXClusterDBConfigKey] ?? "devops";
-
-    public static string? GetLockServiceBlobConnectionString(this IConfiguration configuration) => configuration[Consts.LockServiceBlobConnectionStringConfigKey];
-
-    public static string GetLockServiceBlobContainerNameOrDefault(this IConfiguration configuration) => configuration[Consts.LockServiceBlobContainerNameConfigKey] ?? "sapact";
-    
-    public static string? GetLockServiceCosmosDatabase(this IConfiguration configuration) => configuration[Consts.LockServiceCosmosDatabaseConfigKey];
-
-    public static string? GetLockServiceCosmosContainer(this IConfiguration configuration) => configuration[Consts.LockServiceCosmosContainerConfigKey];
-
-    public static string? GetRegionCode(this IConfiguration configuration) => configuration[Consts.RegionCodeConfigKey];
 
     public static string? GetSQLConnectionString(this IConfiguration configuration) => configuration[Consts.SQLConnectionStringConfigKey];
 }
