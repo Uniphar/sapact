@@ -47,7 +47,23 @@ builder.Services.AddSingleton(KustoClientFactory.CreateCslAdminProvider(KustoCon
 builder.Services.AddSingleton(KustoIngestFactory.CreateDirectIngestClient(KustoConnectionStringBuilder));
 builder.Services.AddSingleton(KustoIngestFactory.CreateQueuedIngestClient(KustoConnectionStringBuilder));
 builder.Services.AddSingleton<IAzureDataExplorerClient, AzureDataExplorerClient>();
-builder.Services.AddTransient(sp => new SqlConnection(builder.Configuration.GetSQLConnectionString()));
+builder.Services.AddTransient(sp =>
+{
+    var connectionStringBuilder = new SqlConnectionStringBuilder(builder.Configuration.GetSQLConnectionString())
+    {
+        Authentication = SqlAuthenticationMethod.NotSpecified
+    };
+    var connection = new SqlConnection(connectionStringBuilder.ConnectionString);
+    var azureCredential = sp.GetRequiredService<DefaultAzureCredential>();
+    connection.AccessTokenCallback = async (ctx, cancellationToken) =>
+    {
+        var token = await azureCredential.GetTokenAsync(
+            new TokenRequestContext(["https://database.windows.net/.default"]),
+            cancellationToken);
+        return new SqlAuthenticationToken(token.Token, token.ExpiresOn);
+    };
+    return connection;
+});
 builder.Services.AddTransient<SQLService>(); //per topic as it is stateless - (connection, transaction)
 builder.Services.AddTransient<ISqlDatabaseService, SqlDatabaseService>();
 
