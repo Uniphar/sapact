@@ -15,15 +15,20 @@ public class ADXService(IAzureDataExplorerClient adxClient, DistributedLockServi
 
         //schema check
         var schemaCheck = await CheckObjectTypeSchemaAsync(objectType, dataVersion, TargetStorageEnum.ADX);
-        if (schemaCheck is SchemaCheckResultState.Older or SchemaCheckResultState.Unknown)
+        // keep checking, might be the other cluster that resolves it
+        while (schemaCheck is SchemaCheckResultState.Older or SchemaCheckResultState.Unknown)
         {
-            bool lockAcquired = await AcquireSchemaLockAsync(objectType, TargetStorageEnum.ADX);
+            schemaCheck = await CheckObjectTypeSchemaAsync(objectType, dataVersion, TargetStorageEnum.ADX);
+            var lockAcquired = await AcquireSchemaLockAsync(objectType, TargetStorageEnum.ADX);
             if (lockAcquired)
             {
                 var columnsList = payload.GenerateColumnList(TargetStorageEnum.ADX);
                 await adxClient.CreateOrUpdateTableAsync(objectType, columnsList, cancellationToken);
                 await CommitSchemaVersionAsync(objectType, dataVersion, TargetStorageEnum.ADX);
+                break;
             }
+
+            await Task.Delay(1000, cancellationToken);
         }
 
         await adxClient.IngestDataAsync(objectType, payload, cancellationToken);

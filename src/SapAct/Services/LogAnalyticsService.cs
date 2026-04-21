@@ -123,25 +123,25 @@ public class LogAnalyticsService(
         var dataVersion = messageProperties?.dataVersion ?? "1";
         if (Consts.DeltaEventType == messageProperties?.eventType) return;
 
+
         var schemaCheckResult = await CheckObjectTypeSchemaAsync(objectType, dataVersion, TargetStorageEnum.LogAnalytics);
-
-
-        if (schemaCheckResult is SchemaCheckResultState.Unknown or SchemaCheckResultState.Older)
+        // keep checking, might be the other cluster that resolves it
+        while (schemaCheckResult is SchemaCheckResultState.Unknown or SchemaCheckResultState.Older)
         {
-            bool lockAcquired = await AcquireSchemaLockAsync(objectType, TargetStorageEnum.LogAnalytics);
+            schemaCheckResult = await CheckObjectTypeSchemaAsync(objectType, dataVersion, TargetStorageEnum.LogAnalytics);
+            var lockAcquired = await AcquireSchemaLockAsync(objectType, TargetStorageEnum.LogAnalytics);
             if (lockAcquired)
             {
                 dcrId = await SyncTableSchema(objectType, payload, cancellationToken);
                 _dcrMapping.AddOrUpdate(objectType, dcrId, (key, oldValue) => dcrId);
                 await CommitSchemaVersionAsync(objectType, dataVersion, TargetStorageEnum.LogAnalytics);
+                break;
             }
-            else
-            {
-                dcrId = await RefreshDCRIdAsync(objectType, cancellationToken);
-            }
+
+            await Task.Delay(1000, cancellationToken);
         }
-        else
-            dcrId = await RefreshDCRIdAsync(objectType, cancellationToken);
+
+        dcrId = await RefreshDCRIdAsync(objectType, cancellationToken);
 
         //send to log analytics
         await SinkToLogAnalytics(objectType, dcrId!, payload);

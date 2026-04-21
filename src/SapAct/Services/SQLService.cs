@@ -31,14 +31,20 @@ public class SQLService(
                     ///so we can only build up a schema when these are set - data version property refers to logical schema but not it used in its entirety
                     var dryRunSchemaCheck = !schemaCheck.IsUpdateRequired() && await UpsertSQLStructuresAsync(schemaDescriptor, dryRun: true, cancellationToken);
 
-                    if (schemaCheck.IsUpdateRequired() || dryRunSchemaCheck)
+                    while (schemaCheck.IsUpdateRequired() || dryRunSchemaCheck)
                     {
+                        dryRunSchemaCheck = !schemaCheck.IsUpdateRequired() && await UpsertSQLStructuresAsync(schemaDescriptor, true, cancellationToken);
+
                         var lockAcquired = await AcquireSchemaLockAsync(messageProperties.objectType, TargetStorageEnum.SQL);
                         if (lockAcquired)
                         {
                             await UpsertSQLStructuresAsync(schemaDescriptor, cancellationToken: cancellationToken);
                             await CommitSchemaVersionAsync(messageProperties.objectType, messageProperties.dataVersion, TargetStorageEnum.SQL);
+                            break;
                         }
+
+                        // wait a second, it might be the other region that is sorting this out
+                        await Task.Delay(1000, cancellationToken);
                     }
 
                     await SinkDataAsyncInnerAsync(sqlConnection, sqlTransaction, payload, schemaDescriptor,
