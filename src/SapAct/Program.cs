@@ -14,7 +14,6 @@ var envPrefix = environment == "local" ? "dev" : environment;
 var cosmosAccountEndpoint = $"https://uni-devops-{envPrefix}-cosmos.documents.azure.com:443/";
 
 var cosmosMasterKey = builder.Configuration["Cosmos:MasterKey"] ?? throw new NoNullAllowedException("Cosmos:MasterKey configuration has to be set.");
-var cosmosMasterKey = builder.Configuration.GetLockServiceCosmosMasterKey() ?? throw new NoNullAllowedException(Consts.LockServiceCosmosMasterKeyConfigKey);
 var cosmosConnectionString = $"AccountEndpoint={cosmosAccountEndpoint};AccountKey={cosmosMasterKey}";
 
 builder.Services.AddSingleton<ISchemaVersionStore, BlobSchemaVersionStore>();

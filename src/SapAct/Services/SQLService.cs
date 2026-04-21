@@ -11,9 +11,10 @@ public class SQLService(
     public async Task IngestMessageAsync(JsonElement payload, CancellationToken cancellationToken = default)
     {
         var messageProperties = ExtractMessageRootProperties(payload);
-        if (Consts.DeltaEventType == messageProperties?.eventType)
+        if (messageProperties == null) return;
+        if (Consts.DeltaEventType == messageProperties.eventType)
             return;
-
+        
         var sqlConnection = serviceProvider.GetRequiredService<SqlConnection>();
         await using (sqlConnection)
         {
