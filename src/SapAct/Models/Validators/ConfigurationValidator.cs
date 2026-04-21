@@ -55,7 +55,27 @@ public class ConfigurationValidator : AbstractValidator<IConfiguration>
         RuleFor(configuration => configuration.GetLockServiceBlobConnectionString())
             .NotNull()
             .NotEmpty()
-            .WithMessage("Log Service Blob Connection String is missing in configuration");
+            .WithMessage("Lock Service Blob Connection String is missing in configuration");
+
+        RuleFor(configuration => configuration.GetLockServiceCosmosConnectionString())
+            .NotNull()
+            .NotEmpty()
+            .WithMessage("Lock Service Cosmos Connection String is missing in configuration");
+
+        RuleFor(configuration => configuration.GetLockServiceCosmosDatabase())
+            .NotNull()
+            .NotEmpty()
+            .WithMessage("Lock Service Cosmos Database is missing in configuration");
+
+        RuleFor(configuration => configuration.GetLockServiceCosmosContainer())
+            .NotNull()
+            .NotEmpty()
+            .WithMessage("Lock Service Cosmos Container is missing in configuration");
+
+        RuleFor(configuration => configuration.GetRegionCode())
+            .NotNull()
+            .NotEmpty()
+            .WithMessage("REGION_CODE is missing in configuration");
 
         RuleFor(configuration => configuration.GetADXClusterHostUrl())
             .NotNull()

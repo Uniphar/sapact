@@ -1,4 +1,5 @@
 ﻿namespace SapAct.Tests;
+
 using Timer = System.Timers.Timer;
 
 [TestClass, TestCategory("Integration")]
@@ -50,7 +51,7 @@ public class IntegrationTests
 		_messageBusAdminClient = new(_messageBusConfiguration.ConnectionString, _credential);
 
 		_messageBusSender = sbClient.CreateSender(_messageBusConfiguration.TopicName);
-		
+
 		_blobServiceClient = new(new Uri(_config[Consts.LockServiceBlobConnectionStringConfigKey] ?? throw new ArgumentException()), _credential);
 		_blobContainerClient = _blobServiceClient.GetBlobContainerClient(_config.GetLockServiceBlobContainerNameOrDefault());
 
@@ -170,7 +171,7 @@ public class IntegrationTests
 
 			await Task.Delay(TimeSpan.FromSeconds(10));
 		}
-		
+
 		var postCheck = await CheckNoDLQMessagePresentForSubscriptionAsync(_config!.GetTopicSubscriptionNameOrDefault<SQLWorker>())
 						&& await CheckNoDLQMessagePresentForSubscriptionAsync(_config!.GetTopicSubscriptionNameOrDefault<ADXWorker>())
 						&& await CheckNoDLQMessagePresentForSubscriptionAsync(_config!.GetTopicSubscriptionNameOrDefault<LogAnalyticsWorker>())
@@ -214,7 +215,7 @@ public class IntegrationTests
 	private async Task<long> GetSubscriptionDLQCountAsync(string subscriptionName)
 	{
 		var subscriptionRuntimeProperties = await _messageBusAdminClient!.GetSubscriptionRuntimePropertiesAsync(_messageBusConfiguration!.TopicName, subscriptionName);
-		
+
 		return subscriptionRuntimeProperties.Value.DeadLetterMessageCount;
 	}
 
@@ -226,9 +227,9 @@ public class IntegrationTests
 
 		try
 		{
-			var adxBlobProps = await _blobContainerClient!.GetBlobClient(LockService.GetBlobName(ObjectType, TargetStorageEnum.ADX)).GetPropertiesAsync(cancellationToken: cancellationToken);
-			var laBlobProps = await _blobContainerClient!.GetBlobClient(LockService.GetBlobName(ObjectType, TargetStorageEnum.LogAnalytics)).GetPropertiesAsync(cancellationToken: cancellationToken);
-			var sqlBlobProps = await _blobContainerClient!.GetBlobClient(LockService.GetBlobName(ObjectType, TargetStorageEnum.SQL)).GetPropertiesAsync(cancellationToken: cancellationToken);
+			var adxBlobProps = await _blobContainerClient!.GetBlobClient(BlobSchemaVersionStore.GetBlobName(ObjectType, TargetStorageEnum.ADX)).GetPropertiesAsync(cancellationToken: cancellationToken);
+			var laBlobProps = await _blobContainerClient!.GetBlobClient(BlobSchemaVersionStore.GetBlobName(ObjectType, TargetStorageEnum.LogAnalytics)).GetPropertiesAsync(cancellationToken: cancellationToken);
+			var sqlBlobProps = await _blobContainerClient!.GetBlobClient(BlobSchemaVersionStore.GetBlobName(ObjectType, TargetStorageEnum.SQL)).GetPropertiesAsync(cancellationToken: cancellationToken);
 
 			if (adxBlobProps.Value.Metadata.Count != 1 || laBlobProps.Value.Metadata.Count != 1 || sqlBlobProps.Value.Metadata.Count != 1)
 			{
@@ -250,11 +251,11 @@ public class IntegrationTests
 		}
 	}
 
-	private async Task<bool> CheckSQLDataIngest(string objectKey, string? extendedObjectKey=null, CancellationToken cancellationToken = default)
+	private async Task<bool> CheckSQLDataIngest(string objectKey, string? extendedObjectKey = null, CancellationToken cancellationToken = default)
 	{
 		if (sqlIngestCheckPassed)
 			return true;
-		
+
 		bool extendedSchemaColumnPresent = !string.IsNullOrWhiteSpace(extendedObjectKey);
 
 		if (!await CheckSQLRecordPresentAsync(objectKey, cancellationToken))
@@ -283,7 +284,7 @@ public class IntegrationTests
 		return rowCount == 1;
 	}
 
-	private async Task<bool> CheckADXRecordPresentAsync(string objectKey, CancellationToken cancellationToken= default)
+	private async Task<bool> CheckADXRecordPresentAsync(string objectKey, CancellationToken cancellationToken = default)
 	{
 		var result = await GetADXRecordAsync(objectKey, cancellationToken);
 
@@ -298,7 +299,7 @@ public class IntegrationTests
 		return await _adxQueryProvider!.ExecuteQueryAsync(_databaseName, $"{ObjectType} | where objectKey == '{objectKey}'", null, cancellationToken);
 	}
 
-	private async Task<bool> CheckADXDataIngest(string objectKey, string? extendedObjectKey=null, CancellationToken cancellationToken = default)
+	private async Task<bool> CheckADXDataIngest(string objectKey, string? extendedObjectKey = null, CancellationToken cancellationToken = default)
 	{
 		if (adxIngestCheckPassed)
 			return true;
@@ -327,7 +328,7 @@ public class IntegrationTests
 		return true;
 	}
 
-	private async Task<bool> CheckLADataIngest(string objectKey, string? extendedObjectKey=null, CancellationToken cancellationToken= default)
+	private async Task<bool> CheckLADataIngest(string objectKey, string? extendedObjectKey = null, CancellationToken cancellationToken = default)
 	{
 		if (laIngestCheckPassed)
 			return true;
@@ -345,7 +346,7 @@ public class IntegrationTests
 		return true;
 	}
 
-	private async Task<bool> CheckLARecordPresentAsync(string objectKey, bool checkExtendedColumn = false, CancellationToken cancellationToken= default)
+	private async Task<bool> CheckLARecordPresentAsync(string objectKey, bool checkExtendedColumn = false, CancellationToken cancellationToken = default)
 	{
 		var tableName = LogAnalyticsService.GetTableName(ObjectType);
 
@@ -354,7 +355,7 @@ public class IntegrationTests
 			 LogsQueryTimeRange.All,
 			cancellationToken: cancellationToken);
 
-		return result.Value.Table.Rows.Count==1 && (!checkExtendedColumn || result.Value.Table.Columns.Any((c) => c.Name == PayloadHelper.ExtendedSchemaColumnName));
+		return result.Value.Table.Rows.Count == 1 && (!checkExtendedColumn || result.Value.Table.Columns.Any((c) => c.Name == PayloadHelper.ExtendedSchemaColumnName));
 	}
 
 	private async Task DropADXTableAsync()

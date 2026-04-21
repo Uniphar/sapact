@@ -4,8 +4,9 @@
 public class SQLService(
     IServiceProvider serviceProvider,
     ISqlDatabaseService sqlDatabaseService,
-    ILockService lockService,
-    ILogger<SQLService> logger) : VersionedSchemaBaseService(lockService)
+    DistributedLockService distributedLockService,
+    ISchemaVersionStore schemaVersionStore,
+    ILogger<SQLService> logger) : VersionedSchemaBaseService(distributedLockService, schemaVersionStore)
 {
     public async Task IngestMessageAsync(JsonElement payload, CancellationToken cancellationToken = default)
     {
@@ -32,28 +33,12 @@ public class SQLService(
 
                     if (schemaCheck.IsUpdateRequired() || dryRunSchemaCheck)
                     {
-                        bool updateNecessary = true;
-
-                        do
+                        bool lockAcquired = await AcquireSchemaLockAsync(messageProperties.objectType, TargetStorageEnum.SQL);
+                        if (lockAcquired)
                         {
-                            (var lockState, string? leaseId) = await ObtainLockAsync(messageProperties.objectType, TargetStorageEnum.SQL);
-                            if (lockState == LockState.LockObtained)
-                            {
-                                await UpsertSQLStructuresAsync(schemaDescriptor, cancellationToken: cancellationToken);
-
-                                UpdateObjectTypeSchema(messageProperties.objectType, messageProperties.dataVersion);
-
-                                await ReleaseLockAsync(messageProperties.objectType, messageProperties.dataVersion, TargetStorageEnum.SQL, leaseId!);
-
-                                updateNecessary = false;
-                            }
-                            else if (lockState == LockState.Available)
-                            {
-                                //schema was updated by another instance but let's check against persistent storage
-                                var status = await CheckObjectTypeSchemaAsync(messageProperties.objectType, messageProperties.dataVersion, TargetStorageEnum.SQL);
-                                updateNecessary = status != SchemaCheckResultState.Current;
-                            }
-                        } while (updateNecessary);
+                            await UpsertSQLStructuresAsync(schemaDescriptor, cancellationToken: cancellationToken);
+                            await CommitSchemaVersionAsync(messageProperties.objectType, messageProperties.dataVersion, TargetStorageEnum.SQL);
+                        }
                     }
 
                     await SinkDataAsyncInnerAsync(sqlConnection, sqlTransaction, payload, schemaDescriptor,
@@ -93,19 +78,19 @@ public class SQLService(
             int arrayIndexCurrent = 0;
             foreach (var arrayElement in element.EnumerateArray())
             {
-                await SinkDataAsyncInnerAsync(sqlConnection, sqlTransaction, arrayElement, schemaDescriptor, 
+                await SinkDataAsyncInnerAsync(sqlConnection, sqlTransaction, arrayElement, schemaDescriptor,
                     keyDescriptor with { ArrayIndex = arrayIndexCurrent }, cancellationToken);
                 arrayIndexCurrent++;
             }
         }
         else if (element.ValueKind == JsonValueKind.Object)
         {
-            await sqlDatabaseService.SinkJsonObjectAsync( schemaDescriptor.SqlTableName, sqlConnection, sqlTransaction, element, schemaDescriptor,
+            await sqlDatabaseService.SinkJsonObjectAsync(schemaDescriptor.SqlTableName, sqlConnection, sqlTransaction, element, schemaDescriptor,
                 new KeyDescriptor { RootKey = primaryKey, ForeignKey = keyDescriptor.ForeignKey }, cancellationToken);
             foreach (var nonScalar in element.GetNonScalarProperties())
             {
                 var childTable = schemaDescriptor.GetChildTableDescriptor(nonScalar.Name);
-                await SinkDataAsyncInnerAsync(sqlConnection, sqlTransaction, nonScalar.Value, childTable!, 
+                await SinkDataAsyncInnerAsync(sqlConnection, sqlTransaction, nonScalar.Value, childTable!,
                     keyDescriptor with { ForeignKey = primaryKey }, cancellationToken);
             }
         }

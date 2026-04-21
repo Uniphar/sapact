@@ -47,5 +47,13 @@ public static class IConfigurationExtensions
 
     public static string GetLockServiceBlobContainerNameOrDefault(this IConfiguration configuration) => configuration[Consts.LockServiceBlobContainerNameConfigKey] ?? "sapact";
 
+    public static string? GetLockServiceCosmosConnectionString(this IConfiguration configuration) => configuration[Consts.LockServiceCosmosConnectionStringConfigKey];
+
+    public static string? GetLockServiceCosmosDatabase(this IConfiguration configuration) => configuration[Consts.LockServiceCosmosDatabaseConfigKey];
+
+    public static string? GetLockServiceCosmosContainer(this IConfiguration configuration) => configuration[Consts.LockServiceCosmosContainerConfigKey];
+
+    public static string? GetRegionCode(this IConfiguration configuration) => configuration[Consts.RegionCodeConfigKey];
+
     public static string? GetSQLConnectionString(this IConfiguration configuration) => configuration[Consts.SQLConnectionStringConfigKey];
 }

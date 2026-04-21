@@ -28,6 +28,11 @@ public static class Consts
 	public const string LockServiceBlobConnectionStringConfigKey = "SapAct:LockService:BlobConnectionString";
 	public const string LockServiceBlobContainerNameConfigKey = "SapAct:LockService:BlobContainerName";
 
+	public const string LockServiceCosmosConnectionStringConfigKey = "SapAct:LockService:CosmosConnectionString";
+	public const string LockServiceCosmosDatabaseConfigKey = "SapAct:LockService:CosmosDatabase";
+	public const string LockServiceCosmosContainerConfigKey = "SapAct:LockService:CosmosLockContainer";
+	public const string RegionCodeConfigKey = "REGION_CODE";
+
 	public const string KustoTokenScope = "https://kusto.kusto.windows.net/.default";
 
 	public const string SyncedSchemaVersionLockBlobMetadataKey = "SyncedSchemaVersion";
@@ -43,7 +48,7 @@ public static class Consts
 
 	public const string DeltaEventType = "ChangeDelta";
 
-	public const string SQLDefaultDataType= "NVARCHAR(MAX)";
+	public const string SQLDefaultDataType = "NVARCHAR(MAX)";
 	public const string SQLKeyColumnDefaultDataType = "NVARCHAR(900)"; //this is max for key columns
 	public const string SQLPKColumnName = "PK";
 	public const string SQLFKColumnName = "FK";

@@ -5,10 +5,11 @@ public class LogAnalyticsService(
     DefaultAzureCredential defaultAzureCredential,
     IHttpClientFactory httpClientFactory,
     LogsIngestionClient logsIngestionClient,
-    ILockService lockService,
+    DistributedLockService distributedLockService,
+    ISchemaVersionStore schemaVersionStore,
     ICustomEventTelemetryClient telemetryClient
 )
-    : VersionedSchemaBaseService(lockService)
+    : VersionedSchemaBaseService(distributedLockService, schemaVersionStore)
 {
     private readonly ConcurrentDictionary<string, string> _dcrMapping = new();
 
@@ -127,33 +128,20 @@ public class LogAnalyticsService(
 
         if (schemaCheckResult is SchemaCheckResultState.Unknown or SchemaCheckResultState.Older)
         {
-            var updateNecessary = true;
-            do
+            bool lockAcquired = await AcquireSchemaLockAsync(objectType, TargetStorageEnum.LogAnalytics);
+            if (lockAcquired)
             {
-                var (lockState, leaseId) = await ObtainLockAsync(objectType, TargetStorageEnum.LogAnalytics);
-                if (lockState == LockState.LockObtained)
-                {
-                    dcrId = await SyncTableSchema(objectType, payload, cancellationToken);
-                    UpdateSchema(objectType, dataVersion, dcrId);
-                    await ReleaseLockAsync(objectType, dataVersion, TargetStorageEnum.LogAnalytics, leaseId!);
-
-                    updateNecessary = false;
-                }
-                else if (lockState == LockState.Available)
-                {
-                    //schema was updated by another instance but let's check against persistent storage
-                    var status = await CheckObjectTypeSchemaAsync(objectType, dataVersion, TargetStorageEnum.LogAnalytics);
-                    updateNecessary = status != SchemaCheckResultState.Current;
-                    if (!updateNecessary)
-                    {
-                        dcrId = await RefreshDCRIdAsync(objectType, cancellationToken);
-                        UpdateSchema(objectType, dataVersion, dcrId);
-                    }
-                }
-            } while (updateNecessary);
+                dcrId = await SyncTableSchema(objectType, payload, cancellationToken);
+                _dcrMapping.AddOrUpdate(objectType, dcrId, (key, oldValue) => dcrId);
+                await CommitSchemaVersionAsync(objectType, dataVersion, TargetStorageEnum.LogAnalytics);
+            }
+            else
+            {
+                dcrId = await RefreshDCRIdAsync(objectType, cancellationToken);
+            }
         }
         else
-            dcrId = await RefreshDCRIdAsync(objectType, cancellationToken); //TODO: maybe store as another metadata piece in the blob
+            dcrId = await RefreshDCRIdAsync(objectType, cancellationToken);
 
         //send to log analytics
         await SinkToLogAnalytics(objectType, dcrId!, payload);

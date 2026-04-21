@@ -6,7 +6,8 @@ var credential = new DefaultAzureCredential();
 builder.Services.AddSingleton(credential);
 
 
-builder.Services.AddSingleton<ILockService, LockService>();
+builder.Services.AddSingleton<ISchemaVersionStore, BlobSchemaVersionStore>();
+builder.Services.AddCosmosLockService(builder.Configuration.GetLockServiceCosmosConnectionString()!);
 builder.Services.AddSingleton<LogAnalyticsService>();
 builder.Services.AddSingleton<ADXService>();
 builder.Services.AddSingleton<SQLService>();
@@ -51,6 +52,11 @@ builder.Services.AddSingleton(new LogAnalyticsServiceConfiguration
 });
 builder.RegisterOpenTelemetry("sapact").Build();
 var host = builder.Build();
+
+var regionCode = builder.Configuration.GetRegionCode() ?? throw new InvalidOperationException("REGION_CODE configuration is required.");
+var cosmosDatabase = builder.Configuration.GetLockServiceCosmosDatabase() ?? throw new InvalidOperationException("SapAct:LockService:CosmosDatabase configuration is required.");
+var cosmosContainer = builder.Configuration.GetLockServiceCosmosContainer() ?? throw new InvalidOperationException("SapAct:LockService:CosmosLockContainer configuration is required.");
+await host.Services.InitializeDistributedLockAsync(regionCode, cosmosDatabase, cosmosContainer);
 
 await host.InitializeResourcesAsync();
 
