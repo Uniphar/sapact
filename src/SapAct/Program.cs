@@ -13,56 +13,14 @@ builder.Configuration.AddAzureKeyVault(new(configKVUrl), credential);
 builder.Configuration.AddEnvironmentVariables(); //potentially overwrite KV (even for local dev)
 
 var environment = builder.Environment.EnvironmentName.ToLower();
-var envPrefix = environment == "local" ? "dev" : environment;
 builder.Services.AddSingleton<ISchemaVersionStore, BlobSchemaVersionStore>();
 
 // https://learn.microsoft.com/en-us/azure/cosmos-db/nosql/best-practice-dotnet#best-practices-for-http-connections
 builder.Services.AddSingleton(new SocketsHttpHandler { PooledConnectionLifetime = TimeSpan.FromMinutes(5) });
 
 var cosmosMasterKey = builder.Configuration["Cosmos:MasterKey"] ?? throw new NoNullAllowedException("Cosmos:MasterKey configuration has to be set.");
-var jsonSerializerOptions = new JsonSerializerOptions
-{
-    AllowOutOfOrderMetadataProperties = true,
-    ReadCommentHandling = JsonCommentHandling.Skip,
-    UnmappedMemberHandling = JsonUnmappedMemberHandling.Skip,
-    Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
-    IgnoreReadOnlyProperties = true,
-    RespectNullableAnnotations = true,
-    WriteIndented = true,
-    IndentCharacter = '\t',
-    IndentSize = 1,
-    NewLine = "\n"
-};
-builder.Services.AddSingleton(jsonSerializerOptions);
-
 var cosmosAccountEndpoint = $"https://uni-devops-{environment}-cosmos.documents.azure.com:443/";
-
-#if LOCAL || DEBUG
-cosmosAccountEndpoint = "https://localhost:8081/";
-#endif
-
 var cosmosConnectionString = $"AccountEndpoint={cosmosAccountEndpoint};AccountKey={cosmosMasterKey}";
-
-builder.Services.AddSingleton<CosmosClient>(serviceProvider =>
-{
-
-    return new CosmosClient(
-       cosmosConnectionString,
-        new CosmosClientOptions
-        {
-#if DEBUG || LOCAL
-            HttpClientFactory = () => new HttpClient(new HttpClientHandler()
-            {
-                ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
-            }),
-            ConnectionMode = ConnectionMode.Gateway,
-#else
-            HttpClientFactory = () => new HttpClient(serviceProvider.GetRequiredService<SocketsHttpHandler>(), false),
-#endif
-            UseSystemTextJsonSerializerWithOptions = serviceProvider.GetRequiredService<JsonSerializerOptions>()
-        });
-});
-
 var cosmosDatabase = builder.Configuration["Cosmos:Database"] ?? throw new NoNullAllowedException("Cosmos:Database configuration has to be set.");
 builder.Services.AddCosmosLockService(cosmosConnectionString);
 builder.Services.AddSingleton<LogAnalyticsService>();

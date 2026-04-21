@@ -36,7 +36,8 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: metadata.name
-          - name: "ASPNETCORE_ENVIRONMENT"
+          # since it is a worker, it has to use DOTNET_ENVIRONMENT
+          - name: "DOTNET_ENVIRONMENT"
             value: {{ .Values.environment | quote }}
           - name: "REGION_CODE"
             value: {{ .Values.regioncode | quote }}
