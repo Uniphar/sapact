@@ -38,7 +38,7 @@ on:
 
 jobs:
   deploy_app:
-    name: Deploy App - ${{ inputs.environment }}
+    name: Deploy ${{ inputs.environment }}-${{ matrix.regionShortCode }}
     environment: ${{ inputs.environment }}
     runs-on: ubuntu-latest
     strategy:
@@ -99,6 +99,7 @@ jobs:
           failOnStandardError: true
 
       - name: deploy project
+        if: matrix.regionShortCode == 'we'
         uses: azure/powershell@v3
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} #required for gh cli to determine "current PR"
@@ -141,19 +142,20 @@ jobs:
 
       - name: get helm chart
         working-directory: ./charts/${{ env.APPLICATION_FOLDER }}
-        run: helm pull oci://$ACR_NAME.azurecr.io/helm/${{ env.APPLICATION_NAME }} --version $APPLICATION_VERSION
+        run: |
+          helm pull oci://$ACR_NAME.azurecr.io/helm/${{ env.APPLICATION_NAME }} --version $APPLICATION_VERSION
 
       - name: Deploy app
         working-directory: ./charts/${{ env.APPLICATION_FOLDER }}
-        run: >
-          helm upgrade 
-          ${{ env.APPLICATION_NAME }} 
-          ${{ env.APPLICATION_NAME }}-$APPLICATION_VERSION.tgz 
-          -i 
-          --set reason="Upgrade to $APPLICATION_VERSION" 
-          --set-string regioncode="${{ matrix.regionShortCode }}"
-          --set-string environment="${{ inputs.environment }}"
-          --set-string AKSClusterSAName="$AKS_CLUSTER_SERVICE_ACCOUNT_NAME" 
-          --set-string configKeyVault="https://$AZURE_KEY_VAULT_NAME.vault.azure.net" 
-          -n devops 
+        run: |
+          helm upgrade \
+          ${{ env.APPLICATION_NAME }} \
+          ${{ env.APPLICATION_NAME }}-$APPLICATION_VERSION.tgz \
+          -i \
+          --set reason="Upgrade to $APPLICATION_VERSION" \
+          --set-string regioncode="${{ matrix.regionShortCode }}" \
+          --set-string environment="${{ inputs.environment }}" \
+          --set-string AKSClusterSAName="$AKS_CLUSTER_SERVICE_ACCOUNT_NAME" \
+          --set-string configKeyVault="https://$AZURE_KEY_VAULT_NAME.vault.azure.net" \
+          -n devops \
           --atomic

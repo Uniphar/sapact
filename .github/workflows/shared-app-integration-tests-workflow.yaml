@@ -5,28 +5,28 @@ on:
     secrets:
       AZURE_TENANT_ID:
         required: true
-        description: 'Azure Tenant ID'
+        description: "Azure Tenant ID"
       AZURE_CLIENT_ID:
         required: true
-        description: 'Azure Client ID'
+        description: "Azure Client ID"
       AZURE_SUBSCRIPTION_ID:
         required: true
-        description: 'Azure Subscription ID'
+        description: "Azure Subscription ID"
       ACTIONS_AUTH_APP_ID:
         required: true
-        description: 'GitHub App ID'
+        description: "GitHub App ID"
       ACTIONS_AUTH_APP_PRIVATE_KEY:
         required: true
-        description: 'GitHub App Private Key'
+        description: "GitHub App Private Key"
     inputs:
       environment:
         type: string
         required: true
-        description: 'Environment'
+        description: "Environment"
       applicationFolder:
         type: string
         required: true
-        description: 'Application Folder'
+        description: "Application Folder"
 
 jobs:
   run_integration_tests:
@@ -55,7 +55,7 @@ jobs:
 
       - uses: actions/setup-dotnet@v5
         with:
-          dotnet-version: '9'
+          dotnet-version: "10.x"
 
       - name: azure login
         uses: azure/login@v3
@@ -90,4 +90,5 @@ jobs:
 
       - name: run integration tests
         working-directory: ./sapact/src/${{ inputs.applicationFolder }}.Tests
-        run: dotnet test --filter TestCategory=Integration --logger "console;verbosity=normal"
+        run: |
+          dotnet test --filter TestCategory=Integration --logger "console;verbosity=normal"
