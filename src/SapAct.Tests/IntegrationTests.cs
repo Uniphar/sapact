@@ -4,7 +4,6 @@
 [TestCategory("Integration")]
 public class IntegrationTests
 {
-    private const string ObjectType = "SapActIntTests";
     private const string SQL_SERVER_NAME_ENV_VAR = "SQL_SERVER_NAME";
     private const string ENVIRONMENT_NAME_ENV_VAR = "ENVIRONMENT";
     private static ServiceBusTopicConfiguration? _messageBusConfiguration;
@@ -16,22 +15,25 @@ public class IntegrationTests
     private static ICslAdminProvider? _adxAdminProvider;
     private static LogsQueryClient? _logsQueryClient;
     private static IConfiguration? _config;
-    private static SqlConnection? _sqlConnection;
     private static DefaultAzureCredential? _credential;
 
     private static string _databaseName = "devops";
 
     private static CancellationToken _cancellationToken;
+    private string _objectType = null!;
+    private SqlConnection? _sqlConnection;
     private bool adxIngestCheckPassed;
     private bool laIngestCheckPassed;
-
     private bool schemaCheckPassed;
     private bool sqlIngestCheckPassed;
+
+    // Per-test instance state — MSTest creates a new class instance per test method.
+    public TestContext? TestContext { get; set; }
 
     [ClassInitialize]
     public static async Task ClassInitialize(TestContext context)
     {
-        _cancellationToken = context.CancellationTokenSource.Token;
+        _cancellationToken = context.CancellationToken;
 
         var azureKeyVaultName = Environment.GetEnvironmentVariable(Consts.KEYVAULT_CONFIG_URL);
 
@@ -62,9 +64,20 @@ public class IntegrationTests
         _adxAdminProvider = KustoClientFactory.CreateCslAdminProvider(kcsb);
 
         _logsQueryClient = new(_credential);
+    }
 
+    [TestInitialize]
+    public async Task TestInitialize()
+    {
+        _objectType = TestContext!.TestName;
         _sqlConnection = new(GetIntTestSqlConnectionString());
         await _sqlConnection.OpenAsync(_cancellationToken);
+    }
+
+    [TestCleanup]
+    public async Task TestCleanup()
+    {
+        if (_sqlConnection is not null) await _sqlConnection.DisposeAsync();
     }
 
     public static string GetIntTestSqlConnectionString() => $"Server=tcp:{Environment.GetEnvironmentVariable(SQL_SERVER_NAME_ENV_VAR)}.database.windows.net,1433;Initial Catalog=sapact-{Environment.GetEnvironmentVariable(ENVIRONMENT_NAME_ENV_VAR)}-db;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;Authentication=Active Directory Default;";
@@ -73,8 +86,8 @@ public class IntegrationTests
     public async Task E2EMessageIngestionTest()
     {
         //arrange
-        await DropSQLTable("SapActIntTests");
-        await DropSQLTable("SapActIntTests_SchemaTable");
+        await DropSQLTable(_objectType);
+        await DropSQLTable($"{_objectType}_SchemaTable");
 
         await DropADXTableAsync();
 
@@ -85,28 +98,34 @@ public class IntegrationTests
         var extendedObjectKey = Guid.NewGuid().ToString();
 
         await _messageBusSender!.SendMessageAsync(
-            new(Encoding.UTF8.GetBytes(PayloadHelper.GetPayload(ObjectType, objectKey, version))),
+            new(Encoding.UTF8.GetBytes(PayloadHelper.GetPayload(_objectType, objectKey, version))),
             _cancellationToken);
         await _messageBusSender!.SendMessageAsync(
-            new(Encoding.UTF8.GetBytes(PayloadHelper.GetPayload(ObjectType, extendedObjectKey, extendedVersion, true))),
+            new(Encoding.UTF8.GetBytes(PayloadHelper.GetPayload(_objectType, extendedObjectKey, extendedVersion, true))),
             _cancellationToken);
 
         //act + assert
 
         await Condition.WaitUntilAsync(
-            async () => await CheckSchemasProjected(extendedVersion, _cancellationToken)
-                     && await CheckADXDataIngest(objectKey, extendedObjectKey, _cancellationToken)
-                     && await CheckLADataIngest(objectKey, extendedObjectKey, _cancellationToken)
-                     && await CheckSQLDataIngest(objectKey, extendedObjectKey, _cancellationToken),
-            TimeSpan.FromMinutes(20));
+            () => CheckSchemasProjected(extendedVersion, _cancellationToken),
+            TimeSpan.FromMinutes(2));
+        await Condition.WaitUntilAsync(
+            () => CheckADXDataIngest(objectKey, extendedObjectKey, _cancellationToken),
+            TimeSpan.FromMinutes(2));
+        await Condition.WaitUntilAsync(
+            () => CheckLADataIngest(objectKey, extendedObjectKey, _cancellationToken),
+            TimeSpan.FromMinutes(2));
+        await Condition.WaitUntilAsync(
+            () => CheckSQLDataIngest(objectKey, extendedObjectKey, _cancellationToken),
+            TimeSpan.FromMinutes(2));
     }
 
     [TestMethod]
     public async Task DeltaChangeIngestionTest()
     {
         //arrange
-        await DropSQLTable("SapActIntTests");
-        await DropSQLTable("SapActIntTests_SchemaTable");
+        await DropSQLTable(_objectType);
+        await DropSQLTable($"{_objectType}_SchemaTable");
 
         await DropADXTableAsync();
 
@@ -120,21 +139,42 @@ public class IntegrationTests
         await PurgeDLQForServiceBusSubscriptionAsync(_config!.GetTopicSubscriptionNameOrDefault<LogAnalyticsWorker>());
 
         await _messageBusSender!.SendMessageAsync(
-            new(Encoding.UTF8.GetBytes(PayloadHelper.GetPayload(ObjectType, objectKey, version))),
+            new(Encoding.UTF8.GetBytes(PayloadHelper.GetPayload(_objectType, objectKey, version))),
             _cancellationToken);
         await _messageBusSender!.SendMessageAsync(
-            new(Encoding.UTF8.GetBytes(PayloadHelper.GetPayload(ObjectType, deltaEventKey, version, deltaChangePayload: true))),
+            new(Encoding.UTF8.GetBytes(PayloadHelper.GetPayload(_objectType, deltaEventKey, version, deltaChangePayload: true))),
             _cancellationToken);
 
         //act + assert
 
         await Condition.WaitUntilAsync(
-            async () => await CheckADXDataIngest(objectKey, cancellationToken: _cancellationToken)
-                     && await CheckLADataIngest(objectKey, cancellationToken: _cancellationToken)
-                     && await CheckSQLDataIngest(objectKey, cancellationToken: _cancellationToken),
-            TimeSpan.FromMinutes(20));
+            () => CheckADXDataIngest(objectKey, cancellationToken: _cancellationToken),
+            TimeSpan.FromMinutes(2));
+        await Condition.WaitUntilAsync(
+            () => CheckLADataIngest(objectKey, cancellationToken: _cancellationToken),
+            TimeSpan.FromMinutes(2));
+        await Condition.WaitUntilAsync(
+            () => CheckSQLDataIngest(objectKey, cancellationToken: _cancellationToken),
+            TimeSpan.FromMinutes(2));
 
-        var postCheck = await CheckNoDLQMessagePresentForSubscriptionAsync(_config!.GetTopicSubscriptionNameOrDefault<SQLWorker>()) && await CheckNoDLQMessagePresentForSubscriptionAsync(_config!.GetTopicSubscriptionNameOrDefault<ADXWorker>()) && await CheckNoDLQMessagePresentForSubscriptionAsync(_config!.GetTopicSubscriptionNameOrDefault<LogAnalyticsWorker>()) && !await CheckLARecordPresentAsync(deltaEventKey) && !await CheckSQLRecordPresentAsync(deltaEventKey) && !await CheckADXRecordPresentAsync(deltaEventKey);
+        Assert.IsTrue(
+            await CheckNoDLQMessagePresentForSubscriptionAsync(_config!.GetTopicSubscriptionNameOrDefault<SQLWorker>()),
+            "No DLQ messages expected for SQLWorker");
+        Assert.IsTrue(
+            await CheckNoDLQMessagePresentForSubscriptionAsync(_config!.GetTopicSubscriptionNameOrDefault<ADXWorker>()),
+            "No DLQ messages expected for ADXWorker");
+        Assert.IsTrue(
+            await CheckNoDLQMessagePresentForSubscriptionAsync(_config!.GetTopicSubscriptionNameOrDefault<LogAnalyticsWorker>()),
+            "No DLQ messages expected for LogAnalyticsWorker");
+        Assert.IsFalse(
+            await CheckLARecordPresentAsync(deltaEventKey),
+            "Delta event should not be ingested into Log Analytics");
+        Assert.IsFalse(
+            await CheckSQLRecordPresentAsync(deltaEventKey),
+            "Delta event should not be ingested into SQL");
+        Assert.IsFalse(
+            await CheckADXRecordPresentAsync(deltaEventKey),
+            "Delta event should not be ingested into ADX");
     }
 
     private async Task<bool> CheckNoDLQMessagePresentForSubscriptionAsync(string subscriptionName)
@@ -181,9 +221,9 @@ public class IntegrationTests
 
         try
         {
-            var adxBlobProps = await _blobContainerClient!.GetBlobClient(BlobSchemaVersionStore.GetBlobName(ObjectType, TargetStorageEnum.ADX)).GetPropertiesAsync(cancellationToken: cancellationToken);
-            var laBlobProps = await _blobContainerClient!.GetBlobClient(BlobSchemaVersionStore.GetBlobName(ObjectType, TargetStorageEnum.LogAnalytics)).GetPropertiesAsync(cancellationToken: cancellationToken);
-            var sqlBlobProps = await _blobContainerClient!.GetBlobClient(BlobSchemaVersionStore.GetBlobName(ObjectType, TargetStorageEnum.SQL)).GetPropertiesAsync(cancellationToken: cancellationToken);
+            var adxBlobProps = await _blobContainerClient!.GetBlobClient(BlobSchemaVersionStore.GetBlobName(_objectType, TargetStorageEnum.ADX)).GetPropertiesAsync(cancellationToken: cancellationToken);
+            var laBlobProps = await _blobContainerClient!.GetBlobClient(BlobSchemaVersionStore.GetBlobName(_objectType, TargetStorageEnum.LogAnalytics)).GetPropertiesAsync(cancellationToken: cancellationToken);
+            var sqlBlobProps = await _blobContainerClient!.GetBlobClient(BlobSchemaVersionStore.GetBlobName(_objectType, TargetStorageEnum.SQL)).GetPropertiesAsync(cancellationToken: cancellationToken);
 
             if (adxBlobProps.Value.Metadata.Count != 1 || laBlobProps.Value.Metadata.Count != 1 || sqlBlobProps.Value.Metadata.Count != 1) return false;
 
@@ -216,12 +256,13 @@ public class IntegrationTests
 
     private async Task<bool> CheckSQLRecordPresentAsync(string objectKey, CancellationToken cancellationToken = default)
     {
-        using var sqlCommand = new SqlCommand($"SELECT * FROM SapActIntTests WHERE objectKey in ('{objectKey}')", _sqlConnection);
-        using var reader = await sqlCommand.ExecuteReaderAsync(cancellationToken);
+        await using var sqlCommand = new SqlCommand($"SELECT * FROM [{_objectType}] WHERE objectKey = @objectKey", _sqlConnection);
+        sqlCommand.Parameters.AddWithValue("@objectKey", objectKey);
+        await using var reader = await sqlCommand.ExecuteReaderAsync(cancellationToken);
 
         var rowCount = 0;
 
-        while (reader.Read()) rowCount++;
+        while (await reader.ReadAsync(cancellationToken)) rowCount++;
 
         return rowCount == 1;
     }
@@ -230,12 +271,10 @@ public class IntegrationTests
     {
         var result = await GetADXRecordAsync(objectKey, cancellationToken);
 
-        if (!result.Read()) return false;
-
-        return true;
+        return result.Read();
     }
 
-    private async Task<IDataReader> GetADXRecordAsync(string objectKey, CancellationToken cancellationToken = default) => await _adxQueryProvider!.ExecuteQueryAsync(_databaseName, $"{ObjectType} | where objectKey == '{objectKey}'", null, cancellationToken);
+    private async Task<IDataReader> GetADXRecordAsync(string objectKey, CancellationToken cancellationToken = default) => await _adxQueryProvider!.ExecuteQueryAsync(_databaseName, $"{_objectType} | where objectKey == '{objectKey}'", null, cancellationToken);
 
     private async Task<bool> CheckADXDataIngest(string objectKey, string? extendedObjectKey = null, CancellationToken cancellationToken = default)
     {
@@ -281,7 +320,7 @@ public class IntegrationTests
 
     private async Task<bool> CheckLARecordPresentAsync(string objectKey, bool checkExtendedColumn = false, CancellationToken cancellationToken = default)
     {
-        var tableName = LogAnalyticsService.GetTableName(ObjectType);
+        var tableName = LogAnalyticsService.GetTableName(_objectType);
 
         Response<LogsQueryResult> result = await _logsQueryClient!.QueryWorkspaceAsync(
             _config!.GetLogAnalyticsWorkspaceId(),
@@ -296,7 +335,7 @@ public class IntegrationTests
     {
         try
         {
-            await _adxAdminProvider!.ExecuteControlCommandAsync(_databaseName, $".drop table {ObjectType}");
+            await _adxAdminProvider!.ExecuteControlCommandAsync(_databaseName, $".drop table {_objectType}");
         }
         catch (EntityNotFoundException)
         {
@@ -308,7 +347,7 @@ public class IntegrationTests
     {
         try
         {
-            using var sqlCommand = new SqlCommand($"DROP TABLE {tableName}", _sqlConnection);
+            await using var sqlCommand = new SqlCommand($"DROP TABLE {tableName}", _sqlConnection);
             await sqlCommand.ExecuteNonQueryAsync(_cancellationToken);
         }
         catch (SqlException ex) when (ex.Number == 3701)
