@@ -1,7 +1,5 @@
 ﻿namespace SapAct.Tests;
 
-using Timer = System.Timers.Timer;
-
 [TestClass]
 [TestCategory("Integration")]
 public class IntegrationTests
@@ -93,28 +91,14 @@ public class IntegrationTests
             new(Encoding.UTF8.GetBytes(PayloadHelper.GetPayload(ObjectType, extendedObjectKey, extendedVersion, true))),
             _cancellationToken);
 
-        //act
+        //act + assert
 
-        var timerFired = false;
-        Timer timer = new(TimeSpan.FromMinutes(20))
-        {
-            AutoReset = false
-        };
-
-        timer.Elapsed += (s, e) => timerFired = true;
-        timer.Start();
-
-
-        //assert
-
-        while (
-            !await CheckSchemasProjected(extendedVersion, _cancellationToken) || !await CheckADXDataIngest(objectKey, extendedObjectKey, _cancellationToken) || !await CheckLADataIngest(objectKey, extendedObjectKey, _cancellationToken) || !await CheckSQLDataIngest(objectKey, extendedObjectKey, _cancellationToken)
-        )
-        {
-            if (timerFired) throw new TimeoutException("IntegrationTests.E2EMessageIngestionTest timeout");
-
-            await Task.Delay(TimeSpan.FromSeconds(10));
-        }
+        await Condition.WaitUntilAsync(
+            async () => await CheckSchemasProjected(extendedVersion, _cancellationToken)
+                     && await CheckADXDataIngest(objectKey, extendedObjectKey, _cancellationToken)
+                     && await CheckLADataIngest(objectKey, extendedObjectKey, _cancellationToken)
+                     && await CheckSQLDataIngest(objectKey, extendedObjectKey, _cancellationToken),
+            TimeSpan.FromMinutes(20));
     }
 
     [TestMethod]
@@ -142,28 +126,13 @@ public class IntegrationTests
             new(Encoding.UTF8.GetBytes(PayloadHelper.GetPayload(ObjectType, deltaEventKey, version, deltaChangePayload: true))),
             _cancellationToken);
 
-        //act
+        //act + assert
 
-        var timerFired = false;
-        Timer timer = new(TimeSpan.FromMinutes(20))
-        {
-            AutoReset = false
-        };
-
-        timer.Elapsed += (s, e) => timerFired = true;
-        timer.Start();
-
-
-        //assert
-
-        while (
-            !await CheckADXDataIngest(objectKey, cancellationToken: _cancellationToken) || !await CheckLADataIngest(objectKey, cancellationToken: _cancellationToken) || !await CheckSQLDataIngest(objectKey, cancellationToken: _cancellationToken)
-        )
-        {
-            if (timerFired) throw new TimeoutException("IntegrationTests.E2EMessageIngestionTest timeout");
-
-            await Task.Delay(TimeSpan.FromSeconds(10));
-        }
+        await Condition.WaitUntilAsync(
+            async () => await CheckADXDataIngest(objectKey, cancellationToken: _cancellationToken)
+                     && await CheckLADataIngest(objectKey, cancellationToken: _cancellationToken)
+                     && await CheckSQLDataIngest(objectKey, cancellationToken: _cancellationToken),
+            TimeSpan.FromMinutes(20));
 
         var postCheck = await CheckNoDLQMessagePresentForSubscriptionAsync(_config!.GetTopicSubscriptionNameOrDefault<SQLWorker>()) && await CheckNoDLQMessagePresentForSubscriptionAsync(_config!.GetTopicSubscriptionNameOrDefault<ADXWorker>()) && await CheckNoDLQMessagePresentForSubscriptionAsync(_config!.GetTopicSubscriptionNameOrDefault<LogAnalyticsWorker>()) && !await CheckLARecordPresentAsync(deltaEventKey) && !await CheckSQLRecordPresentAsync(deltaEventKey) && !await CheckADXRecordPresentAsync(deltaEventKey);
     }
