@@ -19,25 +19,32 @@ on:
         required: true
         description: "GitHub App Private Key"
     inputs:
-      environment:
-        type: string
-        required: true
-        description: "Environment"
       applicationFolder:
         type: string
         required: true
         description: "Application Folder"
+      environment:
+        type: string
+        required: true
+        description: "Environment"
+      testCategory:
+        type: string
+        required: false
+        default: "Integration"
+        description: "Test Category"
 
 jobs:
   run_integration_tests:
-    name: Integration Tests - ${{ inputs.environment }}
+    name: Run Integration Tests
     environment: ${{ inputs.environment }}
     runs-on: ubuntu-latest
     steps:
       - name: checkout repo
         uses: actions/checkout@v6
+
+      - uses: actions/setup-dotnet@v5
         with:
-          path: sapact
+          dotnet-version: 10.x
 
       - name: gh-app-install token
         id: gh-app
@@ -53,10 +60,6 @@ jobs:
           repository: Uniphar/devops-azure
           token: ${{ steps.gh-app.outputs.token }}
 
-      - uses: actions/setup-dotnet@v5
-        with:
-          dotnet-version: "10.x"
-
       - name: azure login
         uses: azure/login@v3
         with:
@@ -65,14 +68,32 @@ jobs:
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
           enable-AzPSSession: true
 
+      # see https://github.com/Azure/azure-cli/issues/28708#issuecomment-2047256166
+      # we need this to do actions on the graph and blob clients in the integration tests
+      - name: Get a login code for longer then 5min
+        shell: bash
+        run: |
+          echo "Current"
+          date +"%Y-%m-%dT%H:%M:%S%z"
+          echo "https://management.core.windows.net/:"
+          az account get-access-token --output json --resource https://management.core.windows.net/ --query "{ tenant: tenant, subscription: subscription, expiry: expiresOn }"
+          echo "Azure RM:"
+          az account get-access-token --resource-type arm --query "{ tenant: tenant, subscription: subscription, expiry: expiresOn }" -o json
+          echo "MS Graph:"
+          az account get-access-token --resource-type ms-graph --query "{ tenant: tenant, subscription: subscription, expiry: expiresOn }" -o json
+          echo "https://storage.azure.com/.default:"
+          az account get-access-token --scope https://storage.azure.com/.default --query "{ tenant: tenant, subscription: subscription, expiry: expiresOn }" -o json
+
       - name: compute environment variables
         uses: azure/powershell@v3
         with:
           azPSVersion: "latest"
+          errorActionPreference: "stop"
           failOnStandardError: true
           inlineScript: |
             try{
-              Import-Module ./devops-azure/src/Uniphar.DevOps.psd1 -ErrorAction Stop -Force
+              Import-Module .\devops-azure\src\Uniphar.DevOps.psd1 -ErrorAction Stop -Force
+
 
               $AzureKeyVaultName = Resolve-UniResourceName 'keyvault' "$p_devopsDomain-app" -Environment '${{ inputs.environment }}'
               $githubActionsDevOID = Get-AzADServicePrincipal -DisplayName $adapp_GithubActionsDev | Select-Object -ExpandProperty Id
@@ -81,14 +102,32 @@ jobs:
               echo "SAPACT_CONFIGURATION_URL=https://$AzureKeyVaultName.vault.azure.net" >> $env:GITHUB_ENV
               echo "SQL_SERVER_NAME=$sqlServerName" >> $env:GITHUB_ENV
               echo "ENVIRONMENT=${{ inputs.environment }}" >> $env:GITHUB_ENV
-
             }
             catch {
               Write-Error $_
               exit 1
             }
 
-      - name: run integration tests
-        working-directory: ./sapact/src/${{ inputs.applicationFolder }}.Tests
+      - name: Run integration tests
+        id: integration_tests
+        working-directory: ./src/${{ inputs.applicationFolder }}.Tests
+        continue-on-error: true
         run: |
-          dotnet test --filter TestCategory=Integration --logger "console;verbosity=normal"
+          dotnet test -v:q --nologo -s ./runsettings/${{ inputs.environment }}.runsettings --filter TestCategory=${{ inputs.testCategory }} --logger "GitHubActions;summary.includePassedTests=true;summary.includeSkippedTests=true"
+      - name: Generate coverage report
+        uses: danielpalme/ReportGenerator-GitHub-Action@v5
+        with:
+          reports: "./tests/*/coverage.cobertura.xml" # REQUIRED # The coverage reports that should be parsed (separated by semicolon). Globbing is supported.
+          targetdir: "coverage-results" # REQUIRED # The directory where the generated report should be saved.
+          reporttypes: "HtmlInline;MarkdownSummaryGithub"
+      - name: Upload test results in case manual view
+        uses: actions/upload-artifact@v7
+        with:
+          name: "coverage-results-${{ inputs.environment }}"
+          path: coverage-results
+      - name: Publish coverage in build summary # Only applicable if 'MarkdownSummaryGithub' or one of the other Markdown report types is generated
+        run: cat coverage-results/SummaryGithub.md >> $GITHUB_STEP_SUMMARY # Adjust path and filename if necessary
+        shell: bash
+      - name: Fail if tests failed
+        if: steps.integration_tests.outcome == 'failure'
+        run: exit 1
