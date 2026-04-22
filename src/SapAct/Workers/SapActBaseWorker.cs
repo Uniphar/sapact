@@ -77,7 +77,7 @@ public abstract class SapActBaseWorker<T>(
                 });
 
 
-            do
+            while (!cancellationToken.IsCancellationRequested)
             {
                 ServiceBusReceivedMessage? message = null;
                 try
@@ -87,13 +87,20 @@ public abstract class SapActBaseWorker<T>(
                     if (message == null) continue;
                     await ProcessMessageAsync(topicName, message, cancellationToken);
                 }
+                catch (OperationCanceledException)
+                {
+                    // Cancellation was requested, proceed to stop processors
+                    telemetry.TrackEvent("StopRequestedForProcessors");
+                    if (message != null) await serviceBusReceiver.AbandonMessageAsync(message, cancellationToken: cancellationToken);
+                    // go out of the loop and let the service stop gracefully
+                    break;
+                }
                 catch (Exception ex)
                 {
                     if (message != null) await serviceBusReceiver.AbandonMessageAsync(message, cancellationToken: cancellationToken);
-
                     logger.LogError(ex, $"Error processing message - {message?.MessageId}");
                 }
-            } while (!cancellationToken.IsCancellationRequested);
+            }
         }
     }
 
