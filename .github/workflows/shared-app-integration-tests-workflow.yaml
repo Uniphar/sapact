@@ -83,31 +83,6 @@ jobs:
           az account get-access-token --resource-type ms-graph --query "{ tenant: tenant, subscription: subscription, expiry: expiresOn }" -o json
           echo "https://storage.azure.com/.default:"
           az account get-access-token --scope https://storage.azure.com/.default --query "{ tenant: tenant, subscription: subscription, expiry: expiresOn }" -o json
-
-      - name: compute environment variables
-        uses: azure/powershell@v3
-        with:
-          azPSVersion: "latest"
-          errorActionPreference: "stop"
-          failOnStandardError: true
-          inlineScript: |
-            try{
-              Import-Module .\devops-azure\src\Uniphar.DevOps.psd1 -ErrorAction Stop -Force
-
-
-              $AzureKeyVaultName = Resolve-UniResourceName 'keyvault' "$p_devopsDomain-app" -Environment '${{ inputs.environment }}'
-              $githubActionsDevOID = Get-AzADServicePrincipal -DisplayName $adapp_GithubActionsDev | Select-Object -ExpandProperty Id
-              $sqlServerName = Resolve-UniResourceName 'sql-server' $global:p_dataSql -Environment ${{ inputs.environment }}
-
-              echo "SAPACT_CONFIGURATION_URL=https://$AzureKeyVaultName.vault.azure.net" >> $env:GITHUB_ENV
-              echo "SQL_SERVER_NAME=$sqlServerName" >> $env:GITHUB_ENV
-              echo "ENVIRONMENT=${{ inputs.environment }}" >> $env:GITHUB_ENV
-            }
-            catch {
-              Write-Error $_
-              exit 1
-            }
-
       - name: Run integration tests
         id: integration_tests
         working-directory: ./src/${{ inputs.applicationFolder }}.Tests

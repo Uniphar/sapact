@@ -36,6 +36,6 @@ public static class IConfigurationExtensions
         internal string GetLogAnalyticsIngestionUrl() => configuration[Consts.LogAnalyticsIngestionUrlConfigKey] ?? throw new ArgumentNullException(Consts.LogAnalyticsIngestionUrlConfigKey);
         internal string GetADXClusterHostUrl() => configuration[Consts.ADXClusterHostUrlConfigKey] ?? throw new ArgumentNullException(Consts.ADXClusterHostUrlConfigKey);
         public string GetADXClusterDBNameOrDefault() => configuration[Consts.ADXClusterDBConfigKey] ?? "devops";
-        internal string GetSQLConnectionString() => configuration[Consts.SQLConnectionStringConfigKey] ?? throw new ArgumentNullException(Consts.SQLConnectionStringConfigKey);
+        public string GetSQLConnectionString() => configuration[Consts.SQLConnectionStringConfigKey] ?? throw new ArgumentNullException(Consts.SQLConnectionStringConfigKey);
     }
 }
