@@ -26,9 +26,9 @@ public record SQLTableDescriptor
         if (depth > 0)
         {
             //add PK and FK as explicit columns
-            schemaDescriptor.Columns.Add(new SQLColumnDescriptor()
+            schemaDescriptor.Columns.Add(new()
             { ColumnName = Consts.SQLPKColumnName, SQLDataType = Consts.SQLKeyColumnDefaultDataType, IsSchemaColumn = true });
-            schemaDescriptor.Columns.Add(new SQLColumnDescriptor()
+            schemaDescriptor.Columns.Add(new()
             { ColumnName = Consts.SQLFKColumnName, SQLDataType = Consts.SQLKeyColumnDefaultDataType, IsSchemaColumn = true });
         }
 
@@ -57,7 +57,7 @@ public record SQLTableDescriptor
                 }
                 else
                 {
-                    schemaDescriptor.Columns.Add(new SQLColumnDescriptor() { ColumnName = child.Name, SQLDataType = Consts.SQLDefaultDataType });
+                    schemaDescriptor.Columns.Add(new() { ColumnName = child.Name, SQLDataType = Consts.SQLDefaultDataType });
                 }
             }
         }

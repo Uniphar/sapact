@@ -34,8 +34,8 @@ builder.SetupWorkers();
 
 builder.Services.AddAzureClients(clientBuilder =>
 {
-    clientBuilder.AddLogsIngestionClient(new(builder.Configuration.GetLogAnalyticsIngestionUrl()!));
-    clientBuilder.AddBlobServiceClient(new Uri(builder.Configuration.GetLockServiceBlobConnectionString()!));
+    clientBuilder.AddLogsIngestionClient(new(builder.Configuration.GetLogAnalyticsIngestionUrl()));
+    clientBuilder.AddBlobServiceClient(new Uri(builder.Configuration.GetLockServiceBlobConnectionString()));
     clientBuilder.UseCredential(credential);
 });
 
@@ -58,9 +58,9 @@ builder.Services.AddTransient(sp =>
     connection.AccessTokenCallback = async (ctx, cancellationToken) =>
     {
         var token = await azureCredential.GetTokenAsync(
-            new TokenRequestContext(["https://database.windows.net/.default"]),
+            new(["https://database.windows.net/.default"]),
             cancellationToken);
-        return new SqlAuthenticationToken(token.Token, token.ExpiresOn);
+        return new(token.Token, token.ExpiresOn);
     };
     return connection;
 });
@@ -69,10 +69,10 @@ builder.Services.AddTransient<ISqlDatabaseService, SqlDatabaseService>();
 
 builder.Services.AddSingleton(new LogAnalyticsServiceConfiguration
 {
-    SubscriptionId = builder.Configuration.GetLogAnalyticsSubscriptionId()!,
-    ResourceGroupName = builder.Configuration.GetLogAnalyticsResourceGroupName()!,
-    WorkspaceName = builder.Configuration.GetLogAnalyticsWorkspaceName()!,
-    EndpointName = builder.Configuration.GetLogAnalyticsEndpointName()!
+    SubscriptionId = builder.Configuration.GetLogAnalyticsSubscriptionId(),
+    ResourceGroupName = builder.Configuration.GetLogAnalyticsResourceGroupName(),
+    WorkspaceName = builder.Configuration.GetLogAnalyticsWorkspaceName(),
+    EndpointName = builder.Configuration.GetLogAnalyticsEndpointName()
 });
 builder.RegisterOpenTelemetry("sapact").Build();
 var host = builder.Build();

@@ -100,7 +100,7 @@ public class IntegrationTests
         await _messageBusSender!.SendMessageAsync(
             new(Encoding.UTF8.GetBytes(PayloadHelper.GetPayload(_objectType, objectKey, version))),
             _cancellationToken);
-        await _messageBusSender!.SendMessageAsync(
+        await _messageBusSender.SendMessageAsync(
             new(Encoding.UTF8.GetBytes(PayloadHelper.GetPayload(_objectType, extendedObjectKey, extendedVersion, true))),
             _cancellationToken);
 
@@ -141,7 +141,7 @@ public class IntegrationTests
         await _messageBusSender!.SendMessageAsync(
             new(Encoding.UTF8.GetBytes(PayloadHelper.GetPayload(_objectType, objectKey, version))),
             _cancellationToken);
-        await _messageBusSender!.SendMessageAsync(
+        await _messageBusSender.SendMessageAsync(
             new(Encoding.UTF8.GetBytes(PayloadHelper.GetPayload(_objectType, deltaEventKey, version, deltaChangePayload: true))),
             _cancellationToken);
 
@@ -222,8 +222,8 @@ public class IntegrationTests
         try
         {
             var adxBlobProps = await _blobContainerClient!.GetBlobClient(BlobSchemaVersionStore.GetBlobName(_objectType, TargetStorageEnum.ADX)).GetPropertiesAsync(cancellationToken: cancellationToken);
-            var laBlobProps = await _blobContainerClient!.GetBlobClient(BlobSchemaVersionStore.GetBlobName(_objectType, TargetStorageEnum.LogAnalytics)).GetPropertiesAsync(cancellationToken: cancellationToken);
-            var sqlBlobProps = await _blobContainerClient!.GetBlobClient(BlobSchemaVersionStore.GetBlobName(_objectType, TargetStorageEnum.SQL)).GetPropertiesAsync(cancellationToken: cancellationToken);
+            var laBlobProps = await _blobContainerClient.GetBlobClient(BlobSchemaVersionStore.GetBlobName(_objectType, TargetStorageEnum.LogAnalytics)).GetPropertiesAsync(cancellationToken: cancellationToken);
+            var sqlBlobProps = await _blobContainerClient.GetBlobClient(BlobSchemaVersionStore.GetBlobName(_objectType, TargetStorageEnum.SQL)).GetPropertiesAsync(cancellationToken: cancellationToken);
 
             if (adxBlobProps.Value.Metadata.Count != 1 || laBlobProps.Value.Metadata.Count != 1 || sqlBlobProps.Value.Metadata.Count != 1) return false;
 

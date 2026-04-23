@@ -52,21 +52,20 @@ public abstract class VersionedSchemaBaseService(DistributedLockService distribu
         };
     }
 
-    protected void UpdateObjectTypeSchema(string objectType, string version)
+    private void UpdateObjectTypeSchema(string objectType, string version)
     {
         _tableVersionMapping.AddOrUpdate(objectType, version, (key, oldValue) => version);
     }
 
     /// <summary>
-    /// Acquires schema ownership for the given objectType + targetStorage combination.
-    /// Returns true if this instance owns schema updates for this key; false if another instance owns it.
+    ///     Acquires schema ownership for the given objectType + targetStorage combination.
+    ///     Returns true if this instance owns schema updates for this key; false if another instance owns it.
     /// </summary>
-    protected Task<bool> AcquireSchemaLockAsync(string objectType, TargetStorageEnum targetStorage)
-        => distributedLockService.AcquireJobLockAsync($"{objectType}-{targetStorage}");
+    protected Task<bool> AcquireSchemaLockAsync(string objectType, TargetStorageEnum targetStorage) => distributedLockService.AcquireJobLockAsync($"{objectType}-{targetStorage}");
 
     /// <summary>
-    /// Updates the in-memory schema version cache and persists the version to the schema store.
-    /// Call this after a successful schema update.
+    ///     Updates the in-memory schema version cache and persists the version to the schema store.
+    ///     Call this after a successful schema update.
     /// </summary>
     protected async Task CommitSchemaVersionAsync(string objectType, string version, TargetStorageEnum targetStorage)
     {

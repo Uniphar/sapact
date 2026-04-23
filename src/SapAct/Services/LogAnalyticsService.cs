@@ -83,18 +83,17 @@ public class LogAnalyticsService(
             });
 
 
-        var renderredTableSchema = JsonSerializer.Serialize(tableSchema);
+        var renderedTableSchema = JsonSerializer.Serialize(tableSchema);
 
         // Serialize the table schema to JSON
-        var content = new StringContent(renderredTableSchema, Encoding.UTF8, "application/json");
+        var content = new StringContent(renderedTableSchema, Encoding.UTF8, "application/json");
 
         // Send the PUT/PATCH request to create the table
         var dcrUrl = GetDCRUrl(tableName);
 
-        HttpResponseMessage response;
-
-        //delete first, this immediately sinks any changes
-        response = await httpClient.DeleteAsync(dcrUrl, cancellationToken);
+        var response =
+            //delete first, this immediately sinks any changes
+            await httpClient.DeleteAsync(dcrUrl, cancellationToken);
         response.EnsureSuccessStatusCode();
 
         // Update the DCR
@@ -115,7 +114,7 @@ public class LogAnalyticsService(
 
     public async Task IngestMessage(string topic, JsonElement payload, CancellationToken cancellationToken)
     {
-        var dcrId = "";
+        string dcrId;
         //get key properties
         var messageProperties = ExtractMessageRootProperties(payload);
         //will be used for the table name, cleanup up so it will work for the table
@@ -134,6 +133,7 @@ public class LogAnalyticsService(
             {
                 dcrId = await SyncTableSchema(objectType, payload, cancellationToken);
                 _dcrMapping.AddOrUpdate(objectType, dcrId, (key, oldValue) => dcrId);
+                // commit does update too
                 await CommitSchemaVersionAsync(objectType, dataVersion, TargetStorageEnum.LogAnalytics);
                 break;
             }
@@ -144,7 +144,7 @@ public class LogAnalyticsService(
         dcrId = await RefreshDCRIdAsync(objectType, cancellationToken);
 
         //send to log analytics
-        await SinkToLogAnalytics(objectType, dcrId!, payload);
+        await SinkToLogAnalytics(objectType, dcrId, payload);
     }
 
     private async Task<string> RefreshDCRIdAsync(string tableName, CancellationToken cancellationToken)
@@ -162,17 +162,13 @@ public class LogAnalyticsService(
         return JsonSerializer.Deserialize<JsonElement>(responseContent).ExportDCRImmutableId();
     }
 
-    private void UpdateSchema(string tableName, string version, string dcrId)
-    {
-        UpdateObjectTypeSchema(tableName, version);
 
-        _dcrMapping.AddOrUpdate(tableName, dcrId, (key, oldValue) => dcrId);
-    }
 
     private async Task SyncTableAsync(string tableName, List<ColumnDefinition> columnsList, HttpClient httpClient, CancellationToken cancellationToken)
     {
         //get current schema if available
         var schema = await GetCurrentColumnListAsync(tableName, httpClient);
+        // new table
         if (schema == null)
             schema = columnsList;
         else

@@ -6,30 +6,34 @@ public interface ISqlDatabaseService
         string rootCtx,
         SqlConnection sqlConnection,
         SqlTransaction sqlTransaction,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default
+    );
 
     Task SinkJsonObjectAsync(
-        string tableName, 
+        string tableName,
         SqlConnection sqlConnection,
         SqlTransaction sqlTransaction,
-        JsonElement payload, 
-        SQLTableDescriptor schemaDescriptor, 
-        KeyDescriptor keyDescriptor, 
-        CancellationToken cancellationToken = default);
+        JsonElement payload,
+        SQLTableDescriptor schemaDescriptor,
+        KeyDescriptor keyDescriptor,
+        CancellationToken cancellationToken = default
+    );
 
     Task UpdateSchemaTableAsync(
-        string rootCtx, 
+        string rootCtx,
         SqlConnection sqlConnection,
         SqlTransaction sqlTransaction,
         Dictionary<string, int> tableNamingCtx,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default
+    );
 
     Task<bool> UpsertSQLTableAsync(
-        SQLTableDescriptor schemaDescriptor, 
+        SQLTableDescriptor schemaDescriptor,
         SqlConnection connection,
-        SqlTransaction transaction, 
+        SqlTransaction transaction,
         SQLTableDescriptor? parent = null,
         int depth = 0,
-        bool dryRun = false, 
-        CancellationToken cancellationToken = default);
+        bool dryRun = false,
+        CancellationToken cancellationToken = default
+    );
 }

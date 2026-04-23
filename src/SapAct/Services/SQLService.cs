@@ -93,7 +93,7 @@ public class SQLService(
         else if (element.ValueKind == JsonValueKind.Object)
         {
             await sqlDatabaseService.SinkJsonObjectAsync(schemaDescriptor.SqlTableName, sqlConnection, sqlTransaction, element, schemaDescriptor,
-                new KeyDescriptor { RootKey = primaryKey, ForeignKey = keyDescriptor.ForeignKey }, cancellationToken);
+                new() { RootKey = primaryKey, ForeignKey = keyDescriptor.ForeignKey }, cancellationToken);
             foreach (var nonScalar in element.GetNonScalarProperties())
             {
                 var childTable = schemaDescriptor.GetChildTableDescriptor(nonScalar.Name);

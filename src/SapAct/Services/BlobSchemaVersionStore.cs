@@ -15,16 +15,13 @@ public class BlobSchemaVersionStore(BlobServiceClient blobServiceClient, IConfig
     public async Task SetSchemaVersionAsync(string objectType, TargetStorageEnum targetStorage, string version)
     {
         var blobClient = GetBlobClient(objectType, targetStorage);
-        if (!await blobClient.ExistsAsync())
-            await blobClient.UploadAsync(BinaryData.FromString(string.Empty));
+        if (!await blobClient.ExistsAsync()) await blobClient.UploadAsync(BinaryData.FromString(string.Empty));
 
         await blobClient.SetMetadataAsync(new Dictionary<string, string>
             { { Consts.SyncedSchemaVersionLockBlobMetadataKey, version } });
     }
 
-    public static string GetBlobName(string objectType, TargetStorageEnum targetStorage)
-        => $"{objectType}-{targetStorage}";
+    public static string GetBlobName(string objectType, TargetStorageEnum targetStorage) => $"{objectType}-{targetStorage}";
 
-    private BlobClient GetBlobClient(string objectType, TargetStorageEnum targetStorage)
-        => _containerClient.GetBlobClient(GetBlobName(objectType, targetStorage));
+    private BlobClient GetBlobClient(string objectType, TargetStorageEnum targetStorage) => _containerClient.GetBlobClient(GetBlobName(objectType, targetStorage));
 }

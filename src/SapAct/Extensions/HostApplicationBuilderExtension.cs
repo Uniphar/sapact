@@ -15,11 +15,11 @@ public static class HostApplicationBuilderExtension
             builder.Services.AddAzureClients(clientBuilder =>
             {
                 clientBuilder
-                    .AddServiceBusAdministrationClientWithNamespace(serviceBusTopic.ConnectionString!)
+                    .AddServiceBusAdministrationClientWithNamespace(serviceBusTopic.ConnectionString)
                     .WithName(name);
 
                 clientBuilder
-                    .AddServiceBusClientWithNamespace(serviceBusTopic.ConnectionString!)
+                    .AddServiceBusClientWithNamespace(serviceBusTopic.ConnectionString)
                     .WithName(name);
             });
 
