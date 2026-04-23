@@ -144,14 +144,24 @@ public abstract class SapActBaseWorker<T>(
                 _ => throw new ApplicationException("Unexpected message format")
             };
 
+            using var renewalCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            var renewalTask = RenewMessageLockPeriodicallyAsync(message, renewalCts.Token);
 
             var x = 0;
             var count = items.Count();
-            foreach (var item in items)
+            try
             {
-                await IngestMessageAsync(topic, item, cancellationToken);
+                foreach (var item in items)
+                {
+                    await IngestMessageAsync(topic, item, cancellationToken);
 
-                metrics.TrackMetricIngestion(typeof(T).Name, count == 1 ? message.MessageId : $"{message.MessageId}-{x++}", workerName);
+                    metrics.TrackMetricIngestion(typeof(T).Name, count == 1 ? message.MessageId : $"{message.MessageId}-{x++}", workerName);
+                }
+            }
+            finally
+            {
+                await renewalCts.CancelAsync();
+                await renewalTask;
             }
 
             await serviceBusReceiver!.CompleteMessageAsync(message, cancellationToken);
@@ -166,6 +176,26 @@ public abstract class SapActBaseWorker<T>(
                     ["OriginalMessage"] = bodyString
                 });
             await serviceBusReceiver!.DeadLetterMessageAsync(message, cancellationToken: cancellationToken);
+        }
+    }
+
+    private async Task RenewMessageLockPeriodicallyAsync(ServiceBusReceivedMessage message, CancellationToken cancellationToken)
+    {
+        try
+        {
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(30), cancellationToken);
+                await serviceBusReceiver!.RenewMessageLockAsync(message, cancellationToken);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // expected when processing completes
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to renew message lock for {MessageId}", message.MessageId);
         }
     }
 
