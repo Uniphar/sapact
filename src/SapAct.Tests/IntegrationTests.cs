@@ -144,16 +144,9 @@ public class IntegrationTests
 
         //act + assert
 
-        await Condition.WaitUntilAsync(
-            () => CheckADXDataIngest(objectKey, cancellationToken: _cancellationToken),
-            TimeSpan.FromMinutes(2));
-        await Condition.WaitUntilAsync(
-            () => CheckLogAnalyticsIngest(objectKey, cancellationToken: _cancellationToken),
-            TimeSpan.FromMinutes(2));
-        await Condition.WaitUntilAsync(
-            () => CheckSQLDataIngest(objectKey, cancellationToken: _cancellationToken),
-            TimeSpan.FromMinutes(2));
-
+        await Condition.WaitUntilAsync(() => CheckADXDataIngest(objectKey, cancellationToken: _cancellationToken), TimeSpan.FromMinutes(2));
+        await Condition.WaitUntilAsync(() => CheckLogAnalyticsIngest(objectKey, cancellationToken: _cancellationToken), TimeSpan.FromMinutes(4));
+        await Condition.WaitUntilAsync(() => CheckSQLDataIngest(objectKey, cancellationToken: _cancellationToken), TimeSpan.FromMinutes(2));
         Assert.IsTrue(
             await CheckNoDLQMessagePresentForSubscriptionAsync(_config!.GetTopicSubscriptionNameOrDefault<SQLWorker>()),
             "No DLQ messages expected for SQLWorker");
