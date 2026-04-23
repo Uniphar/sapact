@@ -1,4 +1,6 @@
-﻿namespace SapAct.Tests;
+﻿using Azure.Core;
+
+namespace SapAct.Tests;
 
 [TestClass]
 [TestCategory("Integration")]
@@ -15,7 +17,7 @@ public class IntegrationTests
     private static ICslAdminProvider? _adxAdminProvider;
     private static LogsQueryClient? _logsQueryClient;
     private static IConfiguration? _config;
-    private static DefaultAzureCredential? _credential;
+    private static TokenCredential? _credentials;
 
     private static string _databaseName = "devops";
 
@@ -33,37 +35,37 @@ public class IntegrationTests
     [ClassInitialize]
     public static async Task ClassInitialize(TestContext context)
     {
+        var env = context.Properties["Environment"]!.ToString();
         _cancellationToken = context.CancellationToken;
 
-        var azureKeyVaultName = Environment.GetEnvironmentVariable(Consts.KEYVAULT_CONFIG_URL);
+        _credentials = new AzureCliCredential();
 
-        _credential = new();
 
         _config = new ConfigurationBuilder()
-            .AddAzureKeyVault(new(azureKeyVaultName!), _credential)
+            .AddAzureKeyVault(new($"https://uni-devops-app-{env}-kv.vault.azure.net/"), _credentials)
             .AddEnvironmentVariables()
             .Build();
 
         _messageBusConfiguration = _config.GetIntTestsServiceBusConfig();
 
-        var sbClient = new ServiceBusClient(_messageBusConfiguration.ConnectionString, _credential);
+        var sbClient = new ServiceBusClient(_messageBusConfiguration.ConnectionString, _credentials);
 
-        _messageBusAdminClient = new(_messageBusConfiguration.ConnectionString, _credential);
+        _messageBusAdminClient = new(_messageBusConfiguration.ConnectionString, _credentials);
 
         _messageBusSender = sbClient.CreateSender(_messageBusConfiguration.TopicName);
 
-        _blobServiceClient = new(new(_config[Consts.LockServiceBlobConnectionStringConfigKey] ?? throw new ArgumentException()), _credential);
+        _blobServiceClient = new(new(_config[Consts.LockServiceBlobConnectionStringConfigKey] ?? throw new ArgumentException()), _credentials);
         _blobContainerClient = _blobServiceClient.GetBlobContainerClient(_config.GetLockServiceBlobContainerNameOrDefault());
 
         _databaseName = _config.GetADXClusterDBNameOrDefault();
 
-        var kcsb = new KustoConnectionStringBuilder(_config[Consts.ADXClusterHostUrlConfigKey], _databaseName)
-            .WithAadTokenProviderAuthentication(async () => (await _credential.GetTokenAsync(new([Consts.KustoTokenScope]))).Token);
+        var kustoConnectionStringBuilder = new KustoConnectionStringBuilder(_config[Consts.ADXClusterHostUrlConfigKey], _databaseName)
+            .WithAadTokenProviderAuthentication(async () => (await _credentials.GetTokenAsync(new([Consts.KustoTokenScope]), _cancellationToken)).Token);
 
-        _adxQueryProvider = KustoClientFactory.CreateCslQueryProvider(kcsb);
-        _adxAdminProvider = KustoClientFactory.CreateCslAdminProvider(kcsb);
+        _adxQueryProvider = KustoClientFactory.CreateCslQueryProvider(kustoConnectionStringBuilder);
+        _adxAdminProvider = KustoClientFactory.CreateCslAdminProvider(kustoConnectionStringBuilder);
 
-        _logsQueryClient = new(_credential);
+        _logsQueryClient = new(_credentials);
     }
 
     [TestInitialize]
@@ -113,7 +115,7 @@ public class IntegrationTests
             () => CheckADXDataIngest(objectKey, extendedObjectKey, _cancellationToken),
             TimeSpan.FromMinutes(2));
         await Condition.WaitUntilAsync(
-            () => CheckLADataIngest(objectKey, extendedObjectKey, _cancellationToken),
+            () => CheckLogAnalyticsIngest(objectKey, extendedObjectKey, _cancellationToken),
             TimeSpan.FromMinutes(2));
         await Condition.WaitUntilAsync(
             () => CheckSQLDataIngest(objectKey, extendedObjectKey, _cancellationToken),
@@ -151,7 +153,7 @@ public class IntegrationTests
             () => CheckADXDataIngest(objectKey, cancellationToken: _cancellationToken),
             TimeSpan.FromMinutes(2));
         await Condition.WaitUntilAsync(
-            () => CheckLADataIngest(objectKey, cancellationToken: _cancellationToken),
+            () => CheckLogAnalyticsIngest(objectKey, cancellationToken: _cancellationToken),
             TimeSpan.FromMinutes(2));
         await Condition.WaitUntilAsync(
             () => CheckSQLDataIngest(objectKey, cancellationToken: _cancellationToken),
@@ -167,13 +169,13 @@ public class IntegrationTests
             await CheckNoDLQMessagePresentForSubscriptionAsync(_config!.GetTopicSubscriptionNameOrDefault<LogAnalyticsWorker>()),
             "No DLQ messages expected for LogAnalyticsWorker");
         Assert.IsFalse(
-            await CheckLARecordPresentAsync(deltaEventKey),
+            await CheckLogAnalyticsRecordPresentAsync(deltaEventKey, cancellationToken: _cancellationToken),
             "Delta event should not be ingested into Log Analytics");
         Assert.IsFalse(
-            await CheckSQLRecordPresentAsync(deltaEventKey),
+            await CheckSQLRecordPresentAsync(deltaEventKey, _cancellationToken),
             "Delta event should not be ingested into SQL");
         Assert.IsFalse(
-            await CheckADXRecordPresentAsync(deltaEventKey),
+            await CheckADXRecordPresentAsync(deltaEventKey, _cancellationToken),
             "Delta event should not be ingested into ADX");
     }
 
@@ -187,7 +189,7 @@ public class IntegrationTests
 
     private async Task PurgeDLQForServiceBusSubscriptionAsync(string subscriptionName)
     {
-        await using var client = new ServiceBusClient(_messageBusConfiguration!.ConnectionString, _credential);
+        await using var client = new ServiceBusClient(_messageBusConfiguration!.ConnectionString, _credentials);
         var receiver = client.CreateReceiver(_messageBusConfiguration.TopicName,
             subscriptionName,
             new()
@@ -303,22 +305,22 @@ public class IntegrationTests
         return true;
     }
 
-    private async Task<bool> CheckLADataIngest(string objectKey, string? extendedObjectKey = null, CancellationToken cancellationToken = default)
+    private async Task<bool> CheckLogAnalyticsIngest(string objectKey, string? extendedObjectKey = null, CancellationToken cancellationToken = default)
     {
         if (laIngestCheckPassed) return true;
 
         var extendedSchemaColumnPresent = !string.IsNullOrWhiteSpace(extendedObjectKey);
 
-        if (!await CheckLARecordPresentAsync(objectKey, cancellationToken: cancellationToken)) return false;
+        if (!await CheckLogAnalyticsRecordPresentAsync(objectKey, cancellationToken: cancellationToken)) return false;
 
-        if (extendedSchemaColumnPresent && !await CheckLARecordPresentAsync(extendedObjectKey!, true, cancellationToken)) return false;
+        if (extendedSchemaColumnPresent && !await CheckLogAnalyticsRecordPresentAsync(extendedObjectKey!, true, cancellationToken)) return false;
 
         laIngestCheckPassed = true;
 
         return true;
     }
 
-    private async Task<bool> CheckLARecordPresentAsync(string objectKey, bool checkExtendedColumn = false, CancellationToken cancellationToken = default)
+    private async Task<bool> CheckLogAnalyticsRecordPresentAsync(string objectKey, bool checkExtendedColumn = false, CancellationToken cancellationToken = default)
     {
         var tableName = LogAnalyticsService.GetTableName(_objectType);
 

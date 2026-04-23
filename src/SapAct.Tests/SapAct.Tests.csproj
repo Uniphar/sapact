@@ -35,7 +35,9 @@
   <ItemGroup>
     <ProjectReference Include="..\SapAct\SapAct.csproj" />
   </ItemGroup>
-
+  <PropertyGroup>
+    <RunSettingsFilePath>$(MSBuildProjectDirectory)\runsettings\local.runsettings</RunSettingsFilePath>
+  </PropertyGroup>
   <ItemGroup>
     <Using Include="Microsoft.VisualStudio.TestTools.UnitTesting" />
   </ItemGroup>
