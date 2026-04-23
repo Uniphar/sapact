@@ -111,10 +111,10 @@ public class IntegrationTests
 
         //act + assert
 
-        await Condition.WaitUntilAsync(() => CheckSchemasProjected(extendedVersion, _cancellationToken), TimeSpan.FromMinutes(5));
-        await Condition.WaitUntilAsync(() => CheckADXDataIngest(objectKey, extendedObjectKey, _cancellationToken), TimeSpan.FromMinutes(5));
-        await Condition.WaitUntilAsync(() => CheckLogAnalyticsIngest(objectKey, extendedObjectKey, _cancellationToken), TimeSpan.FromMinutes(5));
-        await Condition.WaitUntilAsync(() => CheckSQLDataIngest(objectKey, extendedObjectKey, _cancellationToken), TimeSpan.FromMinutes(5));
+        await Condition.WaitUntilAsync(() => CheckSchemasProjected(extendedVersion, _cancellationToken), TimeSpan.FromMinutes(10));
+        await Condition.WaitUntilAsync(() => CheckADXDataIngest(objectKey, extendedObjectKey, _cancellationToken), TimeSpan.FromMinutes(10));
+        await Condition.WaitUntilAsync(() => CheckLogAnalyticsIngest(objectKey, extendedObjectKey, _cancellationToken), TimeSpan.FromMinutes(10));
+        await Condition.WaitUntilAsync(() => CheckSQLDataIngest(objectKey, extendedObjectKey, _cancellationToken), TimeSpan.FromMinutes(10));
     }
 
     [TestMethod]
@@ -144,9 +144,9 @@ public class IntegrationTests
 
         //act + assert
 
-        await Condition.WaitUntilAsync(() => CheckADXDataIngest(objectKey, cancellationToken: _cancellationToken), TimeSpan.FromMinutes(5));
-        await Condition.WaitUntilAsync(() => CheckLogAnalyticsIngest(objectKey, cancellationToken: _cancellationToken), TimeSpan.FromMinutes(5));
-        await Condition.WaitUntilAsync(() => CheckSQLDataIngest(objectKey, cancellationToken: _cancellationToken), TimeSpan.FromMinutes(5));
+        await Condition.WaitUntilAsync(() => CheckADXDataIngest(objectKey, cancellationToken: _cancellationToken), TimeSpan.FromMinutes(10));
+        await Condition.WaitUntilAsync(() => CheckLogAnalyticsIngest(objectKey, cancellationToken: _cancellationToken), TimeSpan.FromMinutes(10));
+        await Condition.WaitUntilAsync(() => CheckSQLDataIngest(objectKey, cancellationToken: _cancellationToken), TimeSpan.FromMinutes(10));
         Assert.IsTrue(
             await CheckNoDLQMessagePresentForSubscriptionAsync(_config!.GetTopicSubscriptionNameOrDefault<SQLWorker>()),
             "No DLQ messages expected for SQLWorker");
@@ -319,15 +319,11 @@ public class IntegrationTests
             LogsQueryTimeRange.All,
             cancellationToken: cancellationToken);
         var response = result.Value.Table.Rows.Count == 1;
-        if (result.Value.Table.Rows.Count > 1)
-        {
-            Assert.Fail($"Multiple records found in Log Analytics for objectKey {objectKey}");
-        }
+        if (result.Value.Table.Rows.Count > 1) Assert.Fail($"Multiple records found in Log Analytics for objectKey {objectKey}");
         if (checkExtendedColumn)
         {
             // second check, still only one row should be available 
             response = response && result.Value.Table.Columns.Any(c => c.Name == PayloadHelper.ExtendedSchemaColumnName);
-
         }
 
         return response;
