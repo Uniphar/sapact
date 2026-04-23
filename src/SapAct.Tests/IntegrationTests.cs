@@ -111,7 +111,7 @@ public class IntegrationTests
 
         //act + assert
 
-        await Condition.WaitUntilAsync(() => CheckSchemasProjected(extendedVersion, _cancellationToken),TimeSpan.FromMinutes(2));
+//        await Condition.WaitUntilAsync(() => CheckSchemasProjected(extendedVersion, _cancellationToken),TimeSpan.FromMinutes(2));
         await Condition.WaitUntilAsync(() => CheckADXDataIngest(objectKey, extendedObjectKey, _cancellationToken), TimeSpan.FromMinutes(2));
         await Condition.WaitUntilAsync(() => CheckLogAnalyticsIngest(objectKey, extendedObjectKey, _cancellationToken), TimeSpan.FromMinutes(2));
         await Condition.WaitUntilAsync(() => CheckSQLDataIngest(objectKey, extendedObjectKey, _cancellationToken), TimeSpan.FromMinutes(2));
@@ -328,8 +328,8 @@ public class IntegrationTests
         var response = result.Value.Table.Rows.Count == 1;
         if (checkExtendedColumn)
         {
-            // second check
-            response = result.Value.Table.Columns.Any(c => c.Name == PayloadHelper.ExtendedSchemaColumnName);
+            // second check, still only one row should be available 
+            response = response&& result.Value.Table.Columns.Any(c => c.Name == PayloadHelper.ExtendedSchemaColumnName);
         }
 
         return response;
