@@ -53,7 +53,7 @@ public class AzureDataExplorerClient(
         }
         catch (SemanticException e)
         {
-            //likely table does not exist, but lest log it anyway for troubleshooting purposes
+            // likely the table does not exist, but log it anyway for troubleshooting purposes
             logger.LogWarning(e, $"Failed to get current schema for table {tableName}, this might be because the table does not exist.");
             return [];
         }
