@@ -52,8 +52,12 @@ public class IntegrationTests
         _messageBusAdminClient = new(_messageBusConfiguration.ConnectionString, _credentials);
 
         _messageBusSender = sbClient.CreateSender(_messageBusConfiguration.TopicName);
+        var blobStorageKey = _config["STORAGEACCOUNT:KEY"];
 
-        _blobServiceClient = new(new(_config[Consts.LockServiceBlobConnectionStringConfigKey] ?? throw new ArgumentException()), _credentials);
+        _blobServiceClient = new(
+            $"DefaultEndpointsProtocol=https;AccountName=unidevops{_env};AccountKey={blobStorageKey};EndpointSuffix=core.windows.net");
+
+
         _blobContainerClient = _blobServiceClient.GetBlobContainerClient(_config.GetLockServiceBlobContainerNameOrDefault());
 
         _databaseName = _config.GetADXClusterDBNameOrDefault();
@@ -216,10 +220,20 @@ public class IntegrationTests
             var sqlBlobProps = await _blobContainerClient.GetBlobClient(BlobSchemaVersionStore.GetBlobName(_objectType, TargetStorageEnum.SQL)).GetPropertiesAsync(cancellationToken: cancellationToken);
 
             if (adxBlobProps.Value.Metadata.Count != 1 || laBlobProps.Value.Metadata.Count != 1 || sqlBlobProps.Value.Metadata.Count != 1) return false;
+            var check = adxBlobProps.Value.Metadata[Consts.SyncedSchemaVersionLockBlobMetadataKey] == version;
+            if (!check) return schemaCheckPassed;
+            var check2 = laBlobProps.Value.Metadata[Consts.SyncedSchemaVersionLockBlobMetadataKey] == version;
+            if (check2)
+            {
+                var check3 = sqlBlobProps.Value.Metadata[Consts.SyncedSchemaVersionLockBlobMetadataKey] == version;
+                if (check3)
+                    schemaCheckPassed = true;
+                else // ADX is updated, so SQL should be updated as well, if not something went wrong
+                    Assert.Fail("SQL schema version does not match the expected version.");
+            }
+            else // ADX is updated, so LA should be updated as well, if not something went wrong
+                Assert.Fail("Log Analytics schema version does not match the expected version.");
 
-            schemaCheckPassed = adxBlobProps.Value.Metadata[Consts.SyncedSchemaVersionLockBlobMetadataKey] == version &&
-                                laBlobProps.Value.Metadata[Consts.SyncedSchemaVersionLockBlobMetadataKey] == version &&
-                                sqlBlobProps.Value.Metadata[Consts.SyncedSchemaVersionLockBlobMetadataKey] == version;
 
             return schemaCheckPassed;
         }
