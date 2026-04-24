@@ -34,6 +34,7 @@ public class SQLService(
 
                     while (schemaCheck.IsUpdateRequired() || dryRunSchemaCheck)
                     {
+                        schemaCheck = await CheckObjectTypeSchemaAsync(messageProperties.objectType, messageProperties.dataVersion, TargetStorageEnum.SQL);
                         dryRunSchemaCheck = !schemaCheck.IsUpdateRequired() && await UpsertSQLStructuresAsync(schemaDescriptor, true, cancellationToken);
 
                         var lockAcquired = await AcquireSchemaLockAsync(messageProperties.objectType, TargetStorageEnum.SQL);
@@ -41,13 +42,14 @@ public class SQLService(
                         {
                             await UpsertSQLStructuresAsync(schemaDescriptor, cancellationToken: cancellationToken);
                             await CommitSchemaVersionAsync(messageProperties.objectType, messageProperties.dataVersion, TargetStorageEnum.SQL);
+                            //TODO release lock
                             break;
                         }
 
                         // wait a second, it might be the other region that is sorting this out
                         await Task.Delay(1000, cancellationToken);
                     }
-
+                    
                     await SinkDataAsyncInnerAsync(sqlConnection, sqlTransaction, payload, schemaDescriptor,
                         new() { RootKey = messageProperties.objectKey, ForeignKey = string.Empty }, cancellationToken);
                     await sqlTransaction.CommitAsync(cancellationToken);

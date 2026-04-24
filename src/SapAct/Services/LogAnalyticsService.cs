@@ -135,6 +135,7 @@ public class LogAnalyticsService(
                 _dcrMapping.AddOrUpdate(objectType, dcrId, (key, oldValue) => dcrId);
                 // commit does update too
                 await CommitSchemaVersionAsync(objectType, dataVersion, TargetStorageEnum.LogAnalytics);
+                //TODO release lock
                 break;
             }
 

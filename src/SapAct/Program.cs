@@ -22,7 +22,6 @@ var cosmosDatabase = builder.Configuration["Cosmos:Database"] ?? throw new NoNul
 builder.Services.AddCosmosLockService(cosmosConnectionString);
 builder.Services.AddSingleton<LogAnalyticsService>();
 builder.Services.AddSingleton<ADXService>();
-builder.Services.AddSingleton<SQLService>();
 
 builder.Services.AddSingleton<ResourceInitializerService>();
 

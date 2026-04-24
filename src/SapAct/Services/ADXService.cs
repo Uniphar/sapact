@@ -25,6 +25,7 @@ public class ADXService(IAzureDataExplorerClient adxClient, DistributedLockServi
                 var columnsList = payload.GenerateColumnList(TargetStorageEnum.ADX);
                 await adxClient.CreateOrUpdateTableAsync(objectType, columnsList, cancellationToken);
                 await CommitSchemaVersionAsync(objectType, dataVersion, TargetStorageEnum.ADX);
+                //TODO release lock
                 break;
             }
 
