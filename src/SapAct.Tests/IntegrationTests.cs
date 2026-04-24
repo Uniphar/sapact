@@ -109,16 +109,17 @@ public class IntegrationTests
         await _messageBusSender!.SendMessageAsync(
             new(Encoding.UTF8.GetBytes(PayloadHelper.GetPayload(_objectType, objectKey, version))),
             _cancellationToken);
+        // check if the schema are projected for the non-extended version
+        await Condition.WaitUntilAsync(() => CheckSchemasProjected(version, _cancellationToken), TimeSpan.FromMinutes(5));
+        // insert extended version
         await _messageBusSender.SendMessageAsync(
             new(Encoding.UTF8.GetBytes(PayloadHelper.GetPayload(_objectType, extendedObjectKey, extendedVersion, true))),
             _cancellationToken);
 
-        //act + assert
-
-        await Condition.WaitUntilAsync(() => CheckSchemasProjected(extendedVersion, _cancellationToken), TimeSpan.FromMinutes(10));
-        await Condition.WaitUntilAsync(() => CheckADXDataIngest(objectKey, extendedObjectKey, _cancellationToken), TimeSpan.FromMinutes(10));
-        await Condition.WaitUntilAsync(() => CheckLogAnalyticsIngest(objectKey, extendedObjectKey, _cancellationToken), TimeSpan.FromMinutes(10));
-        await Condition.WaitUntilAsync(() => CheckSQLDataIngest(objectKey, extendedObjectKey, _cancellationToken), TimeSpan.FromMinutes(10));
+        await Condition.WaitUntilAsync(() => CheckSchemasProjected(extendedVersion, _cancellationToken), TimeSpan.FromMinutes(5));
+        await Condition.WaitUntilAsync(() => CheckADXDataIngest(objectKey, extendedObjectKey, _cancellationToken), TimeSpan.FromMinutes(5));
+        await Condition.WaitUntilAsync(() => CheckLogAnalyticsIngest(objectKey, extendedObjectKey, _cancellationToken), TimeSpan.FromMinutes(5));
+        await Condition.WaitUntilAsync(() => CheckSQLDataIngest(objectKey, extendedObjectKey, _cancellationToken), TimeSpan.FromMinutes(5));
     }
 
     [TestMethod]
