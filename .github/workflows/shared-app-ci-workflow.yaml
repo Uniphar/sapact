@@ -37,7 +37,7 @@ jobs:
 
       - name: gh-app-install token
         id: gh-app
-        uses: getsentry/action-github-app-token@v2
+        uses: getsentry/action-github-app-token@v3
         with:
           app_id: ${{ secrets.ACTIONS_AUTH_APP_ID }}
           private_key: ${{ secrets.ACTIONS_AUTH_APP_PRIVATE_KEY }}
@@ -59,7 +59,7 @@ jobs:
           echo "APPLICATION_FOLDER=${{ inputs.applicationFolder }}" >> $GITHUB_ENV
 
       - name: azure login
-        uses: azure/login@v2
+        uses: azure/login@v3
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
@@ -67,7 +67,7 @@ jobs:
           enable-AzPSSession: true
 
       - name: devops deploy WhatIf
-        uses: azure/powershell@v2
+        uses: azure/powershell@v3
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} #required for gh cli to determine "current PR"
         with:
@@ -106,7 +106,7 @@ jobs:
     steps:
       - name: gh-app-install token
         id: gh-app
-        uses: getsentry/action-github-app-token@v2
+        uses: getsentry/action-github-app-token@v3
         with:
           app_id: ${{ secrets.ACTIONS_AUTH_APP_ID }}
           private_key: ${{ secrets.ACTIONS_AUTH_APP_PRIVATE_KEY }}

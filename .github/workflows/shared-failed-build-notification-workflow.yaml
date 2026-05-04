@@ -28,7 +28,7 @@ jobs:
     - name: Notify Build Failure Result to Teams
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      uses: azure/powershell@v2
+      uses: azure/powershell@v3
       with:
         inlineScript: |
           # Get the workflow run details
