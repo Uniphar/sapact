@@ -61,7 +61,13 @@ public abstract class VersionedSchemaBaseService(DistributedLockService distribu
     ///     Acquires schema ownership for the given objectType + targetStorage combination.
     ///     Returns true if this instance owns schema updates for this key; false if another instance owns it.
     /// </summary>
-    protected Task<bool> AcquireSchemaLockAsync(string objectType, TargetStorageEnum targetStorage) => distributedLockService.AcquireJobLockAsync($"{objectType}-{targetStorage}");
+    protected Task<bool> AcquireSchemaLockAsync(string objectType, TargetStorageEnum targetStorage, CancellationToken token) => distributedLockService.AcquireJobLockAsync($"{objectType}-{targetStorage}", token);
+
+    /// <summary>
+    ///     Acquires schema ownership for the given objectType + targetStorage combination.
+    ///     Returns true if this instance owns schema updates for this key; false if another instance owns it.
+    /// </summary>
+    protected Task<bool> ReleaseSchemaLockAsync(string objectType, TargetStorageEnum targetStorage, CancellationToken token) => distributedLockService.ReleaseJobLockAsync($"{objectType}-{targetStorage}", token);
 
     /// <summary>
     ///     Updates the in-memory schema version cache and persists the version to the schema store.

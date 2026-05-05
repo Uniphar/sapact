@@ -128,14 +128,15 @@ public class LogAnalyticsService(
         while (schemaCheckResult is SchemaCheckResultState.Unknown or SchemaCheckResultState.Older)
         {
             schemaCheckResult = await CheckObjectTypeSchemaAsync(objectType, dataVersion, TargetStorageEnum.LogAnalytics);
-            var lockAcquired = await AcquireSchemaLockAsync(objectType, TargetStorageEnum.LogAnalytics);
+            var lockAcquired = await AcquireSchemaLockAsync(objectType, TargetStorageEnum.LogAnalytics, cancellationToken);
             if (lockAcquired)
             {
                 dcrId = await SyncTableSchema(objectType, payload, cancellationToken);
                 _dcrMapping.AddOrUpdate(objectType, dcrId, (key, oldValue) => dcrId);
                 // commit does update too
                 await CommitSchemaVersionAsync(objectType, dataVersion, TargetStorageEnum.LogAnalytics);
-                //TODO release lock
+                // no CancellationToken for release lock, we want to make sure it's released
+                await ReleaseSchemaLockAsync(objectType, TargetStorageEnum.LogAnalytics, CancellationToken.None);
                 break;
             }
 

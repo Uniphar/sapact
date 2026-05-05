@@ -28,8 +28,8 @@ public class SQLService(
                     var schemaCheck = await CheckObjectTypeSchemaAsync(messageProperties.objectType, messageProperties.dataVersion, TargetStorageEnum.SQL);
 
                     var schemaDescriptor = await GenerateSchemaDescriptorAsync(sqlConnection, sqlTransaction, messageProperties.objectType, payload, cancellationToken);
-                    ///dry run to check if schema update is necessary as certain (sub)structures may only be populated for specific payload instances
-                    ///so we can only build up a schema when these are set - data version property refers to logical schema but not it used in its entirety
+                    //dry run to check if schema update is necessary as certain (sub)structures may only be populated for specific payload instances
+                    //so we can only build up a schema when these are set - data version property refers to logical schema but not it used in its entirety
                     var dryRunSchemaCheck = !schemaCheck.IsUpdateRequired() && await UpsertSQLStructuresAsync(schemaDescriptor, dryRun: true, cancellationToken);
 
                     while (schemaCheck.IsUpdateRequired() || dryRunSchemaCheck)
@@ -37,12 +37,13 @@ public class SQLService(
                         schemaCheck = await CheckObjectTypeSchemaAsync(messageProperties.objectType, messageProperties.dataVersion, TargetStorageEnum.SQL);
                         dryRunSchemaCheck = !schemaCheck.IsUpdateRequired() && await UpsertSQLStructuresAsync(schemaDescriptor, true, cancellationToken);
 
-                        var lockAcquired = await AcquireSchemaLockAsync(messageProperties.objectType, TargetStorageEnum.SQL);
+                        var lockAcquired = await AcquireSchemaLockAsync(messageProperties.objectType, TargetStorageEnum.SQL, cancellationToken);
                         if (lockAcquired)
                         {
                             await UpsertSQLStructuresAsync(schemaDescriptor, cancellationToken: cancellationToken);
                             await CommitSchemaVersionAsync(messageProperties.objectType, messageProperties.dataVersion, TargetStorageEnum.SQL);
-                            //TODO release lock
+                            // no CancellationToken for release lock, we want to make sure it's released
+                            await ReleaseSchemaLockAsync(messageProperties.objectType, TargetStorageEnum.SQL, CancellationToken.None);
                             break;
                         }
 

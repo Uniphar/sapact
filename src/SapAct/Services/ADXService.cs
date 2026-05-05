@@ -19,13 +19,14 @@ public class ADXService(IAzureDataExplorerClient adxClient, DistributedLockServi
         while (schemaCheck is SchemaCheckResultState.Older or SchemaCheckResultState.Unknown)
         {
             schemaCheck = await CheckObjectTypeSchemaAsync(objectType, dataVersion, TargetStorageEnum.ADX);
-            var lockAcquired = await AcquireSchemaLockAsync(objectType, TargetStorageEnum.ADX);
+            var lockAcquired = await AcquireSchemaLockAsync(objectType, TargetStorageEnum.ADX, cancellationToken);
             if (lockAcquired)
             {
                 var columnsList = payload.GenerateColumnList(TargetStorageEnum.ADX);
                 await adxClient.CreateOrUpdateTableAsync(objectType, columnsList, cancellationToken);
                 await CommitSchemaVersionAsync(objectType, dataVersion, TargetStorageEnum.ADX);
-                //TODO release lock
+                // no CancellationToken for release lock, we want to make sure it's released
+                await ReleaseSchemaLockAsync(objectType, TargetStorageEnum.ADX, CancellationToken.None);
                 break;
             }
 
