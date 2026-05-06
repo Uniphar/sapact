@@ -134,6 +134,7 @@ public abstract class SapActBaseWorker<T>(
     {
         var bodyString = GetBodyString(message);
         if (bodyString == null) return;
+        var stopwatch = Stopwatch.StartNew();
         try
         {
             using var jsonDocument = JsonDocument.Parse(bodyString);
@@ -165,6 +166,13 @@ public abstract class SapActBaseWorker<T>(
             }
 
             await serviceBusReceiver!.CompleteMessageAsync(message, cancellationToken);
+            telemetry.TrackEvent("MessageProcessed",
+                new()
+                {
+                    ["Topic"] = topic,
+                    ["MessageId"] = message.MessageId,
+                    ["ElapsedMs"] = stopwatch.ElapsedMilliseconds.ToString()
+                });
         }
         catch (JsonException ex)
         {

@@ -1,5 +1,6 @@
 ﻿global using System.Collections.Concurrent;
 global using System.Data;
+global using System.Diagnostics;
 global using System.Diagnostics.Metrics;
 global using System.Net;
 global using System.Text;
