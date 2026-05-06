@@ -227,16 +227,16 @@ public class IntegrationTests
             if (adxBlobProps.Value.Metadata.Count != 1 || laBlobProps.Value.Metadata.Count != 1 || sqlBlobProps.Value.Metadata.Count != 1) return false;
             var check = adxBlobProps.Value.Metadata[Consts.SyncedSchemaVersionLockBlobMetadataKey] == version;
             if (!check) return schemaCheckPassed;
+            //final pull just to make sure we have the latest version before asserting
+            laBlobProps = await _blobContainerClient.GetBlobClient(BlobSchemaVersionStore.GetBlobName(_objectType, TargetStorageEnum.LogAnalytics)).GetPropertiesAsync(cancellationToken: cancellationToken);
             Assert.AreEqual(version, laBlobProps.Value.Metadata[Consts.SyncedSchemaVersionLockBlobMetadataKey], "Log Analytics schema version does not match the expected version.");
-            var check3 = sqlBlobProps.Value.Metadata[Consts.SyncedSchemaVersionLockBlobMetadataKey] == version;
-            if (check3)
-                schemaCheckPassed = true;
-            else // ADX is updated, so SQL should be updated as well, if not something went wrong
-                Assert.Fail("SQL schema version does not match the expected version.");
+            //final pull just to make sure we have the latest version before asserting
+            sqlBlobProps = await _blobContainerClient.GetBlobClient(BlobSchemaVersionStore.GetBlobName(_objectType, TargetStorageEnum.SQL)).GetPropertiesAsync(cancellationToken: cancellationToken);
+            Assert.AreEqual(version, sqlBlobProps.Value.Metadata[Consts.SyncedSchemaVersionLockBlobMetadataKey], "SQL schema version does not match the expected version.");
+            //no need to loop any more
+            schemaCheckPassed = true;
+            return true;
 
-
-
-            return schemaCheckPassed;
         }
         catch (RequestFailedException ex) when (ex.Status == 404)
         {
