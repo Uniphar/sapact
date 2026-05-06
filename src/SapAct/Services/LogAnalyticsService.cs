@@ -7,7 +7,8 @@ public class LogAnalyticsService(
     LogsIngestionClient logsIngestionClient,
     DistributedLockService distributedLockService,
     ISchemaVersionStore schemaVersionStore,
-    ICustomEventTelemetryClient telemetryClient
+    ICustomEventTelemetryClient telemetryClient,
+    ILogger<LogAnalyticsService> logger
 )
     : VersionedSchemaBaseService(distributedLockService, schemaVersionStore)
 {
@@ -124,22 +125,36 @@ public class LogAnalyticsService(
 
 
         var schemaCheckResult = await CheckObjectTypeSchemaAsync(objectType, dataVersion, TargetStorageEnum.LogAnalytics);
+        logger.LogDebug("LA schema check for {ObjectType} v{Version}: {Result}", objectType, dataVersion, schemaCheckResult);
+
         // keep checking, might be the other cluster that resolves it
         while (schemaCheckResult is SchemaCheckResultState.Unknown or SchemaCheckResultState.Older)
         {
             schemaCheckResult = await CheckObjectTypeSchemaAsync(objectType, dataVersion, TargetStorageEnum.LogAnalytics);
+            if (!schemaCheckResult.IsUpdateRequired()) break;
+
             var lockAcquired = await AcquireSchemaLockAsync(objectType, TargetStorageEnum.LogAnalytics, cancellationToken);
             if (lockAcquired)
             {
-                dcrId = await SyncTableSchema(objectType, payload, cancellationToken);
-                _dcrMapping.AddOrUpdate(objectType, dcrId, (key, oldValue) => dcrId);
-                // commit does update too
-                await CommitSchemaVersionAsync(objectType, dataVersion, TargetStorageEnum.LogAnalytics);
-                // no CancellationToken for release lock, we want to make sure it's released
-                await ReleaseSchemaLockAsync(objectType, TargetStorageEnum.LogAnalytics, CancellationToken.None);
+                logger.LogInformation("LA schema lock acquired for {ObjectType} v{Version}", objectType, dataVersion);
+                try
+                {
+                    dcrId = await SyncTableSchema(objectType, payload, cancellationToken);
+                    _dcrMapping.AddOrUpdate(objectType, dcrId, (key, oldValue) => dcrId);
+                    // commit does update too
+                    await CommitSchemaVersionAsync(objectType, dataVersion, TargetStorageEnum.LogAnalytics);
+                    logger.LogInformation("LA schema committed for {ObjectType} v{Version}", objectType, dataVersion);
+                }
+                finally
+                {
+                    // no CancellationToken for release lock, we want to make sure it's released
+                    await ReleaseSchemaLockAsync(objectType, TargetStorageEnum.LogAnalytics, CancellationToken.None);
+                    logger.LogDebug("LA schema lock released for {ObjectType}", objectType);
+                }
                 break;
             }
 
+            logger.LogDebug("LA schema lock not acquired for {ObjectType}, waiting for other region", objectType);
             await Task.Delay(1000, cancellationToken);
         }
 

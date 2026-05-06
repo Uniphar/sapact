@@ -14,7 +14,7 @@ public class SQLService(
         if (messageProperties == null) return;
         if (Consts.DeltaEventType == messageProperties.eventType)
             return;
-        
+
         var sqlConnection = serviceProvider.GetRequiredService<SqlConnection>();
         await using (sqlConnection)
         {
@@ -26,6 +26,7 @@ public class SQLService(
                 {
                     //schema check
                     var schemaCheck = await CheckObjectTypeSchemaAsync(messageProperties.objectType, messageProperties.dataVersion, TargetStorageEnum.SQL);
+                    logger.LogDebug("SQL schema check for {ObjectType} v{Version}: {Result}", messageProperties.objectType, messageProperties.dataVersion, schemaCheck);
 
                     var schemaDescriptor = await GenerateSchemaDescriptorAsync(sqlConnection, sqlTransaction, messageProperties.objectType, payload, cancellationToken);
                     //dry run to check if schema update is necessary as certain (sub)structures may only be populated for specific payload instances
@@ -37,20 +38,32 @@ public class SQLService(
                         schemaCheck = await CheckObjectTypeSchemaAsync(messageProperties.objectType, messageProperties.dataVersion, TargetStorageEnum.SQL);
                         dryRunSchemaCheck = !schemaCheck.IsUpdateRequired() && await UpsertSQLStructuresAsync(schemaDescriptor, true, cancellationToken);
 
+                        if (!schemaCheck.IsUpdateRequired() && !dryRunSchemaCheck) break;
+
                         var lockAcquired = await AcquireSchemaLockAsync(messageProperties.objectType, TargetStorageEnum.SQL, cancellationToken);
                         if (lockAcquired)
                         {
-                            await UpsertSQLStructuresAsync(schemaDescriptor, cancellationToken: cancellationToken);
-                            await CommitSchemaVersionAsync(messageProperties.objectType, messageProperties.dataVersion, TargetStorageEnum.SQL);
-                            // no CancellationToken for release lock, we want to make sure it's released
-                            await ReleaseSchemaLockAsync(messageProperties.objectType, TargetStorageEnum.SQL, CancellationToken.None);
+                            logger.LogInformation("SQL schema lock acquired for {ObjectType} v{Version}", messageProperties.objectType, messageProperties.dataVersion);
+                            try
+                            {
+                                await UpsertSQLStructuresAsync(schemaDescriptor, cancellationToken: cancellationToken);
+                                await CommitSchemaVersionAsync(messageProperties.objectType, messageProperties.dataVersion, TargetStorageEnum.SQL);
+                                logger.LogInformation("SQL schema committed for {ObjectType} v{Version}", messageProperties.objectType, messageProperties.dataVersion);
+                            }
+                            finally
+                            {
+                                // no CancellationToken for release lock, we want to make sure it's released
+                                await ReleaseSchemaLockAsync(messageProperties.objectType, TargetStorageEnum.SQL, CancellationToken.None);
+                                logger.LogDebug("SQL schema lock released for {ObjectType}", messageProperties.objectType);
+                            }
                             break;
                         }
 
+                        logger.LogDebug("SQL schema lock not acquired for {ObjectType}, waiting for other region", messageProperties.objectType);
                         // wait a second, it might be the other region that is sorting this out
                         await Task.Delay(1000, cancellationToken);
                     }
-                    
+
                     await SinkDataAsyncInnerAsync(sqlConnection, sqlTransaction, payload, schemaDescriptor,
                         new() { RootKey = messageProperties.objectKey, ForeignKey = string.Empty }, cancellationToken);
                     await sqlTransaction.CommitAsync(cancellationToken);

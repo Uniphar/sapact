@@ -220,6 +220,12 @@ public class IntegrationTests
             var laBlobProps = await _blobContainerClient.GetBlobClient(BlobSchemaVersionStore.GetBlobName(_objectType, TargetStorageEnum.LogAnalytics)).GetPropertiesAsync(cancellationToken: cancellationToken);
             var sqlBlobProps = await _blobContainerClient.GetBlobClient(BlobSchemaVersionStore.GetBlobName(_objectType, TargetStorageEnum.SQL)).GetPropertiesAsync(cancellationToken: cancellationToken);
 
+            var adxVersion = adxBlobProps.Value.Metadata.TryGetValue(Consts.SyncedSchemaVersionLockBlobMetadataKey, out var adxV) ? adxV : "<missing>";
+            var laVersion = laBlobProps.Value.Metadata.TryGetValue(Consts.SyncedSchemaVersionLockBlobMetadataKey, out var laV) ? laV : "<missing>";
+            var sqlVersion = sqlBlobProps.Value.Metadata.TryGetValue(Consts.SyncedSchemaVersionLockBlobMetadataKey, out var sqlV) ? sqlV : "<missing>";
+
+            Console.WriteLine($"[SchemaCheck] Expected: {version} | ADX: {adxVersion} (meta count: {adxBlobProps.Value.Metadata.Count}) | LA: {laVersion} (meta count: {laBlobProps.Value.Metadata.Count}) | SQL: {sqlVersion} (meta count: {sqlBlobProps.Value.Metadata.Count})");
+
             if (adxBlobProps.Value.Metadata.Count != 1 || laBlobProps.Value.Metadata.Count != 1 || sqlBlobProps.Value.Metadata.Count != 1) return false;
             var check = adxBlobProps.Value.Metadata[Consts.SyncedSchemaVersionLockBlobMetadataKey] == version;
             if (!check) return schemaCheckPassed;
