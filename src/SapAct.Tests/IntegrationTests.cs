@@ -224,22 +224,16 @@ public class IntegrationTests
             var laVersion = laBlobProps.Value.Metadata.TryGetValue(Consts.SyncedSchemaVersionLockBlobMetadataKey, out var laV) ? laV : "<missing>";
             var sqlVersion = sqlBlobProps.Value.Metadata.TryGetValue(Consts.SyncedSchemaVersionLockBlobMetadataKey, out var sqlV) ? sqlV : "<missing>";
 
-            Console.WriteLine($"[SchemaCheck] Expected: {version} | ADX: {adxVersion} (meta count: {adxBlobProps.Value.Metadata.Count}) | LA: {laVersion} (meta count: {laBlobProps.Value.Metadata.Count}) | SQL: {sqlVersion} (meta count: {sqlBlobProps.Value.Metadata.Count})");
-
             if (adxBlobProps.Value.Metadata.Count != 1 || laBlobProps.Value.Metadata.Count != 1 || sqlBlobProps.Value.Metadata.Count != 1) return false;
             var check = adxBlobProps.Value.Metadata[Consts.SyncedSchemaVersionLockBlobMetadataKey] == version;
             if (!check) return schemaCheckPassed;
-            var check2 = laBlobProps.Value.Metadata[Consts.SyncedSchemaVersionLockBlobMetadataKey] == version;
-            if (check2)
-            {
-                var check3 = sqlBlobProps.Value.Metadata[Consts.SyncedSchemaVersionLockBlobMetadataKey] == version;
-                if (check3)
-                    schemaCheckPassed = true;
-                else // ADX is updated, so SQL should be updated as well, if not something went wrong
-                    Assert.Fail("SQL schema version does not match the expected version.");
-            }
-            else // ADX is updated, so LA should be updated as well, if not something went wrong
-                Assert.Fail("Log Analytics schema version does not match the expected version.");
+            Assert.AreEqual(version, laBlobProps.Value.Metadata[Consts.SyncedSchemaVersionLockBlobMetadataKey], "Log Analytics schema version does not match the expected version.");
+            var check3 = sqlBlobProps.Value.Metadata[Consts.SyncedSchemaVersionLockBlobMetadataKey] == version;
+            if (check3)
+                schemaCheckPassed = true;
+            else // ADX is updated, so SQL should be updated as well, if not something went wrong
+                Assert.Fail("SQL schema version does not match the expected version.");
+
 
 
             return schemaCheckPassed;
