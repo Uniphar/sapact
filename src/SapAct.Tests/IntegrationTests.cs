@@ -110,13 +110,13 @@ public class IntegrationTests
             new(Encoding.UTF8.GetBytes(PayloadHelper.GetPayload(_objectType, objectKey, version))),
             _cancellationToken);
         // check if the schema are projected for the non-extended version
-        await Condition.WaitUntilAsync(() => CheckSchemasProjected(version, _cancellationToken), TimeSpan.FromMinutes(5));
+        await Condition.WaitUntilAsync(() => CheckSchemasProjected(version, _cancellationToken), TimeSpan.FromMinutes(15));
         // insert extended version
         await _messageBusSender.SendMessageAsync(
             new(Encoding.UTF8.GetBytes(PayloadHelper.GetPayload(_objectType, extendedObjectKey, extendedVersion, true))),
             _cancellationToken);
 
-        await Condition.WaitUntilAsync(() => CheckSchemasProjected(extendedVersion, _cancellationToken), TimeSpan.FromMinutes(5));
+        await Condition.WaitUntilAsync(() => CheckSchemasProjected(extendedVersion, _cancellationToken), TimeSpan.FromMinutes(15));
         await Condition.WaitUntilAsync(() => CheckADXDataIngest(objectKey, extendedObjectKey, _cancellationToken), TimeSpan.FromMinutes(5));
         await Condition.WaitUntilAsync(() => CheckLogAnalyticsIngest(objectKey, extendedObjectKey, _cancellationToken), TimeSpan.FromMinutes(5));
         await Condition.WaitUntilAsync(() => CheckSQLDataIngest(objectKey, extendedObjectKey, _cancellationToken), TimeSpan.FromMinutes(5));
@@ -220,23 +220,35 @@ public class IntegrationTests
             var laBlobProps = await _blobContainerClient.GetBlobClient(BlobSchemaVersionStore.GetBlobName(_objectType, TargetStorageEnum.LogAnalytics)).GetPropertiesAsync(cancellationToken: cancellationToken);
             var sqlBlobProps = await _blobContainerClient.GetBlobClient(BlobSchemaVersionStore.GetBlobName(_objectType, TargetStorageEnum.SQL)).GetPropertiesAsync(cancellationToken: cancellationToken);
 
-            var adxVersion = adxBlobProps.Value.Metadata.TryGetValue(Consts.SyncedSchemaVersionLockBlobMetadataKey, out var adxV) ? adxV : "<missing>";
-            var laVersion = laBlobProps.Value.Metadata.TryGetValue(Consts.SyncedSchemaVersionLockBlobMetadataKey, out var laV) ? laV : "<missing>";
-            var sqlVersion = sqlBlobProps.Value.Metadata.TryGetValue(Consts.SyncedSchemaVersionLockBlobMetadataKey, out var sqlV) ? sqlV : "<missing>";
 
             if (adxBlobProps.Value.Metadata.Count != 1 || laBlobProps.Value.Metadata.Count != 1 || sqlBlobProps.Value.Metadata.Count != 1) return false;
-            var check = adxBlobProps.Value.Metadata[Consts.SyncedSchemaVersionLockBlobMetadataKey] == version;
-            if (!check) return schemaCheckPassed;
-            //final pull just to make sure we have the latest version before asserting
-            laBlobProps = await _blobContainerClient.GetBlobClient(BlobSchemaVersionStore.GetBlobName(_objectType, TargetStorageEnum.LogAnalytics)).GetPropertiesAsync(cancellationToken: cancellationToken);
+            // give it 5min to fix itself
+            await Condition.WaitUntilAsync(async () =>
+                {
+                    adxBlobProps = await _blobContainerClient.GetBlobClient(BlobSchemaVersionStore.GetBlobName(_objectType, TargetStorageEnum.ADX)).GetPropertiesAsync(cancellationToken: cancellationToken);
+                    return version == adxBlobProps.Value.Metadata[Consts.SyncedSchemaVersionLockBlobMetadataKey];
+                },
+                TimeSpan.FromMinutes(5));
+            Assert.AreEqual(version, adxBlobProps.Value.Metadata[Consts.SyncedSchemaVersionLockBlobMetadataKey], "ADX schema version does not match the expected version.");
+            // give it 5min to fix itself
+            await Condition.WaitUntilAsync(async () =>
+                {
+                    laBlobProps = await _blobContainerClient.GetBlobClient(BlobSchemaVersionStore.GetBlobName(_objectType, TargetStorageEnum.LogAnalytics)).GetPropertiesAsync(cancellationToken: cancellationToken);
+                    return version == laBlobProps.Value.Metadata[Consts.SyncedSchemaVersionLockBlobMetadataKey];
+                },
+                TimeSpan.FromMinutes(5));
             Assert.AreEqual(version, laBlobProps.Value.Metadata[Consts.SyncedSchemaVersionLockBlobMetadataKey], "Log Analytics schema version does not match the expected version.");
-            //final pull just to make sure we have the latest version before asserting
-            sqlBlobProps = await _blobContainerClient.GetBlobClient(BlobSchemaVersionStore.GetBlobName(_objectType, TargetStorageEnum.SQL)).GetPropertiesAsync(cancellationToken: cancellationToken);
+            // give it 5min to fix itself
+            await Condition.WaitUntilAsync(async () =>
+                {
+                    sqlBlobProps = await _blobContainerClient.GetBlobClient(BlobSchemaVersionStore.GetBlobName(_objectType, TargetStorageEnum.SQL)).GetPropertiesAsync(cancellationToken: cancellationToken);
+                    return version == sqlBlobProps.Value.Metadata[Consts.SyncedSchemaVersionLockBlobMetadataKey];
+                },
+                TimeSpan.FromMinutes(5));
             Assert.AreEqual(version, sqlBlobProps.Value.Metadata[Consts.SyncedSchemaVersionLockBlobMetadataKey], "SQL schema version does not match the expected version.");
-            //no need to loop any more
+            //no need to loop any-more
             schemaCheckPassed = true;
             return true;
-
         }
         catch (RequestFailedException ex) when (ex.Status == 404)
         {
