@@ -48,7 +48,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        regionShortCode: [ "ne", "we" ]
+        regionShortCode: ["ne", "we"]
     steps:
       - name: checkout repo
         uses: actions/checkout@v6
@@ -161,5 +161,5 @@ jobs:
           --set-string environment="${{ inputs.environment }}" \
           --set-string AKSClusterSAName="$AKS_CLUSTER_SERVICE_ACCOUNT_NAME" \
           --set-string configKeyVault="https://$AZURE_KEY_VAULT_NAME.vault.azure.net" \
-          -n devops \
+          -n platform-app \
           --atomic
