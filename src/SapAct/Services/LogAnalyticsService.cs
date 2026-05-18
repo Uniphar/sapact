@@ -147,7 +147,6 @@ public class LogAnalyticsService(
                 }
                 finally
                 {
-                    // no CancellationToken for release lock, we want to make sure it's released
                     await ReleaseSchemaLockAsync(objectType, TargetStorageEnum.LogAnalytics);
                     logger.LogDebug("LA schema lock released for {ObjectType}", objectType);
                 }
