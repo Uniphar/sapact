@@ -44,7 +44,7 @@ public class ADXService(IAzureDataExplorerClient adxClient, DistributedLockServi
             }
 
             logger.LogDebug("ADX schema lock not acquired for {ObjectType}, waiting for other region", objectType);
-            await Task.Delay(1000, cancellationToken);
+            await Task.Delay(WaitBetweenChecks, cancellationToken);
         }
 
         await adxClient.IngestDataAsync(objectType, payload, cancellationToken);

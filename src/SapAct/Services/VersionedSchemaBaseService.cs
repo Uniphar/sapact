@@ -2,6 +2,7 @@
 
 public abstract class VersionedSchemaBaseService(DistributedLockService distributedLockService, ISchemaVersionStore schemaVersionStore)
 {
+    internal const int WaitBetweenChecks = 1000;
     private readonly ConcurrentDictionary<string, string> _tableVersionMapping = new();
 
     protected async Task<SchemaCheckResultState> CheckObjectTypeSchemaAsync(string objectType, string version, TargetStorageEnum targetStorage)
@@ -67,7 +68,7 @@ public abstract class VersionedSchemaBaseService(DistributedLockService distribu
     ///     Acquires schema ownership for the given objectType + targetStorage combination.
     ///     Returns true if this instance owns schema updates for this key; false if another instance owns it.
     /// </summary>
-    protected Task<bool> ReleaseSchemaLockAsync(string objectType, TargetStorageEnum targetStorage, CancellationToken token) => distributedLockService.ReleaseJobLockAsync($"{objectType}-{targetStorage}", token);
+    protected Task<bool> ReleaseSchemaLockAsync(string objectType, TargetStorageEnum targetStorage) => distributedLockService.ReleaseJobLockAsync($"{objectType}-{targetStorage}", token);
 
     /// <summary>
     ///     Updates the in-memory schema version cache and persists the version to the schema store.

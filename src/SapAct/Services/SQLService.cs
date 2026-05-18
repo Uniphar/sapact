@@ -61,7 +61,7 @@ public class SQLService(
 
                         logger.LogDebug("SQL schema lock not acquired for {ObjectType}, waiting for other region", messageProperties.objectType);
                         // wait a second, it might be the other region that is sorting this out
-                        await Task.Delay(1000, cancellationToken);
+                        await Task.Delay(WaitBetweenChecks, cancellationToken);
                     }
 
                     await SinkDataAsyncInnerAsync(sqlConnection, sqlTransaction, payload, schemaDescriptor,

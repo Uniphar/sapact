@@ -155,7 +155,7 @@ public class LogAnalyticsService(
             }
 
             logger.LogDebug("LA schema lock not acquired for {ObjectType}, waiting for other region", objectType);
-            await Task.Delay(1000, cancellationToken);
+            await Task.Delay(WaitBetweenChecks, cancellationToken);
         }
 
         dcrId = await RefreshDCRIdAsync(objectType, cancellationToken);
