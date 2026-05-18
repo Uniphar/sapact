@@ -8,9 +8,10 @@ public class LogAnalyticsService(
     DistributedLockService distributedLockService,
     ISchemaVersionStore schemaVersionStore,
     ICustomEventTelemetryClient telemetryClient,
-    ILogger<LogAnalyticsService> logger
+    ILogger<LogAnalyticsService> logger,
+    IConfiguration config
 )
-    : VersionedSchemaBaseService(distributedLockService, schemaVersionStore)
+    : VersionedSchemaBaseService(distributedLockService, schemaVersionStore, config)
 {
     private readonly ConcurrentDictionary<string, string> _dcrMapping = new();
 

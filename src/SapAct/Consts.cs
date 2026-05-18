@@ -25,6 +25,8 @@ public static class Consts
     public const string ADXClusterHostUrlConfigKey = "SapAct:Adx:HostUrl";
     public const string ADXClusterDBConfigKey = "SapAct:Adx:Database";
 
+        public const string WaitTimeBetweenLocksConfigKey = "SapAct:WaitTimeBetweenLocks";
+
     public const string SQLConnectionStringConfigKey = "SapAct:SQL:ConnectionString";
 
     public const string KustoTokenScope = "https://kusto.kusto.windows.net/.default";

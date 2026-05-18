@@ -1,7 +1,7 @@
 ﻿namespace SapAct.Services;
 
-public class ADXService(IAzureDataExplorerClient adxClient, DistributedLockService distributedLockService, ISchemaVersionStore schemaVersionStore, ILogger<ADXService> logger)
-    : VersionedSchemaBaseService(distributedLockService, schemaVersionStore)
+public class ADXService(IAzureDataExplorerClient adxClient, DistributedLockService distributedLockService, ISchemaVersionStore schemaVersionStore, ILogger<ADXService> logger, IConfiguration config)
+    : VersionedSchemaBaseService(distributedLockService, schemaVersionStore, config)
 {
     public async Task IngestMessage(string topic, JsonElement payload, CancellationToken cancellationToken)
     {

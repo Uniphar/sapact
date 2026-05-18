@@ -1,8 +1,8 @@
 ﻿namespace SapAct.Services;
 
-public abstract class VersionedSchemaBaseService(DistributedLockService distributedLockService, ISchemaVersionStore schemaVersionStore)
+public abstract class VersionedSchemaBaseService(DistributedLockService distributedLockService, ISchemaVersionStore schemaVersionStore, IConfiguration config)
 {
-    internal const int WaitBetweenChecks = 1000;
+    internal readonly int WaitBetweenChecks = config.GetWaitTimeBetweenLocksOrDefault();
     private readonly ConcurrentDictionary<string, string> _tableVersionMapping = new();
 
     protected async Task<SchemaCheckResultState> CheckObjectTypeSchemaAsync(string objectType, string version, TargetStorageEnum targetStorage)

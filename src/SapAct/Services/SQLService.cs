@@ -6,7 +6,9 @@ public class SQLService(
     ISqlDatabaseService sqlDatabaseService,
     DistributedLockService distributedLockService,
     ISchemaVersionStore schemaVersionStore,
-    ILogger<SQLService> logger) : VersionedSchemaBaseService(distributedLockService, schemaVersionStore)
+    ILogger<SQLService> logger,
+    IConfiguration config
+) : VersionedSchemaBaseService(distributedLockService, schemaVersionStore, config)
 {
     public async Task IngestMessageAsync(JsonElement payload, CancellationToken cancellationToken = default)
     {
