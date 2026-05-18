@@ -53,7 +53,7 @@ public class SQLService(
                             finally
                             {
                                 // no CancellationToken for release lock, we want to make sure it's released
-                                await ReleaseSchemaLockAsync(messageProperties.objectType, TargetStorageEnum.SQL, CancellationToken.None);
+                                await ReleaseSchemaLockAsync(messageProperties.objectType, TargetStorageEnum.SQL);
                                 logger.LogDebug("SQL schema lock released for {ObjectType}", messageProperties.objectType);
                             }
                             break;

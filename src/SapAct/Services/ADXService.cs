@@ -37,7 +37,7 @@ public class ADXService(IAzureDataExplorerClient adxClient, DistributedLockServi
                 finally
                 {
                     // no CancellationToken for release lock, we want to make sure it's released
-                    await ReleaseSchemaLockAsync(objectType, TargetStorageEnum.ADX, CancellationToken.None);
+                    await ReleaseSchemaLockAsync(objectType, TargetStorageEnum.ADX);
                     logger.LogDebug("ADX schema lock released for {ObjectType}", objectType);
                 }
                 break;
