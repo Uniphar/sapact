@@ -75,7 +75,7 @@ public class SqlDatabaseService : ISqlDatabaseService
         {
             var columnDescriptor = schemaDescriptor.GetIgnoreCaseColumnDescriptor(columnName) ??
                                    throw new InvalidOperationException($"Column {columnName} not found in schema descriptor, this is unexpected");
-            var translatedColumnName = columnDescriptor!.ColumnName;
+            var translatedColumnName = columnDescriptor.ColumnName;
 
             sqlCommand.Parameters.AddWithValue($"@{translatedColumnName}", value ?? (object)DBNull.Value);
         }

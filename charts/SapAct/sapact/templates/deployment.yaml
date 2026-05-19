@@ -1,33 +1,46 @@
+{{- $name := include "sapact.name" . -}}
+{{- $regionalisedname := include "sapact.regionalisedname" . -}}
 kind: Deployment
 apiVersion: apps/v1
 metadata:
-  name: sapact
+  name: {{ $regionalisedname }}
   labels:
-    app: sapact-app
-    service: sapact-service
+    app: {{ $name }}
+    app.kubernetes.io/name: {{ $name }}
+
 spec:
   replicas: {{ .Values.replicaCount }}
   revisionHistoryLimit: {{ .Values.revisionHistoryLimit }}
   selector:
     matchLabels:
-      service: sapact-service
+      app: {{ $name }}
+      app.kubernetes.io/name: {{ $name }}
   template:
     metadata:
       labels:
-        app: sapact-app
-        service: sapact-service
+        app: {{ $name }}
+        app.kubernetes.io/name: {{ $name }}
         azure.workload.identity/use: "true"
     spec:
       serviceAccountName: {{ .Values.AKSClusterSAName }}
       containers:
-        - name: sapact
-          image: "{{ .Values.ACRName }}.azurecr.io/{{ .Chart.Name }}:{{ .Chart.AppVersion }}"
+        - name: {{ $name }}
+          image: computeaksacr.azurecr.io/{{ $name }}:{{ .Chart.AppVersion }}
           imagePullPolicy: IfNotPresent
           ports:
             - name: sapact-port
               containerPort: 8080
               protocol: TCP
           env:
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          # since it is a worker, it has to use DOTNET_ENVIRONMENT
+          - name: "DOTNET_ENVIRONMENT"
+            value: {{ .Values.environment | quote }}
+          - name: "REGION_CODE"
+            value: {{ .Values.regioncode | quote }}
           - name: "SAPACT_CONFIGURATION_URL"
             value: {{ .Values.configKeyVault | quote }}
           

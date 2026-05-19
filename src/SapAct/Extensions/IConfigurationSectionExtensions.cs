@@ -2,15 +2,16 @@
 
 public static class IConfigurationSectionExtensions
 {
-    public static bool GetADXSinkDisabled(this IConfigurationSection section) => section.GetBoolConfig(Consts.ServiceBusTopicADXSinkDisabledConfigKey);
-
-    public static bool GetLASinkDisabled(this IConfigurationSection section) => section.GetBoolConfig(Consts.ServiceBusTopicLASinkDisabledConfigKey);
-
-    public static bool GetSQLSinkDisabled(this IConfigurationSection section) => section.GetBoolConfig(Consts.ServiceBusTopicSQLSinkDisabledConfigKey);
-
-    public static bool GetBoolConfig(this IConfigurationSection section, string configKey)
+    extension(IConfigurationSection section)
     {
-        var value = section[configKey];
-        return !string.IsNullOrEmpty(value) && value.Equals(bool.TrueString, StringComparison.OrdinalIgnoreCase);
+        internal bool GetADXSinkDisabled() => section.GetBoolConfig(Consts.ServiceBusTopicADXSinkDisabledConfigKey);
+        internal bool GetLASinkDisabled() => section.GetBoolConfig(Consts.ServiceBusTopicLASinkDisabledConfigKey);
+        internal bool GetSQLSinkDisabled() => section.GetBoolConfig(Consts.ServiceBusTopicSQLSinkDisabledConfigKey);
+
+        private bool GetBoolConfig(string configKey)
+        {
+            var value = section[configKey];
+            return !string.IsNullOrEmpty(value) && value.Equals(bool.TrueString, StringComparison.OrdinalIgnoreCase);
+        }
     }
 }

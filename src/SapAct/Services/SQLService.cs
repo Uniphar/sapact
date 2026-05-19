@@ -4,12 +4,16 @@
 public class SQLService(
     IServiceProvider serviceProvider,
     ISqlDatabaseService sqlDatabaseService,
-    ILockService lockService,
-    ILogger<SQLService> logger) : VersionedSchemaBaseService(lockService)
+    DistributedLockService distributedLockService,
+    ISchemaVersionStore schemaVersionStore,
+    ILogger<SQLService> logger,
+    IConfiguration config
+) : VersionedSchemaBaseService(distributedLockService, schemaVersionStore, config)
 {
     public async Task IngestMessageAsync(JsonElement payload, CancellationToken cancellationToken = default)
     {
         var messageProperties = ExtractMessageRootProperties(payload);
+        if (messageProperties == null) return;
         if (Consts.DeltaEventType == messageProperties.eventType)
             return;
 
@@ -24,40 +28,45 @@ public class SQLService(
                 {
                     //schema check
                     var schemaCheck = await CheckObjectTypeSchemaAsync(messageProperties.objectType, messageProperties.dataVersion, TargetStorageEnum.SQL);
+                    logger.LogDebug("SQL schema check for {ObjectType} v{Version}: {Result}", messageProperties.objectType, messageProperties.dataVersion, schemaCheck);
 
                     var schemaDescriptor = await GenerateSchemaDescriptorAsync(sqlConnection, sqlTransaction, messageProperties.objectType, payload, cancellationToken);
-                    ///dry run to check if schema update is necessary as certain (sub)structures may only be populated for specific payload instances
-                    ///so we can only build up a schema when these are set - data version property refers to logical schema but not it used in its entirety
+                    //dry run to check if schema update is necessary as certain (sub)structures may only be populated for specific payload instances
+                    //so we can only build up a schema when these are set - data version property refers to logical schema but not it used in its entirety
                     var dryRunSchemaCheck = !schemaCheck.IsUpdateRequired() && await UpsertSQLStructuresAsync(schemaDescriptor, dryRun: true, cancellationToken);
 
-                    if (schemaCheck.IsUpdateRequired() || dryRunSchemaCheck)
+                    while (schemaCheck.IsUpdateRequired() || dryRunSchemaCheck)
                     {
-                        bool updateNecessary = true;
+                        schemaCheck = await CheckObjectTypeSchemaAsync(messageProperties.objectType, messageProperties.dataVersion, TargetStorageEnum.SQL);
+                        dryRunSchemaCheck = !schemaCheck.IsUpdateRequired() && await UpsertSQLStructuresAsync(schemaDescriptor, true, cancellationToken);
 
-                        do
+                        if (!schemaCheck.IsUpdateRequired() && !dryRunSchemaCheck) break;
+
+                        var lockAcquired = await AcquireSchemaLockAsync(messageProperties.objectType, TargetStorageEnum.SQL, cancellationToken);
+                        if (lockAcquired)
                         {
-                            (var lockState, string? leaseId) = await ObtainLockAsync(messageProperties.objectType, TargetStorageEnum.SQL);
-                            if (lockState == LockState.LockObtained)
+                            logger.LogInformation("SQL schema lock acquired for {ObjectType} v{Version}", messageProperties.objectType, messageProperties.dataVersion);
+                            try
                             {
                                 await UpsertSQLStructuresAsync(schemaDescriptor, cancellationToken: cancellationToken);
-
-                                UpdateObjectTypeSchema(messageProperties.objectType, messageProperties.dataVersion);
-
-                                await ReleaseLockAsync(messageProperties.objectType, messageProperties.dataVersion, TargetStorageEnum.SQL, leaseId!);
-
-                                updateNecessary = false;
+                                await CommitSchemaVersionAsync(messageProperties.objectType, messageProperties.dataVersion, TargetStorageEnum.SQL);
+                                logger.LogInformation("SQL schema committed for {ObjectType} v{Version}", messageProperties.objectType, messageProperties.dataVersion);
                             }
-                            else if (lockState == LockState.Available)
+                            finally
                             {
-                                //schema was updated by another instance but let's check against persistent storage
-                                var status = await CheckObjectTypeSchemaAsync(messageProperties.objectType, messageProperties.dataVersion, TargetStorageEnum.SQL);
-                                updateNecessary = status != SchemaCheckResultState.Current;
+                                await ReleaseSchemaLockAsync(messageProperties.objectType, TargetStorageEnum.SQL);
+                                logger.LogDebug("SQL schema lock released for {ObjectType}", messageProperties.objectType);
                             }
-                        } while (updateNecessary);
+                            break;
+                        }
+
+                        logger.LogDebug("SQL schema lock not acquired for {ObjectType}, waiting for other region", messageProperties.objectType);
+                        // wait a second, it might be the other region that is sorting this out
+                        await Task.Delay(WaitBetweenChecks, cancellationToken);
                     }
 
                     await SinkDataAsyncInnerAsync(sqlConnection, sqlTransaction, payload, schemaDescriptor,
-                        new KeyDescriptor { RootKey = messageProperties.objectKey, ForeignKey = string.Empty }, cancellationToken);
+                        new() { RootKey = messageProperties.objectKey, ForeignKey = string.Empty }, cancellationToken);
                     await sqlTransaction.CommitAsync(cancellationToken);
                 }
                 catch (Exception ex)
@@ -93,19 +102,19 @@ public class SQLService(
             int arrayIndexCurrent = 0;
             foreach (var arrayElement in element.EnumerateArray())
             {
-                await SinkDataAsyncInnerAsync(sqlConnection, sqlTransaction, arrayElement, schemaDescriptor, 
+                await SinkDataAsyncInnerAsync(sqlConnection, sqlTransaction, arrayElement, schemaDescriptor,
                     keyDescriptor with { ArrayIndex = arrayIndexCurrent }, cancellationToken);
                 arrayIndexCurrent++;
             }
         }
         else if (element.ValueKind == JsonValueKind.Object)
         {
-            await sqlDatabaseService.SinkJsonObjectAsync( schemaDescriptor.SqlTableName, sqlConnection, sqlTransaction, element, schemaDescriptor,
-                new KeyDescriptor { RootKey = primaryKey, ForeignKey = keyDescriptor.ForeignKey }, cancellationToken);
+            await sqlDatabaseService.SinkJsonObjectAsync(schemaDescriptor.SqlTableName, sqlConnection, sqlTransaction, element, schemaDescriptor,
+                new() { RootKey = primaryKey, ForeignKey = keyDescriptor.ForeignKey }, cancellationToken);
             foreach (var nonScalar in element.GetNonScalarProperties())
             {
                 var childTable = schemaDescriptor.GetChildTableDescriptor(nonScalar.Name);
-                await SinkDataAsyncInnerAsync(sqlConnection, sqlTransaction, nonScalar.Value, childTable!, 
+                await SinkDataAsyncInnerAsync(sqlConnection, sqlTransaction, nonScalar.Value, childTable!,
                     keyDescriptor with { ForeignKey = primaryKey }, cancellationToken);
             }
         }

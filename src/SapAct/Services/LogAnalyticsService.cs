@@ -5,10 +5,13 @@ public class LogAnalyticsService(
     DefaultAzureCredential defaultAzureCredential,
     IHttpClientFactory httpClientFactory,
     LogsIngestionClient logsIngestionClient,
-    ILockService lockService,
-    ICustomEventTelemetryClient telemetryClient
+    DistributedLockService distributedLockService,
+    ISchemaVersionStore schemaVersionStore,
+    ICustomEventTelemetryClient telemetryClient,
+    ILogger<LogAnalyticsService> logger,
+    IConfiguration config
 )
-    : VersionedSchemaBaseService(lockService)
+    : VersionedSchemaBaseService(distributedLockService, schemaVersionStore, config)
 {
     private readonly ConcurrentDictionary<string, string> _dcrMapping = new();
 
@@ -82,18 +85,17 @@ public class LogAnalyticsService(
             });
 
 
-        var renderredTableSchema = JsonSerializer.Serialize(tableSchema);
+        var renderedTableSchema = JsonSerializer.Serialize(tableSchema);
 
         // Serialize the table schema to JSON
-        var content = new StringContent(renderredTableSchema, Encoding.UTF8, "application/json");
+        var content = new StringContent(renderedTableSchema, Encoding.UTF8, "application/json");
 
         // Send the PUT/PATCH request to create the table
         var dcrUrl = GetDCRUrl(tableName);
 
-        HttpResponseMessage response;
-
-        //delete first, this immediately sinks any changes
-        response = await httpClient.DeleteAsync(dcrUrl, cancellationToken);
+        var response =
+            //delete first, this immediately sinks any changes
+            await httpClient.DeleteAsync(dcrUrl, cancellationToken);
         response.EnsureSuccessStatusCode();
 
         // Update the DCR
@@ -114,7 +116,7 @@ public class LogAnalyticsService(
 
     public async Task IngestMessage(string topic, JsonElement payload, CancellationToken cancellationToken)
     {
-        var dcrId = "";
+        string dcrId;
         //get key properties
         var messageProperties = ExtractMessageRootProperties(payload);
         //will be used for the table name, cleanup up so it will work for the table
@@ -122,41 +124,44 @@ public class LogAnalyticsService(
         var dataVersion = messageProperties?.dataVersion ?? "1";
         if (Consts.DeltaEventType == messageProperties?.eventType) return;
 
+
         var schemaCheckResult = await CheckObjectTypeSchemaAsync(objectType, dataVersion, TargetStorageEnum.LogAnalytics);
+        logger.LogDebug("LA schema check for {ObjectType} v{Version}: {Result}", objectType, dataVersion, schemaCheckResult);
 
-
-        if (schemaCheckResult is SchemaCheckResultState.Unknown or SchemaCheckResultState.Older)
+        // keep checking, might be the other cluster that resolves it
+        while (schemaCheckResult is SchemaCheckResultState.Unknown or SchemaCheckResultState.Older)
         {
-            var updateNecessary = true;
-            do
+            schemaCheckResult = await CheckObjectTypeSchemaAsync(objectType, dataVersion, TargetStorageEnum.LogAnalytics);
+            if (!schemaCheckResult.IsUpdateRequired()) break;
+
+            var lockAcquired = await AcquireSchemaLockAsync(objectType, TargetStorageEnum.LogAnalytics, cancellationToken);
+            if (lockAcquired)
             {
-                var (lockState, leaseId) = await ObtainLockAsync(objectType, TargetStorageEnum.LogAnalytics);
-                if (lockState == LockState.LockObtained)
+                logger.LogInformation("LA schema lock acquired for {ObjectType} v{Version}", objectType, dataVersion);
+                try
                 {
                     dcrId = await SyncTableSchema(objectType, payload, cancellationToken);
-                    UpdateSchema(objectType, dataVersion, dcrId);
-                    await ReleaseLockAsync(objectType, dataVersion, TargetStorageEnum.LogAnalytics, leaseId!);
-
-                    updateNecessary = false;
+                    _dcrMapping.AddOrUpdate(objectType, dcrId, (key, oldValue) => dcrId);
+                    // commit does update too
+                    await CommitSchemaVersionAsync(objectType, dataVersion, TargetStorageEnum.LogAnalytics);
+                    logger.LogInformation("LA schema committed for {ObjectType} v{Version}", objectType, dataVersion);
                 }
-                else if (lockState == LockState.Available)
+                finally
                 {
-                    //schema was updated by another instance but let's check against persistent storage
-                    var status = await CheckObjectTypeSchemaAsync(objectType, dataVersion, TargetStorageEnum.LogAnalytics);
-                    updateNecessary = status != SchemaCheckResultState.Current;
-                    if (!updateNecessary)
-                    {
-                        dcrId = await RefreshDCRIdAsync(objectType, cancellationToken);
-                        UpdateSchema(objectType, dataVersion, dcrId);
-                    }
+                    await ReleaseSchemaLockAsync(objectType, TargetStorageEnum.LogAnalytics);
+                    logger.LogDebug("LA schema lock released for {ObjectType}", objectType);
                 }
-            } while (updateNecessary);
+                break;
+            }
+
+            logger.LogDebug("LA schema lock not acquired for {ObjectType}, waiting for other region", objectType);
+            await Task.Delay(WaitBetweenChecks, cancellationToken);
         }
-        else
-            dcrId = await RefreshDCRIdAsync(objectType, cancellationToken); //TODO: maybe store as another metadata piece in the blob
+
+        dcrId = await RefreshDCRIdAsync(objectType, cancellationToken);
 
         //send to log analytics
-        await SinkToLogAnalytics(objectType, dcrId!, payload);
+        await SinkToLogAnalytics(objectType, dcrId, payload);
     }
 
     private async Task<string> RefreshDCRIdAsync(string tableName, CancellationToken cancellationToken)
@@ -174,17 +179,13 @@ public class LogAnalyticsService(
         return JsonSerializer.Deserialize<JsonElement>(responseContent).ExportDCRImmutableId();
     }
 
-    private void UpdateSchema(string tableName, string version, string dcrId)
-    {
-        UpdateObjectTypeSchema(tableName, version);
 
-        _dcrMapping.AddOrUpdate(tableName, dcrId, (key, oldValue) => dcrId);
-    }
 
     private async Task SyncTableAsync(string tableName, List<ColumnDefinition> columnsList, HttpClient httpClient, CancellationToken cancellationToken)
     {
         //get current schema if available
         var schema = await GetCurrentColumnListAsync(tableName, httpClient);
+        // new table
         if (schema == null)
             schema = columnsList;
         else

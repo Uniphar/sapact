@@ -2,50 +2,41 @@
 
 public static class IConfigurationExtensions
 {
-    public static void CheckConfiguration(this IConfiguration configuration)
+    extension(IConfiguration configuration)
     {
-        new ConfigurationValidator().Validate(configuration);
-    }
-
-    public static IEnumerable<ServiceBusTopicConfiguration> GetServiceBusTopicConfiguration(this IConfiguration configuration)
-    {
-        var topics = new List<ServiceBusTopicConfiguration>();
-        foreach (var section in configuration.GetSection(Consts.ServiceBusConfigurationSectionName).GetChildren())
+        internal void CheckConfiguration()
         {
-            topics.Add(new()
-            {
-                ConnectionString = section[Consts.ServiceBusConnectionStringConfigKey]!,
-                TopicName = section[Consts.ServiceBusTopicNameConfigKey]!,
-                ADXSinkDisabled = section.GetADXSinkDisabled(),
-                LASinkDisabled = section.GetLASinkDisabled(),
-                SQLSinkDisabled = section.GetSQLSinkDisabled()
-            });
+            new ConfigurationValidator().Validate(configuration);
         }
 
-        return topics;
+        public IEnumerable<ServiceBusTopicConfiguration> GetServiceBusTopicConfiguration()
+        {
+            return configuration
+                .GetSection(Consts.ServiceBusConfigurationSectionName)
+                .GetChildren()
+                .Select(section => new ServiceBusTopicConfiguration()
+                {
+                    ConnectionString = section[Consts.ServiceBusConnectionStringConfigKey]!,
+                    TopicName = section[Consts.ServiceBusTopicNameConfigKey]!,
+                    ADXSinkDisabled = section.GetADXSinkDisabled(),
+                    LASinkDisabled = section.GetLASinkDisabled(),
+                    SQLSinkDisabled = section.GetSQLSinkDisabled()
+                })
+                .ToList();
+        }
+
+        internal string GetLockServiceBlobConnectionString() => configuration[Consts.LockServiceBlobConnectionStringConfigKey] ?? throw new ArgumentNullException(Consts.LockServiceBlobConnectionStringConfigKey);
+        public string GetLockServiceBlobContainerNameOrDefault() => configuration[Consts.LockServiceBlobContainerNameConfigKey] ?? "sapact";
+        internal string GetLogAnalyticsEndpointName() => configuration[Consts.LogAnalyticsEndpointNameConfigKey] ?? throw new ArgumentNullException(Consts.LogAnalyticsEndpointNameConfigKey);
+        public string GetTopicSubscriptionNameOrDefault<T>() => configuration[$"{Consts.ServiceBusTopicSubscriptionNamePrefixConfigKey}{typeof(T).Name}"] ?? $"SapAct{typeof(T).Name}";
+        internal string GetLogAnalyticsSubscriptionId() => configuration[Consts.LogAnalyticsSubscriptionIdConfigKey] ?? throw new ArgumentNullException(Consts.LogAnalyticsSubscriptionIdConfigKey);
+        internal string GetLogAnalyticsResourceGroupName() => configuration[Consts.LogAnalyticsResourceGroupConfigKey] ?? throw new ArgumentNullException(Consts.LogAnalyticsResourceGroupConfigKey);
+        internal string GetLogAnalyticsWorkspaceName() => configuration[Consts.LogAnalyticsWorkspaceNameConfigKey] ?? throw new ArgumentNullException(Consts.LogAnalyticsWorkspaceNameConfigKey);
+        public string GetLogAnalyticsWorkspaceId() => configuration[Consts.LogAnalyticsWorkspaceIdConfigKey] ?? throw new ArgumentNullException(Consts.LogAnalyticsWorkspaceIdConfigKey);
+        internal string GetLogAnalyticsIngestionUrl() => configuration[Consts.LogAnalyticsIngestionUrlConfigKey] ?? throw new ArgumentNullException(Consts.LogAnalyticsIngestionUrlConfigKey);
+        internal string GetADXClusterHostUrl() => configuration[Consts.ADXClusterHostUrlConfigKey] ?? throw new ArgumentNullException(Consts.ADXClusterHostUrlConfigKey);
+        public string GetADXClusterDBNameOrDefault() => configuration[Consts.ADXClusterDBConfigKey] ?? "devops";
+        public int GetWaitTimeBetweenLocksOrDefault() => int.TryParse(configuration[Consts.WaitTimeBetweenLocksConfigKey], out var result) ? result : 1000;
+        public string GetSQLConnectionString() => configuration[Consts.SQLConnectionStringConfigKey] ?? throw new ArgumentNullException(Consts.SQLConnectionStringConfigKey);
     }
-
-    public static string? GetLogAnalyticsEndpointName(this IConfiguration configuration) => configuration[Consts.LogAnalyticsEndpointNameConfigKey];
-
-    public static string GetTopicSubscriptionNameOrDefault<T>(this IConfiguration configuration) => configuration[$"{Consts.ServiceBusTopicSubscriptionNamePrefixConfigKey}{typeof(T).Name}"] ?? $"SapAct{typeof(T).Name}";
-
-    public static string? GetLogAnalyticsSubscriptionId(this IConfiguration configuration) => configuration[Consts.LogAnalyticsSubscriptionIdConfigKey];
-
-    public static string? GetLogAnalyticsResourceGroupName(this IConfiguration configuration) => configuration[Consts.LogAnalyticsResourceGroupConfigKey];
-
-    public static string? GetLogAnalyticsWorkspaceName(this IConfiguration configuration) => configuration[Consts.LogAnalyticsWorkspaceNameConfigKey];
-
-    public static string? GetLogAnalyticsWorkspaceId(this IConfiguration configuration) => configuration[Consts.LogAnalyticsWorkspaceIdConfigKey];
-
-    public static string? GetLogAnalyticsIngestionUrl(this IConfiguration configuration) => configuration[Consts.LogAnalyticsIngestionUrlConfigKey];
-
-    public static string? GetADXClusterHostUrl(this IConfiguration configuration) => configuration[Consts.ADXClusterHostUrlConfigKey];
-
-    public static string GetADXClusterDBNameOrDefault(this IConfiguration configuration) => configuration[Consts.ADXClusterDBConfigKey] ?? "devops";
-
-    public static string? GetLockServiceBlobConnectionString(this IConfiguration configuration) => configuration[Consts.LockServiceBlobConnectionStringConfigKey];
-
-    public static string GetLockServiceBlobContainerNameOrDefault(this IConfiguration configuration) => configuration[Consts.LockServiceBlobContainerNameConfigKey] ?? "sapact";
-
-    public static string? GetSQLConnectionString(this IConfiguration configuration) => configuration[Consts.SQLConnectionStringConfigKey];
 }

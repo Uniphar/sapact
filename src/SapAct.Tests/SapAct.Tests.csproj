@@ -12,20 +12,32 @@
   <ItemGroup>
     <PackageReference Include="AwesomeAssertions" Version="*" />
     <PackageReference Include="Azure.Monitor.Query.Logs" Version="*" />
-    <PackageReference Include="coverlet.collector" Version="*" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="*" />
     <PackageReference Include="Moq" Version="*" />
     <PackageReference Include="MSTest.TestAdapter" Version="*" />
     <PackageReference Include="MSTest.TestFramework" Version="*" />
     <PackageReference Include="Azure.Messaging.ServiceBus" Version="*" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="*" />
-
+    <PackageReference Include="GitHubActionsTestLogger" Version="*">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="coverlet.collector" Version="*">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="coverlet.msbuild" Version="*">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\SapAct\SapAct.csproj" />
   </ItemGroup>
-
+  <PropertyGroup>
+    <RunSettingsFilePath>$(MSBuildProjectDirectory)\runsettings\local.runsettings</RunSettingsFilePath>
+  </PropertyGroup>
   <ItemGroup>
     <Using Include="Microsoft.VisualStudio.TestTools.UnitTesting" />
   </ItemGroup>

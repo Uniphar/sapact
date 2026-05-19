@@ -1,6 +1,7 @@
 ﻿namespace SapAct.Services;
 
-public class ADXService (IAzureDataExplorerClient adxClient, ILockService lockService) : VersionedSchemaBaseService(lockService)
+public class ADXService(IAzureDataExplorerClient adxClient, DistributedLockService distributedLockService, ISchemaVersionStore schemaVersionStore, ILogger<ADXService> logger, IConfiguration config)
+    : VersionedSchemaBaseService(distributedLockService, schemaVersionStore, config)
 {
     public async Task IngestMessage(string topic, JsonElement payload, CancellationToken cancellationToken)
     {
@@ -14,29 +15,35 @@ public class ADXService (IAzureDataExplorerClient adxClient, ILockService lockSe
 
         //schema check
         var schemaCheck = await CheckObjectTypeSchemaAsync(objectType, dataVersion, TargetStorageEnum.ADX);
-        if (schemaCheck is SchemaCheckResultState.Older or SchemaCheckResultState.Unknown)
+        logger.LogDebug("ADX schema check for {ObjectType} v{Version}: {Result}", objectType, dataVersion, schemaCheck);
+
+        // keep checking, might be the other cluster that resolves it
+        while (schemaCheck is SchemaCheckResultState.Older or SchemaCheckResultState.Unknown)
         {
-            var updateNecessary = true;
-            do
+            schemaCheck = await CheckObjectTypeSchemaAsync(objectType, dataVersion, TargetStorageEnum.ADX);
+            if (!schemaCheck.IsUpdateRequired()) break;
+
+            var lockAcquired = await AcquireSchemaLockAsync(objectType, TargetStorageEnum.ADX, cancellationToken);
+            if (lockAcquired)
             {
-                var (lockState, leaseId) = await ObtainLockAsync(objectType, TargetStorageEnum.ADX);
-                if (lockState == LockState.LockObtained)
+                logger.LogInformation("ADX schema lock acquired for {ObjectType} v{Version}", objectType, dataVersion);
+                try
                 {
                     var columnsList = payload.GenerateColumnList(TargetStorageEnum.ADX);
-
                     await adxClient.CreateOrUpdateTableAsync(objectType, columnsList, cancellationToken);
-                    UpdateObjectTypeSchema(objectType, dataVersion);
-                    await ReleaseLockAsync(objectType, dataVersion, TargetStorageEnum.ADX, leaseId!);
-
-                    updateNecessary = false;
+                    await CommitSchemaVersionAsync(objectType, dataVersion, TargetStorageEnum.ADX);
+                    logger.LogInformation("ADX schema committed for {ObjectType} v{Version}", objectType, dataVersion);
                 }
-                else if (lockState == LockState.Available)
+                finally
                 {
-                    //schema was updated by another instance but let's check against persistent storage
-                    var status = await CheckObjectTypeSchemaAsync(objectType, dataVersion, TargetStorageEnum.ADX);
-                    updateNecessary = status != SchemaCheckResultState.Current;
+                    await ReleaseSchemaLockAsync(objectType, TargetStorageEnum.ADX);
+                    logger.LogDebug("ADX schema lock released for {ObjectType}", objectType);
                 }
-            } while (updateNecessary);
+                break;
+            }
+
+            logger.LogDebug("ADX schema lock not acquired for {ObjectType}, waiting for other region", objectType);
+            await Task.Delay(WaitBetweenChecks, cancellationToken);
         }
 
         await adxClient.IngestDataAsync(objectType, payload, cancellationToken);

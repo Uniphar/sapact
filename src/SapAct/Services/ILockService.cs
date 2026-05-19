@@ -1,9 +1,0 @@
-﻿namespace SapAct.Services;
-
-public interface ILockService
-{
-	Task<(string? leaseId, LockState lockState)> ObtainLockAsync(string tableName, TargetStorageEnum targetStorageEnum);
-	Task ReleaseLockAsync(string tableName, string version, TargetStorageEnum targetStorage, string leaseId);
-	Task<LockState> WaitForLockDissolvedAsync(string tableName, TargetStorageEnum targetStorage);
-	Task<BlobProperties?> GetBlobPropertiesAsync(string tableName, TargetStorageEnum targetStorage);
-}

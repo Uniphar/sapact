@@ -14,6 +14,7 @@ global using SapAct.Extensions;
 global using SapAct.Models;
 global using SapAct.Services;
 global using SapAct.Tests.Extensions;
+global using SapAct.Tests.Helper;
 global using SapAct.Workers;
 global using System.Data;
 global using System.Text;

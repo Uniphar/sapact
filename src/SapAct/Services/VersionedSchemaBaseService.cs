@@ -1,7 +1,8 @@
 ﻿namespace SapAct.Services;
 
-public abstract class VersionedSchemaBaseService(ILockService lockService)
+public abstract class VersionedSchemaBaseService(DistributedLockService distributedLockService, ISchemaVersionStore schemaVersionStore, IConfiguration config)
 {
+    internal readonly int WaitBetweenChecks = config.GetWaitTimeBetweenLocksOrDefault();
     private readonly ConcurrentDictionary<string, string> _tableVersionMapping = new();
 
     protected async Task<SchemaCheckResultState> CheckObjectTypeSchemaAsync(string objectType, string version, TargetStorageEnum targetStorage)
@@ -15,15 +16,11 @@ public abstract class VersionedSchemaBaseService(ILockService lockService)
             if (schemaCompareResult != SchemaCheckResultState.Older) return schemaCompareResult;
         }
 
+        var persistedVersion = await schemaVersionStore.GetSchemaVersionAsync(objectType, targetStorage);
+        if (persistedVersion == null) return SchemaCheckResultState.Unknown;
 
-        //might have been done by other instance
-        var props = await lockService.GetBlobPropertiesAsync(objectType, targetStorage);
-
-        if (props == null || !props.Metadata.TryGetValue(Consts.SyncedSchemaVersionLockBlobMetadataKey, out var metadataValue)) return SchemaCheckResultState.Unknown;
-        //push whatever is at blob to local cache
-        UpdateObjectTypeSchema(objectType, metadataValue);
-
-        return CompareSchemaVersion(version, metadataValue);
+        UpdateObjectTypeSchema(objectType, persistedVersion);
+        return CompareSchemaVersion(version, persistedVersion);
     }
 
     private static SchemaCheckResultState CompareSchemaVersion(string version, string? schemaVersion)
@@ -56,26 +53,30 @@ public abstract class VersionedSchemaBaseService(ILockService lockService)
         };
     }
 
-    protected void UpdateObjectTypeSchema(string objectType, string version)
+    private void UpdateObjectTypeSchema(string objectType, string version)
     {
         _tableVersionMapping.AddOrUpdate(objectType, version, (key, oldValue) => version);
     }
 
-    protected async Task ReleaseLockAsync(string objectType, string version, TargetStorageEnum targetStorage, string leaseId)
+    /// <summary>
+    ///     Acquires schema ownership for the given objectType + targetStorage combination.
+    ///     Returns true if this instance owns schema updates for this key; false if another instance owns it.
+    /// </summary>
+    protected Task<bool> AcquireSchemaLockAsync(string objectType, TargetStorageEnum targetStorage, CancellationToken token) => distributedLockService.AcquireJobLockAsync($"{objectType}-{targetStorage}", token);
+
+    /// <summary>
+    ///     Acquires schema ownership for the given objectType + targetStorage combination.
+    ///     Returns true if this instance owns schema updates for this key; false if another instance owns it.
+    /// </summary>
+    protected Task<bool> ReleaseSchemaLockAsync(string objectType, TargetStorageEnum targetStorage) => distributedLockService.ReleaseJobLockAsync($"{objectType}-{targetStorage}", CancellationToken.None);
+
+    /// <summary>
+    ///     Updates the in-memory schema version cache and persists the version to the schema store.
+    ///     Call this after a successful schema update.
+    /// </summary>
+    protected async Task CommitSchemaVersionAsync(string objectType, string version, TargetStorageEnum targetStorage)
     {
-        await lockService.ReleaseLockAsync(objectType, version, targetStorage, leaseId);
-    }
-
-    protected async Task<(LockState lockState, string? leaseId)> ObtainLockAsync(string objectType, TargetStorageEnum targetStorage)
-    {
-        do
-        {
-            var (leaseId, lockState) = await lockService.ObtainLockAsync(objectType, targetStorage);
-            if (!string.IsNullOrWhiteSpace(leaseId)) return (lockState, leaseId);
-
-            lockState = await lockService.WaitForLockDissolvedAsync(objectType, targetStorage);
-
-            if (lockState == LockState.Available) return (LockState.Available, null);
-        } while (true);
+        UpdateObjectTypeSchema(objectType, version);
+        await schemaVersionStore.SetSchemaVersionAsync(objectType, targetStorage, version);
     }
 }

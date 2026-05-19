@@ -64,7 +64,7 @@ public abstract class SapActBaseWorker<T>(
             await EnsureServiceBusResourcesAsync(topicName, subscriptionName, cancellationToken);
 
             var sbClient = sbClientFactory.CreateClient(workerName);
-
+//todo Maybe change this to a processor?
             serviceBusReceiver = sbClient.CreateReceiver(topicName,
                 subscriptionName,
                 new()
@@ -77,7 +77,7 @@ public abstract class SapActBaseWorker<T>(
                 });
 
 
-            do
+            while (!cancellationToken.IsCancellationRequested)
             {
                 ServiceBusReceivedMessage? message = null;
                 try
@@ -87,13 +87,20 @@ public abstract class SapActBaseWorker<T>(
                     if (message == null) continue;
                     await ProcessMessageAsync(topicName, message, cancellationToken);
                 }
+                catch (OperationCanceledException)
+                {
+                    // Cancellation was requested, proceed to stop processors
+                    telemetry.TrackEvent("StopRequestedForProcessors");
+                    if (message != null) await serviceBusReceiver.AbandonMessageAsync(message, cancellationToken: cancellationToken);
+                    // go out of the loop and let the service stop gracefully
+                    break;
+                }
                 catch (Exception ex)
                 {
                     if (message != null) await serviceBusReceiver.AbandonMessageAsync(message, cancellationToken: cancellationToken);
-
                     logger.LogError(ex, $"Error processing message - {message?.MessageId}");
                 }
-            } while (!cancellationToken.IsCancellationRequested);
+            }
         }
     }
 
@@ -127,6 +134,7 @@ public abstract class SapActBaseWorker<T>(
     {
         var bodyString = GetBodyString(message);
         if (bodyString == null) return;
+        var stopwatch = Stopwatch.StartNew();
         try
         {
             using var jsonDocument = JsonDocument.Parse(bodyString);
@@ -137,17 +145,34 @@ public abstract class SapActBaseWorker<T>(
                 _ => throw new ApplicationException("Unexpected message format")
             };
 
+            using var renewalCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            var renewalTask = RenewMessageLockPeriodicallyAsync(message, renewalCts.Token);
 
             var x = 0;
             var count = items.Count();
-            foreach (var item in items)
+            try
             {
-                await IngestMessageAsync(topic, item, cancellationToken);
+                foreach (var item in items)
+                {
+                    await IngestMessageAsync(topic, item, cancellationToken);
 
-                metrics.TrackMetricIngestion(typeof(T).Name, count == 1 ? message.MessageId : $"{message.MessageId}-{x++}", workerName);
+                    metrics.TrackMetricIngestion(typeof(T).Name, count == 1 ? message.MessageId : $"{message.MessageId}-{x++}", workerName);
+                }
+            }
+            finally
+            {
+                await renewalCts.CancelAsync();
+                await renewalTask;
             }
 
             await serviceBusReceiver!.CompleteMessageAsync(message, cancellationToken);
+            telemetry.TrackEvent("MessageProcessed",
+                new()
+                {
+                    ["Topic"] = topic,
+                    ["MessageId"] = message.MessageId,
+                    ["ElapsedMs"] = stopwatch.ElapsedMilliseconds.ToString()
+                });
         }
         catch (JsonException ex)
         {
@@ -159,6 +184,26 @@ public abstract class SapActBaseWorker<T>(
                     ["OriginalMessage"] = bodyString
                 });
             await serviceBusReceiver!.DeadLetterMessageAsync(message, cancellationToken: cancellationToken);
+        }
+    }
+
+    private async Task RenewMessageLockPeriodicallyAsync(ServiceBusReceivedMessage message, CancellationToken cancellationToken)
+    {
+        try
+        {
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(30), cancellationToken);
+                await serviceBusReceiver!.RenewMessageLockAsync(message, cancellationToken);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // expected when processing completes
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to renew message lock for {MessageId}", message.MessageId);
         }
     }
 

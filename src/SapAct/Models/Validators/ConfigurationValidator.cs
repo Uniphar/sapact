@@ -51,12 +51,10 @@ public class ConfigurationValidator : AbstractValidator<IConfiguration>
             .NotNull()
             .NotEmpty()
             .WithMessage("Log Analytics Endpoint is missing in configuration");
-
         RuleFor(configuration => configuration.GetLockServiceBlobConnectionString())
             .NotNull()
             .NotEmpty()
-            .WithMessage("Log Service Blob Connection String is missing in configuration");
-
+            .WithMessage("Lock Service Blob Connection String is missing in configuration");
         RuleFor(configuration => configuration.GetADXClusterHostUrl())
             .NotNull()
             .NotEmpty()
