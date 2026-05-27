@@ -25,16 +25,8 @@ Initializes SapAct in the dev environment.
 
     $p_sapactProjectName = "sapact"
 
-    $adxClusterName = Resolve-UniResourceName 'adx-cluster' $p_devopsDomain -Environment $Environment
-
     $devopsDomainRgName = Resolve-UniResourceName 'resource-group' $p_devopsDomain -Environment $Environment
     $dawnDomainRgName = Resolve-UniResourceName 'resource-group' $p_dawnDomain -Environment $Environment
-    $devopsClusterIdentityName = Resolve-UniKubeWorkloadSAName $Environment $p_devopsDomain
-    $cluserIdentity = Get-AzADServicePrincipal -DisplayName $devopsClusterIdentityName
-    $clusterIdentityObjectId = $cluserIdentity | Select-Object -ExpandProperty Id
-    $clusterIdentityClientId = $cluserIdentity | Select-Object -ExpandProperty AppId
-
-    $githubActionsDevIdentityObjectId = Get-AzADServicePrincipal -DisplayName $adapp_GithubActionsDev | Select-Object -ExpandProperty Id
     $devopsAppKeyVault = Resolve-UniResourceName 'keyvault' "$p_devopsDomain-app" -Dev:$Dev -Environment $Environment
     $dawnServiceBusName = Resolve-UniResourceName 'service-bus' $p_dawnDomain -Environment $Environment
     $devopsServiceBusName = Resolve-UniResourceName 'service-bus' $p_devopsDomain -Environment $Environment
@@ -65,40 +57,6 @@ Initializes SapAct in the dev environment.
         SecondaryId = $dawnSBResourceSecondary.Id
     }
 
-    $adxDatabase = @{
-        name             = 'sapact'
-        softDeletePeriod = 'P10Y'
-        hotCachePeriod   = ($Environment -Eq 'prod') ? 'P3Y' : 'P30D'
-        permissions = @(
-            @{
-                principalId   = $clusterIdentityObjectId
-                principalType = 'App'
-                role          = 'User'
-            },
-            @{
-                principalId   = $githubActionsDevIdentityObjectId
-                principalType = 'App'
-                role          = 'Viewer'
-            }
-        )
-    }
-
-    $rgDatabase = az group show --name (Resolve-UniResourceName 'resource-group' $global:p_dataSql -Environment $Environment) | ConvertFrom-Json
-        
-    $sqlDatabase = @{
-        resourceGroup = @{
-            name     = $rgDatabase.name
-            location = $rgDatabase.location
-        } 
-        name          = Resolve-UniResourceName 'sql-server-database' $p_sapactProjectName -Environment $Environment
-        server        = @{
-            failoverGroupName = Resolve-UniResourceName 'sql-failover-pool' $global:p_dataSql -Environment $Environment 
-            name              = Resolve-UniResourceName 'sql-server' $global:p_dataSql -Environment $Environment
-            elasticPool       = @{
-                name = Resolve-UniResourceName 'sql-elastic-pool' $global:p_dataSql -Environment $Environment
-            }
-        }
-    } 
 
     if ($PSCmdlet.ShouldProcess('SapAct', 'Deploy')) {
 
@@ -108,8 +66,6 @@ Initializes SapAct in the dev environment.
             -Name $deploymentName `
             -ResourceGroupName $devopsDomainRgName `
             -TemplateFile $sapactTemplateFile `
-            -adxClusterName $adxClusterName `
-            -adxDatabase $adxDatabase `
             -appKeyVaultName $devopsAppKeyVault `
             -dawnSB $dawnSB `
             -devopsSBNamespace $devopsServiceBusName `
@@ -117,30 +73,13 @@ Initializes SapAct in the dev environment.
             -logAnalytics $logAnalyticsDef `
             -storageAccountName $devopsStorageAccountName `
             -environment $Environment `
-            -sqlDatabase $sqlDatabase `
-            -workloadIdentityClientId $clusterIdentityClientId `
             -Verbose:($PSCmdlet.MyInvocation.BoundParameters["Verbose"].IsPresent -eq $true)
-  
-  
-        New-SqlDatabaseADUser -ServerName $sqlDatabase.server.name `
-            -DatabaseName $sqlDatabase.name `
-            -UserName $devopsClusterIdentityName `
-            -Roles @("db_datareader", "db_datawriter", "db_ddladmin") `
-            -Verbose:$PSCmdlet.MyInvocation.BoundParameters['Verbose'].IsPresent
-
-        New-SqlDatabaseADUser -ServerName $sqlDatabase.server.name `
-            -DatabaseName $sqlDatabase.name `
-            -UserName $global:adapp_GithubActionsDev `
-            -Roles @("db_datareader") `
-            -Verbose:$PSCmdlet.MyInvocation.BoundParameters['Verbose'].IsPresent
 
     }
     else {
         $TestResult = Test-AzResourceGroupDeployment -Mode Incremental `
             -ResourceGroupName $devopsDomainRgName `
             -TemplateFile $sapactTemplateFile `
-            -adxClusterName $adxClusterName `
-            -adxDatabase $adxDatabase `
             -appKeyVaultName $devopsAppKeyVault `
             -dawnSB $dawnSB `
             -devopsSBNamespace $devopsServiceBusName `
@@ -148,8 +87,6 @@ Initializes SapAct in the dev environment.
             -logAnalytics $logAnalyticsDef `
             -storageAccountName $devopsStorageAccountName `
             -environment $Environment `
-            -sqlDatabase $sqlDatabase `
-            -workloadIdentityClientId $clusterIdentityClientId `
             -Verbose:($PSCmdlet.MyInvocation.BoundParameters["Verbose"].IsPresent -eq $true)
 
         if ($TestResult) {

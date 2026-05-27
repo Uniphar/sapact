@@ -1,5 +1,3 @@
-param adxClusterName string
-param adxDatabase object
 param appKeyVaultName string
 param dawnSB object
 param devopsSBNamespace string
@@ -7,8 +5,6 @@ param dceName string
 param logAnalytics object
 param storageAccountName string
 param environment string
-param sqlDatabase object
-param workloadIdentityClientId string
 
 param location string = resourceGroup().location
 
@@ -22,34 +18,8 @@ resource actionGroupApplicationsLow 'microsoft.insights/actionGroups@2024-10-01-
   scope: resourceGroup('observability')
 }
 
-resource adxCluster 'Microsoft.Kusto/clusters@2023-08-15' existing = {
-  name: adxClusterName
-}
-
 resource storageAccount 'Microsoft.Storage/storageAccounts@2021-04-01' existing = {
   name: storageAccountName
-}
-
-resource adxDatabaseResource 'Microsoft.Kusto/clusters/databases@2023-08-15' = {
-  parent: adxCluster
-  name: adxDatabase.name
-  location: location
-  kind: 'ReadWrite'
-  properties: {
-    softDeletePeriod: adxDatabase.softDeletePeriod
-    hotCachePeriod: adxDatabase.hotCachePeriod
-  }
-
-  resource permissions 'principalAssignments@2023-08-15' = [
-    for permission in adxDatabase.permissions: {
-      name: guid(adxClusterName, adxDatabase.name, permission.principalId)
-      properties: {
-        principalId: permission.principalId
-        principalType: permission.principalType
-        role: permission.role
-      }
-    }
-  ]
 }
 
 module dce 'sapact.dce.module.bicep' = {
@@ -149,21 +119,29 @@ resource StorageAccountConnectionStringSecret 'Microsoft.KeyVault/vaults/secrets
   }
 }
 
-resource ADXClusterUrlSecret 'Microsoft.KeyVault/vaults/secrets@2024-04-01-preview' = {
-  name: 'SapAct--Adx--HostUrl'
-  parent: DevopsAppKeyVault
-  properties: {
-    value: adxCluster.properties.uri
-  }
-}
+// resource ADXClusterUrlSecret 'Microsoft.KeyVault/vaults/secrets@2024-04-01-preview' = {
+//   name: 'SapAct--Adx--HostUrl'
+//   parent: DevopsAppKeyVault
+//   properties: {
+//     value: adxCluster.properties.uri
+//   }
+// }
 
-resource ADXDatabaseSecret 'Microsoft.KeyVault/vaults/secrets@2024-04-01-preview' = {
-  name: 'SapAct--Adx--Database'
-  parent: DevopsAppKeyVault
-  properties: {
-    value: adxDatabaseResource.name
-  }
-}
+// resource ADXDatabaseSecret 'Microsoft.KeyVault/vaults/secrets@2024-04-01-preview' = {
+//   name: 'SapAct--Adx--Database'
+//   parent: DevopsAppKeyVault
+//   properties: {
+//     value: adxDatabaseResource.name
+//   }
+// }
+
+// resource sqlConnectionStringSecret 'Microsoft.KeyVault/vaults/secrets@2024-04-01-preview' = {
+//   name: 'SapAct--SQL--ConnectionString'
+//   parent: DevopsAppKeyVault
+//   properties: {
+//     value: sqlDataBaseResource.outputs.connectionString
+//   }
+// }
 
 resource DCEEndpointNameSecret 'Microsoft.KeyVault/vaults/secrets@2024-04-01-preview' = {
   name: 'SapAct--LogAnalytics--EndpointName'
@@ -238,22 +216,5 @@ module alertsSecondary 'sapact.alerts.module.bicep' = if (environment == 'prod')
     environment: environment
     sbNamespaceId: dawnSB.SecondaryId
     sbTopicNames: ['sap-events']
-  }
-}
-
-module sqlDataBaseResource 'sapact.db.module.bicep' = {
-  name: 'db'
-  scope: resourceGroup(sqlDatabase.resourceGroup.name)
-  params: {
-    Database: sqlDatabase
-    workloadIdentityClientId: workloadIdentityClientId
-  }
-}
-
-resource sqlConnectionStringSecret 'Microsoft.KeyVault/vaults/secrets@2024-04-01-preview' = {
-  name: 'SapAct--SQL--ConnectionString'
-  parent: DevopsAppKeyVault
-  properties: {
-    value: sqlDataBaseResource.outputs.connectionString
   }
 }
