@@ -9,8 +9,8 @@ spec:
   maxSizeGB: 250
   access:
     workloadIdentity:
-     name: compute-aks-platform-app-dev-k8s-sa
-     namespace: platform-app
+      name: compute-aks-platform-app-dev-k8s-sa
+      namespace: platform-app
     entraIdGroup:
       name: DevOps High-RoleAssignable
 {{- end }}
