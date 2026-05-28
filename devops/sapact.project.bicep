@@ -2,7 +2,6 @@ param appKeyVaultName string
 param dceName string
 param dawnSB object
 param logAnalytics object
-param storageAccountName string
 param environment string
 
 param location string = resourceGroup().location
@@ -15,10 +14,6 @@ resource actionGroupInfrastructureLow 'microsoft.insights/actionGroups@2024-10-0
 resource actionGroupApplicationsLow 'microsoft.insights/actionGroups@2024-10-01-preview' existing = {
   name: 'platform-engineering-applications-low'
   scope: resourceGroup('observability')
-}
-
-resource storageAccount 'Microsoft.Storage/storageAccounts@2021-04-01' existing = {
-  name: storageAccountName
 }
 
 module dce 'sapact.dce.module.bicep' = {

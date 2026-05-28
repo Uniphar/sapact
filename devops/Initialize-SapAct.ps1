@@ -68,7 +68,6 @@ Initializes SapAct in the dev environment.
             -dceName $dceEndpointName `
             -dawnSB $dawnSB `
             -logAnalytics $logAnalyticsDef `
-            -storageAccountName $devopsStorageAccountName `
             -environment $Environment `
             -Verbose:($PSCmdlet.MyInvocation.BoundParameters["Verbose"].IsPresent -eq $true)
 
@@ -81,7 +80,6 @@ Initializes SapAct in the dev environment.
             -dceName $dceEndpointName `
             -dawnSB $dawnSB `
             -logAnalytics $logAnalyticsDef `
-            -storageAccountName $devopsStorageAccountName `
             -environment $Environment `
             -Verbose:($PSCmdlet.MyInvocation.BoundParameters["Verbose"].IsPresent -eq $true)
 
