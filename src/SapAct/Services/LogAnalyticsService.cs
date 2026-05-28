@@ -99,7 +99,8 @@ public class LogAnalyticsService(
         if (!response.IsSuccessStatusCode)
         {
             var responseContentError = await response.Content.ReadAsStringAsync(cancellationToken);
-            telemetryClient.TrackEvent("ErrorResponse", new() { { "ResponseContent", responseContentError } });
+            var headers = response.Headers.ToDictionary(h => h.Key, h => string.Join(";", h.Value));
+            telemetryClient.TrackEvent("ErrorResponse", new() { { "ResponseContent", responseContentError }, { "Headers", JsonSerializer.Serialize(headers) } });
         }
         response.EnsureSuccessStatusCode();
 
@@ -110,7 +111,8 @@ public class LogAnalyticsService(
         if (!response.IsSuccessStatusCode)
         {
             var responseContentError = await response.Content.ReadAsStringAsync(cancellationToken);
-            telemetryClient.TrackEvent("ErrorResponse", new() { { "ResponseContent", responseContentError } });
+            var headers = response.Headers.ToDictionary(h => h.Key, h => string.Join(";", h.Value));
+            telemetryClient.TrackEvent("ErrorResponse", new() { { "ResponseContent", responseContentError }, { "Headers", JsonSerializer.Serialize(headers) } });
         }
         response.EnsureSuccessStatusCode();
 
