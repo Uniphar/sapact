@@ -11,7 +11,8 @@ builder.Services.AddSingleton(credential);
 // Load configuration sources early so secrets are available for service registration
 builder.Configuration.AddAzureKeyVault(new(configKVUrl), credential);
 
-var environment = builder.Environment.EnvironmentName.ToLower();
+var environment = builder.Environment.EnvironmentName ?? throw new NoNullAllowedException("DOTNET_ENVIRONMENT environment variable has to be set.");
+
 builder.Services.AddSingleton<ISchemaVersionStore, BlobSchemaVersionStore>();
 
 var cosmosMasterKey = builder.Configuration["Cosmos:MasterKey"] ?? throw new NoNullAllowedException("Cosmos:MasterKey configuration has to be set.");
