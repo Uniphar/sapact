@@ -34,14 +34,6 @@ resource DevopsAppKeyVault 'Microsoft.KeyVault/vaults@2022-07-01' existing = {
   name: appKeyVaultName
 }
 
-resource StorageAccountConnectionStringSecret 'Microsoft.KeyVault/vaults/secrets@2024-04-01-preview' = {
-  name: 'SapAct--LockService--BlobConnectionString'
-  parent: DevopsAppKeyVault
-  properties: {
-    value: storageAccount.properties.primaryEndpoints.blob
-  }
-}
-
 resource DCEEndpointNameSecret 'Microsoft.KeyVault/vaults/secrets@2024-04-01-preview' = {
   name: 'SapAct--LogAnalytics--EndpointName'
   parent: DevopsAppKeyVault
