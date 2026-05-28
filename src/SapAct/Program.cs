@@ -10,7 +10,6 @@ builder.Services.AddSingleton(credential);
 
 // Load configuration sources early so secrets are available for service registration
 builder.Configuration.AddAzureKeyVault(new(configKVUrl), credential);
-builder.Configuration.AddEnvironmentVariables(); //potentially overwrite KV (even for local dev)
 
 var environment = builder.Environment.EnvironmentName.ToLower();
 builder.Services.AddSingleton<ISchemaVersionStore, BlobSchemaVersionStore>();
