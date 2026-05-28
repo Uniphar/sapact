@@ -2,14 +2,14 @@
 apiVersion: devops.uniphar.ie/v1
 kind: PlatformDataPilotSqlDatabase
 metadata:
-  name: sapact-dev-db
+  name: sapact-{{ .Values.environment }}-db
   namespace: platform-app
 spec:
 # same as it was originally
   maxSizeGB: 250
   access:
     workloadIdentity:
-      name: compute-aks-platform-app-dev-k8s-sa
+      name: {{ .Values.AKSClusterSAName }}
       namespace: platform-app
     entraIdGroup:
       name: DevOps High-RoleAssignable

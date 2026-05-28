@@ -11,7 +11,7 @@ spec:
   hotCachePeriodDays: 14
   access:
     workloadIdentity:
-      name: compute-aks-platform-app-dev-k8s-sa
+      name: {{ .Values.AKSClusterSAName }}
       namespace: platform-app
     entraIdGroup:
       name: DevOps High-RoleAssignable
