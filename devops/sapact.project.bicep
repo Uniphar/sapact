@@ -119,30 +119,6 @@ resource StorageAccountConnectionStringSecret 'Microsoft.KeyVault/vaults/secrets
   }
 }
 
-// resource ADXClusterUrlSecret 'Microsoft.KeyVault/vaults/secrets@2024-04-01-preview' = {
-//   name: 'SapAct--Adx--HostUrl'
-//   parent: DevopsAppKeyVault
-//   properties: {
-//     value: adxCluster.properties.uri
-//   }
-// }
-
-// resource ADXDatabaseSecret 'Microsoft.KeyVault/vaults/secrets@2024-04-01-preview' = {
-//   name: 'SapAct--Adx--Database'
-//   parent: DevopsAppKeyVault
-//   properties: {
-//     value: adxDatabaseResource.name
-//   }
-// }
-
-// resource sqlConnectionStringSecret 'Microsoft.KeyVault/vaults/secrets@2024-04-01-preview' = {
-//   name: 'SapAct--SQL--ConnectionString'
-//   parent: DevopsAppKeyVault
-//   properties: {
-//     value: sqlDataBaseResource.outputs.connectionString
-//   }
-// }
-
 resource DCEEndpointNameSecret 'Microsoft.KeyVault/vaults/secrets@2024-04-01-preview' = {
   name: 'SapAct--LogAnalytics--EndpointName'
   parent: DevopsAppKeyVault
