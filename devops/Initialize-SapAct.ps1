@@ -29,11 +29,11 @@ Initializes SapAct in the dev environment.
     $dawnDomainRgName = Resolve-UniResourceName 'resource-group' $p_dawnDomain -Environment $Environment
     $devopsAppKeyVault = Resolve-UniResourceName 'keyvault' "$p_devopsDomain-app" -Dev:$Dev -Environment $Environment
     $dawnServiceBusName = Resolve-UniResourceName 'service-bus' $p_dawnDomain -Environment $Environment
-    $devopsServiceBusName = Resolve-UniResourceName 'service-bus' $p_devopsDomain -Environment $Environment
     $dceEndpointName = Resolve-UniResourceName 'monitor-dce' $p_sapactProjectName -Environment $Environment
     $devopsStorageAccountName = Resolve-UniResourceName 'storage' $p_devopsDomain -Dev:$Dev -Environment $Environment
-    $logAnalyticsWorkspace = Resolve-UniMainLogAnalytics $Environment
     
+    $logAnalyticsWorkspace = Resolve-UniMainLogAnalytics $Environment
+
     $sbName = $Environment -eq "prod" ? "$dawnServiceBusName-primary" : $dawnServiceBusName
 
     $dawnSBResource = Get-AzResource -Name $sbName -ResourceGroupName $dawnDomainRgName
@@ -41,7 +41,6 @@ Initializes SapAct in the dev environment.
     if ($Environment -eq 'prod') {
         $dawnSBResourceSecondary = Get-AzResource -Name "$dawnServiceBusName-secondary" -ResourceGroupName $dawnDomainRgName
     }
-
     
     $logAnalyticsDef = @{
         Name              = $logAnalyticsWorkspace.Name
@@ -49,7 +48,6 @@ Initializes SapAct in the dev environment.
         AzureId           = $logAnalyticsWorkspace.ResourceId
         ResourceGroupName = $logAnalyticsWorkspace.ResourceGroupName
     }
-
     $dawnSB = @{
         Id          = $dawnSBResource.Id
         Name        = $dawnSBResource.Name
@@ -67,9 +65,8 @@ Initializes SapAct in the dev environment.
             -ResourceGroupName $devopsDomainRgName `
             -TemplateFile $sapactTemplateFile `
             -appKeyVaultName $devopsAppKeyVault `
-            -dawnSB $dawnSB `
-            -devopsSBNamespace $devopsServiceBusName `
             -dceName $dceEndpointName `
+            -dawnSB $dawnSB `
             -logAnalytics $logAnalyticsDef `
             -storageAccountName $devopsStorageAccountName `
             -environment $Environment `
@@ -81,9 +78,8 @@ Initializes SapAct in the dev environment.
             -ResourceGroupName $devopsDomainRgName `
             -TemplateFile $sapactTemplateFile `
             -appKeyVaultName $devopsAppKeyVault `
-            -dawnSB $dawnSB `
-            -devopsSBNamespace $devopsServiceBusName `
             -dceName $dceEndpointName `
+            -dawnSB $dawnSB `
             -logAnalytics $logAnalyticsDef `
             -storageAccountName $devopsStorageAccountName `
             -environment $Environment `
