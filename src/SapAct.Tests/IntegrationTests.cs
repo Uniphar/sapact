@@ -39,11 +39,14 @@ public class IntegrationTests
 
         _credentials = new AzureCliCredential();
 
-
+        var serviceProjectPath = Path.GetFullPath("../../../../SapAct");
         _config = new ConfigurationBuilder()
+            .SetBasePath(serviceProjectPath)
+            .AddJsonFile("appsettings.json", false, false)
+            .AddJsonFile($"appsettings.{_env}.json", true, false)
             .AddAzureKeyVault(new($"https://uni-devops-app-{_env}-kv.vault.azure.net/"), _credentials)
-            .AddEnvironmentVariables()
             .Build();
+
 
         _messageBusConfiguration = _config.GetIntTestsServiceBusConfig();
 
