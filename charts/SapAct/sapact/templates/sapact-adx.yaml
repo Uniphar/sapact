@@ -1,0 +1,18 @@
+{{- if eq .Values.regioncode "ne" }}
+apiVersion: devops.uniphar.ie/v1
+kind: PlatformDataPilotAdxDatabase
+metadata:
+# database is sapact, we will dynamically create the tables
+  name: sapact
+  namespace: platform-app
+spec:
+  # 10 years retention for soft delete, 2 weeks for hot cache
+  softDeleteRetentionDays: 3650 
+  hotCachePeriodDays: 14
+  access:
+    workloadIdentity:
+      name: {{ .Values.AKSClusterSAName }}
+      namespace: platform-app
+    entraIdGroup:
+      name: DevOps High-RoleAssignable
+{{- end }}

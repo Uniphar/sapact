@@ -1,0 +1,16 @@
+{{- if eq .Values.regioncode "ne" }}
+apiVersion: devops.uniphar.ie/v1
+kind: PlatformDataPilotSqlDatabase
+metadata:
+  name: sapact-{{ .Values.environment }}-db
+  namespace: platform-app
+spec:
+# same as it was originally
+  maxSizeGB: 250
+  access:
+    workloadIdentity:
+      name: {{ .Values.AKSClusterSAName }}
+      namespace: platform-app
+    entraIdGroup:
+      name: DevOps High-RoleAssignable
+{{- end }}

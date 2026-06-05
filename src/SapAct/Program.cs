@@ -10,9 +10,9 @@ builder.Services.AddSingleton(credential);
 
 // Load configuration sources early so secrets are available for service registration
 builder.Configuration.AddAzureKeyVault(new(configKVUrl), credential);
-builder.Configuration.AddEnvironmentVariables(); //potentially overwrite KV (even for local dev)
 
-var environment = builder.Environment.EnvironmentName.ToLower();
+var environment = builder.Environment.EnvironmentName ?? throw new NoNullAllowedException("DOTNET_ENVIRONMENT environment variable has to be set.");
+
 builder.Services.AddSingleton<ISchemaVersionStore, BlobSchemaVersionStore>();
 
 var cosmosMasterKey = builder.Configuration["Cosmos:MasterKey"] ?? throw new NoNullAllowedException("Cosmos:MasterKey configuration has to be set.");
@@ -46,7 +46,12 @@ builder.Services.AddSingleton(KustoClientFactory.CreateCslAdminProvider(KustoCon
 builder.Services.AddSingleton(KustoIngestFactory.CreateDirectIngestClient(KustoConnectionStringBuilder));
 builder.Services.AddSingleton(KustoIngestFactory.CreateQueuedIngestClient(KustoConnectionStringBuilder));
 builder.Services.AddSingleton<IAzureDataExplorerClient, AzureDataExplorerClient>();
-builder.Services.AddTransient(_ => new SqlConnection(builder.Configuration.GetSQLConnectionString()));
+var connectionStringBuilder = new SqlConnectionStringBuilder(builder.Configuration.GetSQLConnectionString())
+{
+    Authentication = SqlAuthenticationMethod.ActiveDirectoryDefault
+};
+
+builder.Services.AddTransient(_ => new SqlConnection(connectionStringBuilder.ConnectionString));
 builder.Services.AddTransient<SQLService>(); //per topic as it is stateless - (connection, transaction)
 builder.Services.AddTransient<ISqlDatabaseService, SqlDatabaseService>();
 

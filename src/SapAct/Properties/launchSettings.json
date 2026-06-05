@@ -1,7 +1,10 @@
 {
   "profiles": {
     "SapAct": {
-      "commandName": "Project"
+      "commandName": "Project",
+      "environmentVariables": {
+        "DOTNET_ENVIRONMENT": "dev"
+      }
     },
     "Container (Dockerfile)": {
       "commandName": "Docker"

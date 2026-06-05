@@ -96,12 +96,22 @@ public class LogAnalyticsService(
         var response =
             //delete first, this immediately sinks any changes
             await httpClient.DeleteAsync(dcrUrl, cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            var responseContentError = await response.Content.ReadAsStringAsync(cancellationToken);
+            telemetryClient.TrackEvent("ErrorResponse", new() { { "ResponseContent", responseContentError } });
+        }
         response.EnsureSuccessStatusCode();
 
         // Update the DCR
         response = await httpClient.PutAsync(dcrUrl, content, cancellationToken);
 
         var responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            var responseContentError = await response.Content.ReadAsStringAsync(cancellationToken);
+            telemetryClient.TrackEvent("ErrorResponse", new() { { "ResponseContent", responseContentError } });
+        }
         response.EnsureSuccessStatusCode();
 
         return JsonSerializer.Deserialize<JsonElement>(responseContent).ExportDCRImmutableId();

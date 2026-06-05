@@ -86,7 +86,7 @@ jobs:
             $ACRName = Resolve-UniResourceName 'acr' $p_computeProject -Context $app_AKS
             $AKSClusterResourceGroup = Resolve-UniResourceName 'resource-group' $p_computeProject -Environment '${{ inputs.environment }}' -Region '${{ matrix.regionShortCode }}'
             $AKSClusterName = Resolve-UniResourceName 'aks' $p_computeProject -Context $app_AKS -Environment '${{ inputs.environment }}' -Region '${{ matrix.regionShortCode }}'
-            $AKSClusterSAName = Resolve-UniKubeWorkloadSAName '${{ inputs.environment }}' "devops"
+            $AKSClusterSAName = Resolve-UniKubeWorkloadSAName '${{ inputs.environment }}' "platform-app"
             $AKSClusterSAID = Get-AzADServicePrincipal -DisplayName $AKSClusterSAName | Select-Object -ExpandProperty Id
             $AzureKeyVaultName = Resolve-UniResourceName 'keyvault' "$p_devopsDomain-app" -Environment '${{ inputs.environment }}'
 
@@ -161,5 +161,5 @@ jobs:
           --set-string environment="${{ inputs.environment }}" \
           --set-string AKSClusterSAName="$AKS_CLUSTER_SERVICE_ACCOUNT_NAME" \
           --set-string configKeyVault="https://$AZURE_KEY_VAULT_NAME.vault.azure.net" \
-          -n devops \
+          -n platform-app \
           --atomic
