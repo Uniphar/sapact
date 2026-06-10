@@ -46,12 +46,7 @@ builder.Services.AddSingleton(KustoClientFactory.CreateCslAdminProvider(KustoCon
 builder.Services.AddSingleton(KustoIngestFactory.CreateDirectIngestClient(KustoConnectionStringBuilder));
 builder.Services.AddSingleton(KustoIngestFactory.CreateQueuedIngestClient(KustoConnectionStringBuilder));
 builder.Services.AddSingleton<IAzureDataExplorerClient, AzureDataExplorerClient>();
-var connectionStringBuilder = new SqlConnectionStringBuilder(builder.Configuration.GetSQLConnectionString())
-{
-    Authentication = SqlAuthenticationMethod.ActiveDirectoryDefault
-};
-
-builder.Services.AddTransient(_ => new SqlConnection(connectionStringBuilder.ConnectionString));
+builder.Services.AddTransient(_ => new SqlConnection(builder.Configuration.GetSQLConnectionString()));
 builder.Services.AddTransient<SQLService>(); //per topic as it is stateless - (connection, transaction)
 builder.Services.AddTransient<ISqlDatabaseService, SqlDatabaseService>();
 
