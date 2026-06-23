@@ -59,7 +59,7 @@ builder.Services.AddSingleton(new LogAnalyticsServiceConfiguration
 });
 builder
     .RegisterOpenTelemetry("sapact")
-    .WithAppInsightsEnvironmentVariable("APPLICATIONINSIGHTS:CONNECTIONSTRING")
+        .WithAppInsightsConnectionString(builder.Configuration["APPLICATIONINSIGHTS:CONNECTIONSTRING"] ?? throw new InvalidOperationException("Application Insights connection string is required"))
     .Build();
 var host = builder.Build();
 
