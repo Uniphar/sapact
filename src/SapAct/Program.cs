@@ -57,7 +57,10 @@ builder.Services.AddSingleton(new LogAnalyticsServiceConfiguration
     WorkspaceName = builder.Configuration.GetLogAnalyticsWorkspaceName(),
     EndpointName = builder.Configuration.GetLogAnalyticsEndpointName()
 });
-builder.RegisterOpenTelemetry("sapact").Build();
+builder
+    .RegisterOpenTelemetry("sapact")
+        .WithAppInsightsConnectionString(builder.Configuration["APPLICATIONINSIGHTS:CONNECTIONSTRING"] ?? throw new InvalidOperationException("Application Insights connection string is required"))
+    .Build();
 var host = builder.Build();
 
 var regionName = builder.Configuration["REGION_CODE"] ?? throw new InvalidOperationException("REGION_CODE configuration is required.");
