@@ -27,6 +27,10 @@ on:
         type: string
         required: true
         description: "Environment"
+      regionShortCode:
+        type: string
+        required: true
+        description: "Region Short Code (e.g. ne, we)"
       applicationFolder:
         type: string
         required: true
@@ -42,13 +46,9 @@ on:
 
 jobs:
   deploy_app:
-    name: Deploy ${{ inputs.environment }}-${{ matrix.regionShortCode }}
+    name: Deploy ${{ inputs.environment }}-${{ inputs.regionShortCode }}
     environment: ${{ inputs.environment }}
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        regionShortCode: ["ne", "we"]
     steps:
       - name: checkout repo
         uses: actions/checkout@v6
@@ -100,7 +100,7 @@ jobs:
           failOnStandardError: true
 
       - name: deploy project
-        if: matrix.regionShortCode == 'we'
+        if: inputs.regionShortCode == 'we'
         uses: azure/powershell@v3
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} #required for gh cli to determine "current PR"
@@ -154,7 +154,7 @@ jobs:
           ${{ env.APPLICATION_NAME }}-$APPLICATION_VERSION.tgz \
           -i \
           --set reason="Upgrade to $APPLICATION_VERSION" \
-          --set-string regioncode="${{ matrix.regionShortCode }}" \
+          --set-string regioncode="${{ inputs.regionShortCode }}" \
           --set-string environment="${{ inputs.environment }}" \
           --set-string AKSClusterSAName="$AKS_CLUSTER_SERVICE_ACCOUNT_NAME" \
           --set-string configKeyVault="https://$AZURE_KEY_VAULT_NAME.vault.azure.net" \
