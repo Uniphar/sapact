@@ -22,6 +22,9 @@ on:
       AZURE_DEV_NEW_SUBSCRIPTION_ID:
         required: true
         description: "Azure Dev New Subscription ID"
+      AZURE_TEST_SUBSCRIPTION_ID:
+        required: true
+        description: "Azure Test Subscription ID"
       AZURE_PROD_SUBSCRIPTION_ID:
         required: true
         description: "Azure Prod Subscription ID"
@@ -76,7 +79,7 @@ jobs:
     secrets:
       AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
       AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_DEV_SUBSCRIPTION_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_DEV_NEW_SUBSCRIPTION_ID }}
       ACTIONS_AUTH_APP_ID: ${{ secrets.ACTIONS_AUTH_APP_ID }}
       ACTIONS_AUTH_APP_PRIVATE_KEY: ${{ secrets.ACTIONS_AUTH_APP_PRIVATE_KEY }}
     with:
@@ -105,7 +108,7 @@ jobs:
     secrets:
       AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
       AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_DEV_SUBSCRIPTION_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_TEST_SUBSCRIPTION_ID }}
       ACTIONS_AUTH_APP_ID: ${{ secrets.ACTIONS_AUTH_APP_ID }}
       ACTIONS_AUTH_APP_PRIVATE_KEY: ${{ secrets.ACTIONS_AUTH_APP_PRIVATE_KEY }}
     with:
@@ -121,7 +124,7 @@ jobs:
     secrets:
       AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
       AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_DEV_SUBSCRIPTION_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_TEST_SUBSCRIPTION_ID }}
       ACTIONS_AUTH_APP_ID: ${{ secrets.ACTIONS_AUTH_APP_ID }}
       ACTIONS_AUTH_APP_PRIVATE_KEY: ${{ secrets.ACTIONS_AUTH_APP_PRIVATE_KEY }}
     with:
@@ -137,7 +140,7 @@ jobs:
     secrets:
       AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
       AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_DEV_SUBSCRIPTION_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_TEST_SUBSCRIPTION_ID }}
       ACTIONS_AUTH_APP_ID: ${{ secrets.ACTIONS_AUTH_APP_ID }}
       ACTIONS_AUTH_APP_PRIVATE_KEY: ${{ secrets.ACTIONS_AUTH_APP_PRIVATE_KEY }}
     with:
