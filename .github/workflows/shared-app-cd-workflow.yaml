@@ -74,7 +74,7 @@ jobs:
       applicationVersion: ${{ needs.app_package.outputs.applicationVersion }}
 
   app_deployment_dev_we:
-    needs: app_deployment_dev_ne
+    needs: [app_package, app_deployment_dev_ne]
     uses: ./.github/workflows/shared-app-deployment-workflow.yaml
     secrets:
       AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
@@ -119,7 +119,7 @@ jobs:
       applicationVersion: ${{ needs.app_package.outputs.applicationVersion }}
 
   app_deployment_test_we:
-    needs: app_deployment_test_ne
+    needs: [app_package, app_deployment_test_ne]
     uses: ./.github/workflows/shared-app-deployment-workflow.yaml
     secrets:
       AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
@@ -164,7 +164,7 @@ jobs:
       applicationVersion: ${{ needs.app_package.outputs.applicationVersion }}
 
   app_deployment_prod_we:
-    needs: app_deployment_prod_ne
+    needs: [app_package, app_deployment_prod_ne]
     uses: ./.github/workflows/shared-app-deployment-workflow.yaml
     secrets:
       AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
