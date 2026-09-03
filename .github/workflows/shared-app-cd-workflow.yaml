@@ -22,6 +22,9 @@ on:
       AZURE_DEV_NEW_SUBSCRIPTION_ID:
         required: true
         description: "Azure Dev New Subscription ID"
+      AZURE_TEST_SUBSCRIPTION_ID:
+        required: true
+        description: "Azure Test Subscription ID"
       AZURE_PROD_SUBSCRIPTION_ID:
         required: true
         description: "Azure Prod Subscription ID"
@@ -71,12 +74,12 @@ jobs:
       applicationVersion: ${{ needs.app_package.outputs.applicationVersion }}
 
   app_deployment_dev_we:
-    needs: app_deployment_dev_ne
+    needs: [app_package, app_deployment_dev_ne]
     uses: ./.github/workflows/shared-app-deployment-workflow.yaml
     secrets:
       AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
       AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_DEV_SUBSCRIPTION_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_DEV_NEW_SUBSCRIPTION_ID }}
       ACTIONS_AUTH_APP_ID: ${{ secrets.ACTIONS_AUTH_APP_ID }}
       ACTIONS_AUTH_APP_PRIVATE_KEY: ${{ secrets.ACTIONS_AUTH_APP_PRIVATE_KEY }}
     with:
@@ -105,7 +108,7 @@ jobs:
     secrets:
       AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
       AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_DEV_SUBSCRIPTION_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_TEST_SUBSCRIPTION_ID }}
       ACTIONS_AUTH_APP_ID: ${{ secrets.ACTIONS_AUTH_APP_ID }}
       ACTIONS_AUTH_APP_PRIVATE_KEY: ${{ secrets.ACTIONS_AUTH_APP_PRIVATE_KEY }}
     with:
@@ -116,12 +119,12 @@ jobs:
       applicationVersion: ${{ needs.app_package.outputs.applicationVersion }}
 
   app_deployment_test_we:
-    needs: app_deployment_test_ne
+    needs: [app_package, app_deployment_test_ne]
     uses: ./.github/workflows/shared-app-deployment-workflow.yaml
     secrets:
       AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
       AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_DEV_SUBSCRIPTION_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_TEST_SUBSCRIPTION_ID }}
       ACTIONS_AUTH_APP_ID: ${{ secrets.ACTIONS_AUTH_APP_ID }}
       ACTIONS_AUTH_APP_PRIVATE_KEY: ${{ secrets.ACTIONS_AUTH_APP_PRIVATE_KEY }}
     with:
@@ -137,7 +140,7 @@ jobs:
     secrets:
       AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
       AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_DEV_SUBSCRIPTION_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_TEST_SUBSCRIPTION_ID }}
       ACTIONS_AUTH_APP_ID: ${{ secrets.ACTIONS_AUTH_APP_ID }}
       ACTIONS_AUTH_APP_PRIVATE_KEY: ${{ secrets.ACTIONS_AUTH_APP_PRIVATE_KEY }}
     with:
@@ -161,7 +164,7 @@ jobs:
       applicationVersion: ${{ needs.app_package.outputs.applicationVersion }}
 
   app_deployment_prod_we:
-    needs: app_deployment_prod_ne
+    needs: [app_package, app_deployment_prod_ne]
     uses: ./.github/workflows/shared-app-deployment-workflow.yaml
     secrets:
       AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
