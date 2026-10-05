@@ -16,6 +16,9 @@ on:
       AZURE_SUBSCRIPTION_ID:
         required: true
         description: "Azure Subscription ID"
+      AZURE_PLATFORM_SUBSCRIPTION_ID:
+        required: false
+        description: "Azure Platform Subscription ID (hosts uni-core-platform-kv, where the Dash0 secrets live). Only required when regionShortCode is 'we'."
       ACTIONS_AUTH_APP_ID:
         required: true
         description: "GitHub App ID"
@@ -115,6 +118,55 @@ jobs:
           azPSVersion: "latest"
           errorActionPreference: "stop"
           failOnStandardError: true
+
+      - name: azure login (platform subscription for dash0 secrets)
+        if: inputs.regionShortCode == 'we'
+        uses: azure/login@v3
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_PLATFORM_SUBSCRIPTION_ID }}
+          enable-AzPSSession: true
+
+      - name: fetch dash0 secrets from key vault
+        if: inputs.regionShortCode == 'we'
+        uses: azure/powershell@v3
+        with:
+          inlineScript: |
+            $authTokenSecret = Get-AzKeyVaultSecret -VaultName uni-core-platform-kv -Name 'dash0-platform-authorization-secret-${{ inputs.environment }}'
+
+            $authToken = ConvertFrom-SecureString $authTokenSecret.SecretValue -AsPlainText
+
+            Write-Output "::add-mask::$authToken"
+
+            echo "DASH0_AUTH_TOKEN=$authToken" >> $env:GITHUB_ENV
+          azPSVersion: "latest"
+          errorActionPreference: "stop"
+          failOnStandardError: true
+
+      - name: replace environment tokens in dash0 assets
+        if: inputs.regionShortCode == 'we'
+        run: find devops/dash0 -name '*.yaml' -exec sed -i "s/__ENVIRONMENT__/${{ inputs.environment }}/g" {} +
+
+      - name: sync dash0 assets
+        if: inputs.regionShortCode == 'we'
+        uses: dash0hq/dash0-cli/.github/actions/sync-assets@main
+        with:
+          api-url: https://api.eu-west-1.aws.dash0.com
+          auth-token: ${{ env.DASH0_AUTH_TOKEN }}
+          dataset: platform-${{ inputs.environment }}
+          path: devops/dash0/
+          # deletion detection is off: the git history contains __ENVIRONMENT__ placeholders, not the applied asset names
+          since: none
+
+      - name: azure login (restore per-environment subscription)
+        if: inputs.regionShortCode == 'we'
+        uses: azure/login@v3
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          enable-AzPSSession: true
 
       - name: setup kubectl
         uses: azure/use-kubelogin@v1
