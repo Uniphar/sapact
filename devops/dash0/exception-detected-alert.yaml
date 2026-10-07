@@ -16,7 +16,7 @@ spec:
           annotations:
             summary: "Unhandled exception detected in sapact (__ENVIRONMENT__)"
             description: "One or more spans with ERROR status were recorded for sapact in __ENVIRONMENT__ over the last 5 minutes. Open the 'Exceptions' view in the 'SapAct' folder in Tracing to see them."
-            dash0.com/notification-channel-ids: sapact-apps-team-__ENVIRONMENT__
+            dash0.com/notification-channel-ids: platform-apps-team-__ENVIRONMENT__
           labels:
             environment: __ENVIRONMENT__
             service: sapact
