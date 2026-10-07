@@ -10,8 +10,7 @@ spec:
       interval: 5m
       rules:
         - alert: SapAct Exception Detected (__ENVIRONMENT__)
-          # excludes mirror the original AppExceptions KQL filter (TaskCanceledException noise)
-          expr: sum(increase({otel_metric_name="dash0.spans", service_name=~"sapact", otel_span_status_code="ERROR", exception!~`System\.Threading\.Tasks\.TaskCanceledException`}[5m])) > 0
+          expr: sum(increase({otel_metric_name="dash0.spans", service_name="sapact", otel_span_status_code="ERROR", exception!~`System\.Threading\.Tasks\.TaskCanceledException`}[5m])) > 0
           for: 0m
           annotations:
             summary: "Unhandled exception detected in sapact (__ENVIRONMENT__)"

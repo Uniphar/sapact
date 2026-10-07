@@ -13,8 +13,8 @@ spec:
     description: FATAL log records for sapact services. Excludes custom events, which CustomEventTelemetryClient emits as LogCritical for the legacy App Insights path.
   filter:
     - key: service.name
-      operator: matches
-      value: sapact.*
+      operator: is
+      value: sapact
     - key: otel.log.severity.range
       operator: is
       value: FATAL
