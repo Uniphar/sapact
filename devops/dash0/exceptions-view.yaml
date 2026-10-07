@@ -18,5 +18,15 @@ spec:
     - key: otel.span.status.code
       operator: is
       value: ERROR
+    - key: error.type
+      operator: is_not
+      value: "409"
+    - key: error.type
+      operator: is_not
+      value: System.Threading.Tasks.TaskCanceledException
+    - key: otel.span.status.message
+      operator: does_not_match
+      value: TaskCanceledException
   groupBy:
+    - error.type
     - otel.span.status.message
