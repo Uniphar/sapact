@@ -19,8 +19,8 @@ spec:
       operator: is
       value: ERROR
     - key: error.type
-      operator: is_not
-      value: "409"
+      operator: does_not_match
+      value: "\\d{3}"
     - key: error.type
       operator: is_not
       value: System.Threading.Tasks.TaskCanceledException

@@ -10,7 +10,7 @@ spec:
       interval: 5m
       rules:
         - alert: SapAct Exception Detected (__ENVIRONMENT__)
-          expr: sum(increase({otel_metric_name="dash0.spans", service_name="sapact", error_type!= "409", error_type!="System.Threading.Tasks.TaskCanceledException", otel_span_status_code="ERROR", otel_span_status_message!~`TaskCanceledException`}[5m])) > 0
+          expr: sum(increase({otel_metric_name="dash0.spans", service_name="sapact", error_type!~`\d{3}`, error_type!="System.Threading.Tasks.TaskCanceledException", otel_span_status_code="ERROR", otel_span_status_message!~`TaskCanceledException`}[5m])) > 0
           for: 0m
           annotations:
             summary: "Unhandled exception detected in sapact (__ENVIRONMENT__)"
