@@ -20,13 +20,12 @@ spec:
       value: ERROR
     - key: error.type
       operator: does_not_match
-      value: "\\d{3}"
+      value: \d{3}
     - key: error.type
       operator: is_not
       value: System.Threading.Tasks.TaskCanceledException
     - key: otel.span.status.message
       operator: does_not_match
-      value: TaskCanceledException
+      value: TaskCanceledException|Connection reset by peer
   groupBy:
-    - error.type
     - otel.span.status.message
