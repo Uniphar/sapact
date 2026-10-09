@@ -1,0 +1,31 @@
+apiVersion: operator.dash0.com/v1alpha1
+kind: Dash0View
+metadata:
+  name: sapact-exceptions-__ENVIRONMENT__
+  annotations:
+    dash0.com/folder-path: "/SapAct"
+  labels:
+    dash0.com/id: sapact-exceptions-__ENVIRONMENT__
+spec:
+  type: spans
+  display:
+    name: Exceptions
+    description: Spans with ERROR status for sapact services, grouped by span name.
+  filter:
+    - key: service.name
+      operator: is
+      value: sapact
+    - key: otel.span.status.code
+      operator: is
+      value: ERROR
+    - key: error.type
+      operator: does_not_match
+      value: \d{3}
+    - key: error.type
+      operator: is_not
+      value: System.Threading.Tasks.TaskCanceledException
+    - key: otel.span.status.message
+      operator: does_not_match
+      value: TaskCanceledException|Connection reset by peer
+  groupBy:
+    - otel.span.status.message

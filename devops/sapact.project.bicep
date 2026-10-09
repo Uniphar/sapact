@@ -80,7 +80,6 @@ resource laIdSecret 'Microsoft.KeyVault/vaults/secrets@2024-04-01-preview' = {
 module alerts 'sapact.alerts.module.bicep' = {
   name: 'alerts'
   params: {
-    logAnalytics: logAnalytics
     lowActionGroupIds: [
       actionGroupInfrastructureLow.id
       actionGroupApplicationsLow.id
@@ -94,7 +93,6 @@ module alerts 'sapact.alerts.module.bicep' = {
 module alertsSecondary 'sapact.alerts.module.bicep' = if (environment == 'prod') {
   name: 'alertsSecondary'
   params: {
-    logAnalytics: logAnalytics
     lowActionGroupIds: [
       actionGroupInfrastructureLow.id
       actionGroupApplicationsLow.id

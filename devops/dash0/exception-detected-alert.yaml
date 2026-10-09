@@ -1,0 +1,21 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: sapact-exception-detected-__ENVIRONMENT__
+  labels:
+    dash0.com/id: sapact-exception-detected-__ENVIRONMENT__
+spec:
+  groups:
+    - name: Alerting
+      interval: 5m
+      rules:
+        - alert: SapAct Exception Detected (__ENVIRONMENT__)
+          expr: sum(increase({otel_metric_name="dash0.spans", service_name="sapact", error_type!~`\d{3}`, error_type!="System.Threading.Tasks.TaskCanceledException", otel_span_status_code="ERROR", otel_span_status_message!~`TaskCanceledException|Connection reset by peer`}[5m])) > 0
+          for: 0m
+          annotations:
+            summary: "Unhandled exception detected in sapact (__ENVIRONMENT__)"
+            description: "One or more spans with ERROR status were recorded for sapact in __ENVIRONMENT__ over the last 5 minutes. Open the 'Exceptions' view in the 'SapAct' folder in Tracing to see them."
+            dash0.com/notification-channel-ids: platform-apps-team-__ENVIRONMENT__
+          labels:
+            environment: __ENVIRONMENT__
+            service: sapact

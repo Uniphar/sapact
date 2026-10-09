@@ -98,24 +98,6 @@ jobs:
           azPSVersion: "latest"
           errorActionPreference: "stop"
           failOnStandardError: true
-
-      - name: deploy project
-        if: inputs.regionShortCode == 'we'
-        uses: azure/powershell@v3
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} #required for gh cli to determine "current PR"
-        with:
-          inlineScript: |
-            Import-Module .\devops-azure\src\Uniphar.DevOps.psd1 -ErrorAction Stop -Force
-
-            Install-Module -Name SqlServer -Force
-            Import-Module SqlServer
-            . ./devops/Initialize-SapAct.ps1
-             Initialize-SapAct ${{inputs.environment}}
-          azPSVersion: "latest"
-          errorActionPreference: "stop"
-          failOnStandardError: true
-
       - name: setup kubectl
         uses: azure/use-kubelogin@v1
         env:
