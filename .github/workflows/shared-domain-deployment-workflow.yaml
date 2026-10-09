@@ -1,0 +1,115 @@
+name: Shared Domain Deployment Workflow
+
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: read
+on:
+  workflow_call:
+    secrets:
+      AZURE_TENANT_ID:
+        required: true
+        description: "Azure Tenant ID"
+      AZURE_CLIENT_ID:
+        required: true
+        description: "Azure Client ID"
+      AZURE_SUBSCRIPTION_ID:
+        required: true
+        description: "Azure Domain Subscription ID for domain inits"
+      AZURE_PLATFORM_SUBSCRIPTION_ID:
+        required: true
+        description: "Azure Platform Subscription ID (hosts uni-core-platform-kv, where the Dash0 secrets live)"
+      ACTIONS_AUTH_APP_ID:
+        required: true
+        description: "GitHub App ID"
+      ACTIONS_AUTH_APP_PRIVATE_KEY:
+        required: true
+        description: "GitHub App Private Key"
+    inputs:
+      environment:
+        type: string
+        required: true
+        description: "Environment"
+
+jobs:
+  deploy_domain:
+    name: Deploy domain ${{ inputs.environment }}
+    environment: ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout repo
+        uses: actions/checkout@v6
+
+      - name: gh-app-install token
+        id: gh-app
+        uses: getsentry/action-github-app-token@v4.0.0
+        with:
+          app_id: ${{ secrets.ACTIONS_AUTH_APP_ID }}
+          private_key: ${{ secrets.ACTIONS_AUTH_APP_PRIVATE_KEY }}
+
+      - name: checkout devops-azure repo
+        uses: actions/checkout@v6
+        with:
+          path: devops-azure
+          repository: Uniphar/devops-azure
+          token: ${{ steps.gh-app.outputs.token }}
+
+      - name: azure login (init domain)
+        uses: azure/login@v3
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          enable-AzPSSession: true
+
+      - name: deploy project
+        uses: azure/powershell@v3
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} #required for gh cli to determine "current PR"
+        with:
+          inlineScript: |
+            Import-Module .\devops-azure\src\Uniphar.DevOps.psd1 -ErrorAction Stop -Force
+
+            Install-Module -Name SqlServer -Force
+            Import-Module SqlServer
+            . ./devops/Initialize-SapAct.ps1
+            Initialize-SapAct ${{ inputs.environment }}
+          azPSVersion: "latest"
+          errorActionPreference: "stop"
+          failOnStandardError: true
+
+      - name: azure login (platform subscription for dash0 secrets)
+        uses: azure/login@v3
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_PLATFORM_SUBSCRIPTION_ID }}
+          enable-AzPSSession: true
+
+      - name: fetch dash0 secrets from key vault
+        uses: azure/powershell@v3
+        with:
+          inlineScript: |
+            $authTokenSecret = Get-AzKeyVaultSecret -VaultName uni-core-platform-kv -Name 'dash0-platform-authorization-secret-${{ inputs.environment }}'
+
+            $authToken = ConvertFrom-SecureString $authTokenSecret.SecretValue -AsPlainText
+
+            Write-Output "::add-mask::$authToken"
+
+            echo "DASH0_AUTH_TOKEN=$authToken" >> $env:GITHUB_ENV
+          azPSVersion: "latest"
+          errorActionPreference: "stop"
+          failOnStandardError: true
+
+      - name: replace environment tokens in dash0 assets
+        run: find devops/dash0 -name '*.yaml' -exec sed -i "s/__ENVIRONMENT__/${{ inputs.environment }}/g" {} +
+
+      - name: sync dash0 assets
+        uses: dash0hq/dash0-cli/.github/actions/sync-assets@main
+        with:
+          api-url: https://api.eu-west-1.aws.dash0.com
+          auth-token: ${{ env.DASH0_AUTH_TOKEN }}
+          dataset: platform-${{ inputs.environment }}
+          path: devops/dash0/
+          # deletion detection is off: the git history contains __ENVIRONMENT__ placeholders, not the applied asset names
+          since: none
