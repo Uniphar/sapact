@@ -10,7 +10,7 @@ spec:
   type: spans
   display:
     name: Exceptions
-    description: Spans with ERROR status for sapact services, grouped by span name.
+    description: Spans with ERROR status for sapact services.
   filter:
     - key: service.name
       operator: is
@@ -27,8 +27,6 @@ spec:
     - key: otel.span.status.message
       operator: does_not_match
       value: TaskCanceledException|Connection reset by peer
-  groupBy:
-    - otel.span.status.message
   table:
     columns:
       - colSize: min-content
