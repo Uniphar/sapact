@@ -1,27 +1,9 @@
-param logAnalytics object
 param environment string
 param sbTopicNames array
 param sbNamespaceId string
 param lowActionGroupIds string[]
 
-param location string = resourceGroup().location
-
 var sbNamespaceName = last(split(sbNamespaceId, '/'))
-
-module ExceptionAlert 'alerts.scheduledqueryrules.bicep' = {
-  name: 'SapAct-ExceptionAlert-${sbNamespaceName}'
-  params: {
-    location: location
-    alertName: 'SapAct-ExceptionAlert-${sbNamespaceName}'
-    environment: environment
-    logAnalyticsWorkspaceId: logAnalytics.AzureId
-    query: '''AppExceptions 
-              | where AppRoleInstance startswith "sapact" 
-                and ExceptionType != "System.Threading.Tasks.TaskCanceledException"
-           '''
-    actionGroupIds: lowActionGroupIds
-  }
-}
 
 resource DLQAlert 'microsoft.insights/metricAlerts@2018-03-01' = [
   for sbTopicName in sbTopicNames: {
