@@ -12,6 +12,7 @@ spec:
         - alert: Exception Logs Detected (__ENVIRONMENT__)
           expr: sum(increase({otel_metric_name="dash0.logs", service_name="sapact", otel_log_severity_range=~"ERROR|FATAL", otel_scope_name!="Uniphar.Platform.Telemetry.CustomEventTelemetryClient", exception_type!~"TaskCanceledException|ObjectDisposedException", exception_message!~`.*(TaskCanceledException|Connection reset by peer).*`}[5m])) > 0
           for: 0m
+          keep_firing_for: 10m
           annotations:
             summary: "Exception logs detected in sapact (__ENVIRONMENT__)"
             description: "One or more ERROR or FATAL log records were recorded for sapact in __ENVIRONMENT__ over the last 5 minutes. Open the 'Only unexpected exceptions' view in the 'SapAct' folder in Logging to see them."
