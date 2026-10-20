@@ -1,21 +1,20 @@
 ﻿using System.Text.Encodings.Web;
 using Microsoft.Azure.Cosmos;
 
-var configKVUrl = Environment.GetEnvironmentVariable(Consts.KEYVAULT_CONFIG_URL) ?? throw new NoNullAllowedException(Consts.KEYVAULT_CONFIG_URL);
-
 var builder = Host.CreateApplicationBuilder(args);
 
 var credential = new DefaultAzureCredential();
 builder.Services.AddSingleton(credential);
 
-// Load configuration sources early so secrets are available for service registration
-builder.Configuration.AddAzureKeyVault(new(configKVUrl), credential);
-
 var environment = builder.Environment.EnvironmentName ?? throw new NoNullAllowedException("DOTNET_ENVIRONMENT environment variable has to be set.");
+
+// Load configuration sources early so secrets are available for service registration
+builder.Configuration.AddUniOldKeyvault(environment == "local" ? "dev" : environment, credential);
 
 builder.Services.AddSingleton<ISchemaVersionStore, BlobSchemaVersionStore>();
 
-var cosmosMasterKey = builder.Configuration["Cosmos:MasterKey"] ?? throw new NoNullAllowedException("Cosmos:MasterKey configuration has to be set.");
+var cosmosKeySecretName = $"uni-devops-{(environment == "local" ? "dev" : environment)}-cosmos-access-key";
+var cosmosMasterKey = builder.Configuration[cosmosKeySecretName] ?? throw new NoNullAllowedException($"{cosmosKeySecretName} configuration has to be set.");
 var cosmosAccountEndpoint = $"https://uni-devops-{environment}-cosmos.documents.azure.com:443/";
 var cosmosConnectionString = $"AccountEndpoint={cosmosAccountEndpoint};AccountKey={cosmosMasterKey}";
 var cosmosDatabase = builder.Configuration["Cosmos:Database"] ?? throw new NoNullAllowedException("Cosmos:Database configuration has to be set.");

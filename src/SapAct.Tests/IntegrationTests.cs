@@ -44,7 +44,7 @@ public class IntegrationTests
             .SetBasePath(serviceProjectPath)
             .AddJsonFile("appsettings.json", false, false)
             .AddJsonFile($"appsettings.{_env}.json", true, false)
-            .AddAzureKeyVault(new($"https://uni-devops-app-{_env}-kv.vault.azure.net/"), _credentials)
+            .AddIntegrationTestOldUniKeyvault(_env, _credentials)
             .Build();
 
 
