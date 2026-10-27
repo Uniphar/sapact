@@ -1,26 +1,34 @@
 apiVersion: operator.dash0.com/v1alpha1
 kind: Dash0View
 metadata:
-  name: sapact-fatal-logs-__ENVIRONMENT__
+  name: sapact-exception-logs-__ENVIRONMENT__
   annotations:
     dash0.com/folder-path: "/SapAct"
   labels:
-    dash0.com/id: sapact-fatal-logs-__ENVIRONMENT__
+    dash0.com/id: sapact-exception-logs-__ENVIRONMENT__
 spec:
   type: logs
   display:
-    name: Fatal Logs
-    description: FATAL log records for sapact services. Excludes custom events, which CustomEventTelemetryClient emits as LogCritical for the legacy App Insights path.
+    name: Only unexpected exceptions
+    description: Exception logs for sapact.
   filter:
     - key: service.name
       operator: is
       value: sapact
     - key: otel.log.severity.range
-      operator: is
-      value: FATAL
-    - key: "{OriginalFormat}"
+      operator: is_one_of
+      values:
+        - ERROR
+        - FATAL
+    - key: exception.type
+      operator: is_not_one_of
+      values:
+        - TaskCanceledException
+        - ObjectDisposedException
+    - key: exception.message
       operator: does_not_match
-      value: "{microsoft.custom_event.name}"
+      value: "TaskCanceledException|Connection reset by peer"
+
   table:
     columns:
       - colSize: min-content
