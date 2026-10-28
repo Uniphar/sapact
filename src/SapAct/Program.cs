@@ -9,7 +9,7 @@ builder.Services.AddSingleton(credential);
 var environment = builder.Environment.EnvironmentName ?? throw new NoNullAllowedException("DOTNET_ENVIRONMENT environment variable has to be set.");
 
 // Load configuration sources early so secrets are available for service registration
-builder.Configuration.AddUniOldKeyvault(environment == "local" ? "dev" : environment, credential);
+builder.Configuration.AddUniOldKeyvault("sapact", "platform", environment == "local" ? "dev" : environment, credential);
 
 builder.Services.AddSingleton<ISchemaVersionStore, BlobSchemaVersionStore>();
 

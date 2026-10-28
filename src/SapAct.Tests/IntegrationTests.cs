@@ -44,7 +44,7 @@ public class IntegrationTests
             .SetBasePath(serviceProjectPath)
             .AddJsonFile("appsettings.json", false, false)
             .AddJsonFile($"appsettings.{_env}.json", true, false)
-            .AddIntegrationTestOldUniKeyvault(_env, _credentials)
+            .AddIntegrationTestOldUniKeyvault("sapact", "platform", _env, _credentials)
             .Build();
 
 
