@@ -24,6 +24,7 @@
     <PackageReference Include="Microsoft.Data.SqlClient.Extensions.Azure" Version="*" />
     <PackageReference Include="Uniphar.Platform.Common" Version="*" />
     <PackageReference Include="Uniphar.Platform.Telemetry" Version="*" />
+    <PackageReference Include="System.Security.Cryptography.Pkcs" Version="*" />
   </ItemGroup>
 
 </Project>
