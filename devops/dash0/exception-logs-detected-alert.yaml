@@ -10,7 +10,7 @@ spec:
       interval: 5m
       rules:
         - alert: Exception Logs Detected (__ENVIRONMENT__)
-          expr: sum(increase({otel_metric_name="dash0.logs", service_name="sapact", otel_log_severity_range=~"ERROR|FATAL", exception_type!~"TaskCanceledException|ObjectDisposedException", exception_message!~`.*(TaskCanceledException|Connection reset by peer).*`}[5m] anchored)) > 0
+          expr: sum(increase({otel_metric_name="dash0.logs", service_name="sapact", otel_log_severity_range=~"ERROR|FATAL", exception_type!~"TaskCanceledException|ObjectDisposedException", exception!~".*(TaskCanceledException|ObjectDisposedException).*", exception_message!~`.*(TaskCanceledException|Connection reset by peer).*`}[5m] anchored)) > 0
           for: 0s
           keep_firing_for: 15m
           annotations:
