@@ -15,7 +15,7 @@ spec:
           keep_firing_for: 15m
           annotations:
             summary: "Exception logs detected in sapact (__ENVIRONMENT__)"
-            description: "One or more ERROR or FATAL log records were recorded for sapact in __ENVIRONMENT__ over the last 10 minutes. Open the 'Only unexpected exceptions' view in the 'SapAct' folder in Logging to see them."
+            description: "One or more ERROR or FATAL log records were recorded for sapact in __ENVIRONMENT__ over the last 5 minutes. Open the 'Only unexpected exceptions' view in the 'SapAct' folder in Logging to see them."
             dash0.com/notification-channel-ids: platform-apps-team-__ENVIRONMENT__
           labels:
             environment: __ENVIRONMENT__
